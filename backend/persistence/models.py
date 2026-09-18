@@ -46,13 +46,21 @@ class Datasource(TimestampMixin, Base):
     database_name: Mapped[str] = mapped_column(String(255))
     safe_host: Mapped[str] = mapped_column(String(255))
     port: Mapped[int] = mapped_column(Integer)
+    ssl_mode: Mapped[str] = mapped_column(String(16), default="prefer")
+    allowed_schemas: Mapped[list[str]] = mapped_column(JSONB, default=lambda: ["public"])
     status: Mapped[str] = mapped_column(String(32), default="draft")
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     metadata_hash: Mapped[str | None] = mapped_column(String(64))
+    last_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(80))
 
     __table_args__ = (
         CheckConstraint("source_type IN ('postgresql', 'mysql', 'mongodb')", name="source_type"),
         CheckConstraint("port > 0 AND port <= 65535", name="port"),
+        CheckConstraint(
+            "ssl_mode IN ('disable', 'prefer', 'require', 'verify-ca', 'verify-full')",
+            name="ssl_mode",
+        ),
         Index(
             "uq_datasources_one_active",
             "is_active",

@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     pg_user: str = Field("insightmesh", alias="PGUSER", min_length=1)
     pg_password: SecretStr = Field(alias="PGPASSWORD")
     credential_encryption_key: SecretStr
+    datasource_connect_timeout_seconds: int = Field(5, ge=1, le=30)
+    datasource_statement_timeout_ms: int = Field(5_000, ge=100, le=120_000)
+    datasource_max_rows: int = Field(1_000, ge=1, le=10_000)
 
     @field_validator("credential_encryption_key")
     @classmethod
