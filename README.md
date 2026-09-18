@@ -1,6 +1,6 @@
 # InsightMesh
 
-Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–3 are complete:** the Docker foundation, backend contracts, persistence schema, and responsive frontend shell are implemented. Datasource APIs and analytical execution begin in later phases.
+Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–4 are complete:** the Docker foundation, persistence contracts, responsive frontend shell, and PostgreSQL datasource onboarding vertical slice are implemented. Profiling and semantic enrichment begin in Phase 5.
 
 ## Local development
 
@@ -28,8 +28,9 @@ Only frontend and backend bind to localhost. Database services have no host port
 | `metadata-db` | PostgreSQL 16 + pgvector, named volume |
 | `demo-postgres` | Separate PostgreSQL demo database, named volume |
 | `migrate` | One-shot Alembic upgrade; exits successfully before backend starts |
-| `backend` | FastAPI application, canonical errors/request IDs, and persistence layer |
-| `frontend` | Next.js/Tailwind application shell, typed API client, and responsive product routes |
+| `backend` | FastAPI application, datasource APIs, PostgreSQL connector, and persistence layer |
+| `frontend` | Next.js/Tailwind Sources experience, typed API client, and responsive product routes |
+| `e2e` | One-shot Playwright browser test under the optional `test` profile |
 
 Four long-running services should be healthy. `migrate` with `Exited (0)` is expected. Application processes use non-root users. The local stack still uses one metadata-database owner; separate runtime and migration roles remain required before production deployment.
 
@@ -39,7 +40,7 @@ Four long-running services should be healthy. `migrate` with `Exited (0)` is exp
 # Connectivity, pgvector, migration state, demo read/write isolation
 docker compose exec backend python tests/foundation_smoke.py
 
-# Phase 2 backend quality gate
+# Backend quality gate
 docker compose run --rm backend uv run pytest
 docker compose run --rm backend uv run ruff check .
 docker compose run --rm backend uv run mypy .
@@ -55,6 +56,9 @@ docker compose run --rm --no-deps frontend npm run typecheck
 docker compose run --rm --no-deps frontend npm run test
 docker compose run --rm --no-deps frontend npm run build
 
+# Full browser onboarding flow
+docker compose --profile test run --rm e2e
+
 docker compose logs --tail 100 backend frontend migrate
 docker compose down
 ```
@@ -63,7 +67,7 @@ docker compose down
 
 Lockfiles are generated in Docker and must be committed. Builds use `uv sync --frozen` and `npm ci`. Base-image tags receive upstream updates; package versions are locked but image digests are not pinned yet.
 
-Demo connection inside Compose: host `demo-postgres`, port `5432`, database `insightmesh_demo`, user `demo_reader`; password comes from `DEMO_READER_PASSWORD`. The initial table `foundation_probe` contains one synthetic row. Full e-commerce seeding is scheduled for Phase 4. The reader has SELECT grants only, and the smoke check also verifies write denial with the session read-only flag disabled.
+Demo connection inside Compose: host `demo-postgres`, port `5432`, database `insightmesh_demo`, user `demo_reader`; password comes from `DEMO_READER_PASSWORD`. The synthetic e-commerce schema contains customers, products, categories, orders, and order items. The reader has SELECT grants only, and both connector tests and the smoke check verify write denial.
 
 ## Progress and specifications
 
@@ -73,7 +77,7 @@ Demo connection inside Compose: host `demo-postgres`, port `5432`, database `ins
 - [Frontend specification](docs/FRONTEND_SPEC.md)
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
-Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. The frontend now exposes responsive Sources, Ask, Dashboards, and Settings routes with intentional empty states; product APIs begin in Phase 4.
+Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. The frontend now exposes datasource list, add, detail, activation, and metadata refresh against the live API. Ask, Dashboards, and Settings remain later-phase surfaces.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 

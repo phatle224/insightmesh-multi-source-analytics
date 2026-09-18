@@ -63,7 +63,7 @@ class PostgresConnector:
     @contextmanager
     def _connection(self) -> Iterator[psycopg.Connection[Any]]:
         try:
-            with psycopg.connect(
+            connection = psycopg.connect(
                 host=self.config.host,
                 port=self.config.port,
                 dbname=self.config.database,
@@ -72,10 +72,7 @@ class PostgresConnector:
                 sslmode=self.config.ssl_mode,
                 connect_timeout=self.connect_timeout_seconds,
                 application_name="insightmesh",
-            ) as connection:
-                yield connection
-        except ConnectorError:
-            raise
+            )
         except psycopg.OperationalError as exc:
             message = str(exc).lower()
             if "password authentication failed" in message or "authentication failed" in message:
@@ -87,97 +84,115 @@ class PostgresConnector:
                     "connection_timeout", "PostgreSQL connection timed out", retryable=True
                 ) from None
             raise ConnectorError(
-                "connection_failed", "PostgreSQL connection could not be established", retryable=True
+                "connection_failed",
+                "PostgreSQL connection could not be established",
+                retryable=True,
             ) from None
+        with connection:
+            yield connection
 
     def _prepare_transaction(self, connection: psycopg.Connection[Any], timeout_ms: int) -> None:
         connection.execute("SET TRANSACTION READ ONLY")
         connection.execute("SELECT set_config('statement_timeout', %s, true)", (str(timeout_ms),))
-        identifiers = sql.SQL(", ").join(sql.Identifier(name) for name in self.config.allowed_schemas)
+        identifiers = sql.SQL(", ").join(
+            sql.Identifier(name) for name in self.config.allowed_schemas
+        )
         connection.execute(sql.SQL("SET LOCAL search_path TO {}").format(identifiers))
 
     def _check_query_boundary(self, query: ValidatedNativeQuery) -> None:
         if query.dialect != "postgresql":
             raise ConnectorError("dialect_mismatch", "Query dialect does not match PostgreSQL")
         if not query.referenced_schemas.issubset(set(self.config.allowed_schemas)):
-            raise ConnectorError("schema_blocked", "Query references a schema outside the allowlist")
+            raise ConnectorError(
+                "schema_blocked", "Query references a schema outside the allowlist"
+            )
 
     def test_connection(self) -> ConnectionTestResult:
-        with self._connection() as connection:
-            with connection.transaction():
-                self._prepare_transaction(connection, self.statement_timeout_ms)
-                row = connection.execute(
-                    "SELECT current_database(), current_setting('server_version'), "
-                    "current_setting('transaction_read_only')"
-                ).fetchone()
-                if row is None:
-                    raise ConnectorError("connection_failed", "PostgreSQL returned no test result")
-                return ConnectionTestResult(
-                    database=str(row[0]),
-                    server_version=str(row[1]),
-                    read_only_transaction=str(row[2]) == "on",
-                )
+        with self._connection() as connection, connection.transaction():
+            self._prepare_transaction(connection, self.statement_timeout_ms)
+            row = connection.execute(
+                "SELECT current_database(), current_setting('server_version'), "
+                "current_setting('transaction_read_only')"
+            ).fetchone()
+            if row is None:
+                raise ConnectorError("connection_failed", "PostgreSQL returned no test result")
+            return ConnectionTestResult(
+                database=str(row[0]),
+                server_version=str(row[1]),
+                read_only_transaction=str(row[2]) == "on",
+            )
 
     def introspect(self) -> RawDataSourceMetadata:
-        with self._connection() as connection:
-            with connection.transaction():
-                self._prepare_transaction(connection, self.statement_timeout_ms)
-                schema_filter = list(self.config.allowed_schemas)
-                table_rows = connection.execute(
-                    """
+        with self._connection() as connection, connection.transaction():
+            self._prepare_transaction(connection, self.statement_timeout_ms)
+            schema_filter = list(self.config.allowed_schemas)
+            table_rows = connection.execute(
+                """
                     SELECT table_schema, table_name, table_type
                     FROM information_schema.tables
                     WHERE table_schema = ANY(%s)
                       AND table_type IN ('BASE TABLE', 'VIEW')
                     ORDER BY table_schema, table_name
                     """,
-                    (schema_filter,),
-                ).fetchall()
-                column_rows = connection.execute(
-                    """
+                (schema_filter,),
+            ).fetchall()
+            column_rows = connection.execute(
+                """
                     SELECT table_schema, table_name, column_name, data_type,
                            is_nullable, ordinal_position
                     FROM information_schema.columns
                     WHERE table_schema = ANY(%s)
                     ORDER BY table_schema, table_name, ordinal_position
                     """,
-                    (schema_filter,),
-                ).fetchall()
-                constraint_rows = connection.execute(
-                    """
-                    SELECT tc.table_schema, tc.table_name, kcu.column_name, tc.constraint_type
-                    FROM information_schema.table_constraints tc
-                    JOIN information_schema.key_column_usage kcu
-                      ON tc.constraint_name = kcu.constraint_name
-                     AND tc.constraint_schema = kcu.constraint_schema
-                    WHERE tc.table_schema = ANY(%s)
-                      AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+                (schema_filter,),
+            ).fetchall()
+            constraint_rows = connection.execute(
+                """
+                    SELECT ns.nspname, cls.relname, att.attname,
+                           CASE con.contype WHEN 'p' THEN 'PRIMARY KEY' ELSE 'UNIQUE' END
+                    FROM pg_catalog.pg_constraint con
+                    JOIN pg_catalog.pg_class cls ON cls.oid = con.conrelid
+                    JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+                    JOIN LATERAL unnest(con.conkey) AS key(attnum) ON true
+                    JOIN pg_catalog.pg_attribute att
+                      ON att.attrelid = cls.oid AND att.attnum = key.attnum
+                    WHERE ns.nspname = ANY(%s)
+                      AND con.contype IN ('p', 'u')
                     """,
-                    (schema_filter,),
-                ).fetchall()
-                relationship_rows = connection.execute(
-                    """
-                    SELECT tc.constraint_name,
-                           kcu.table_schema, kcu.table_name, kcu.column_name,
-                           ccu.table_schema, ccu.table_name, ccu.column_name
-                    FROM information_schema.table_constraints tc
-                    JOIN information_schema.key_column_usage kcu
-                      ON tc.constraint_name = kcu.constraint_name
-                     AND tc.constraint_schema = kcu.constraint_schema
-                    JOIN information_schema.constraint_column_usage ccu
-                      ON ccu.constraint_name = tc.constraint_name
-                     AND ccu.constraint_schema = tc.constraint_schema
-                    WHERE tc.constraint_type = 'FOREIGN KEY'
-                      AND tc.table_schema = ANY(%s)
-                      AND ccu.table_schema = ANY(%s)
-                    ORDER BY tc.constraint_name, kcu.ordinal_position
+                (schema_filter,),
+            ).fetchall()
+            relationship_rows = connection.execute(
+                """
+                    SELECT con.conname,
+                           source_ns.nspname, source_table.relname, source_att.attname,
+                           target_ns.nspname, target_table.relname, target_att.attname
+                    FROM pg_catalog.pg_constraint con
+                    JOIN pg_catalog.pg_class source_table ON source_table.oid = con.conrelid
+                    JOIN pg_catalog.pg_namespace source_ns
+                      ON source_ns.oid = source_table.relnamespace
+                    JOIN pg_catalog.pg_class target_table ON target_table.oid = con.confrelid
+                    JOIN pg_catalog.pg_namespace target_ns
+                      ON target_ns.oid = target_table.relnamespace
+                    JOIN LATERAL unnest(con.conkey) WITH ORDINALITY
+                      AS source_key(attnum, position) ON true
+                    JOIN LATERAL unnest(con.confkey) WITH ORDINALITY
+                      AS target_key(attnum, position)
+                      ON target_key.position = source_key.position
+                    JOIN pg_catalog.pg_attribute source_att
+                      ON source_att.attrelid = source_table.oid
+                     AND source_att.attnum = source_key.attnum
+                    JOIN pg_catalog.pg_attribute target_att
+                      ON target_att.attrelid = target_table.oid
+                     AND target_att.attnum = target_key.attnum
+                    WHERE con.contype = 'f'
+                      AND source_ns.nspname = ANY(%s)
+                      AND target_ns.nspname = ANY(%s)
+                    ORDER BY con.conname, source_key.position
                     """,
-                    (schema_filter, schema_filter),
-                ).fetchall()
+                (schema_filter, schema_filter),
+            ).fetchall()
 
-        flags = {
-            (str(row[0]), str(row[1]), str(row[2]), str(row[3])) for row in constraint_rows
-        }
+        flags = {(str(row[0]), str(row[1]), str(row[2]), str(row[3])) for row in constraint_rows}
         fields_by_entity: dict[tuple[str, str], list[RawField]] = {}
         for row in column_rows:
             schema_name, table_name, column_name, native_type = map(str, row[:4])
@@ -223,22 +238,28 @@ class PostgresConnector:
                 rows = connection.execute(f"EXPLAIN {query.text}").fetchall()
                 return ExplainResult(plan=tuple(str(row[0]) for row in rows))
         except QueryCanceled:
-            raise ConnectorError("query_timeout", "PostgreSQL query timed out", retryable=True) from None
+            raise ConnectorError(
+                "query_timeout", "PostgreSQL query timed out", retryable=True
+            ) from None
         except (InsufficientPrivilege, ReadOnlySqlTransaction):
-            raise ConnectorError("query_blocked", "PostgreSQL rejected a non-read-only query") from None
+            raise ConnectorError(
+                "query_blocked", "PostgreSQL rejected a non-read-only query"
+            ) from None
         except psycopg.Error:
-            raise ConnectorError("query_invalid", "PostgreSQL could not explain the query") from None
+            raise ConnectorError(
+                "query_invalid", "PostgreSQL could not explain the query"
+            ) from None
 
-    def execute_readonly(
-        self, query: ValidatedNativeQuery, limits: QueryLimits
-    ) -> QueryResult:
+    def execute_readonly(self, query: ValidatedNativeQuery, limits: QueryLimits) -> QueryResult:
         self._check_query_boundary(query)
         try:
             with self._connection() as connection, connection.transaction():
                 self._prepare_transaction(connection, limits.timeout_ms)
                 cursor = connection.execute(query.text)
                 if cursor.description is None:
-                    raise ConnectorError("query_blocked", "Query did not produce a read-only result")
+                    raise ConnectorError(
+                        "query_blocked", "Query did not produce a read-only result"
+                    )
                 rows = cursor.fetchmany(limits.max_rows + 1)
                 columns = tuple(column.name for column in cursor.description)
                 return QueryResult(
@@ -249,11 +270,17 @@ class PostgresConnector:
         except ConnectorError:
             raise
         except QueryCanceled:
-            raise ConnectorError("query_timeout", "PostgreSQL query timed out", retryable=True) from None
+            raise ConnectorError(
+                "query_timeout", "PostgreSQL query timed out", retryable=True
+            ) from None
         except (InsufficientPrivilege, ReadOnlySqlTransaction):
-            raise ConnectorError("query_blocked", "PostgreSQL rejected a non-read-only query") from None
+            raise ConnectorError(
+                "query_blocked", "PostgreSQL rejected a non-read-only query"
+            ) from None
         except psycopg.Error:
-            raise ConnectorError("query_invalid", "PostgreSQL could not execute the query") from None
+            raise ConnectorError(
+                "query_invalid", "PostgreSQL could not execute the query"
+            ) from None
 
     def close(self) -> None:
         return None

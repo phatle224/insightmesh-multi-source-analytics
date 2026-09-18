@@ -7,11 +7,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from api.errors import install_error_handlers
 from api.request_id import request_id_middleware
+from api.routes.datasources import router as datasources_router
 from persistence.database import engine
 
 app = FastAPI(title="InsightMesh", version="0.1.0")
 app.middleware("http")(request_id_middleware)
 install_error_handlers(app)
+app.include_router(datasources_router)
 
 
 @app.get("/api/v1/health", response_model=None)

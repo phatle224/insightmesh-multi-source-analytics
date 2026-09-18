@@ -14,9 +14,7 @@ for url in ("http://backend:8000/api/v1/health", "http://frontend:3000/api/healt
 
 with psycopg.connect(connect_timeout=5) as conn:
     assert conn.execute("SELECT '[1,2,3]'::vector").fetchone()
-    assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
-        "963b9a2f25ea",
-    )
+    assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("37c8d3abd7cf",)
 print("PASS: pgvector and migration revision")
 
 password = os.environ["DEMO_READER_PASSWORD"]
@@ -29,6 +27,7 @@ with psycopg.connect(
     autocommit=True,
 ) as conn:
     assert conn.execute("SELECT count(*) FROM public.foundation_probe").fetchone() == (1,)
+    assert conn.execute("SELECT count(*) FROM public.orders").fetchone() == (8,)
     for read_only in (True, False):
         # Even disabling the convenience read-only setting must not grant writes.
         conn.execute(f"SET default_transaction_read_only = {'on' if read_only else 'off'}")

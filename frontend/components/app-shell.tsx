@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, ReactNode } from "react";
 
+import { DatasourceProvider, useDatasources } from "@/components/datasource-provider";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -83,8 +84,9 @@ function NavigationLink({
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+function ShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { activeSource } = useDatasources();
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -106,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <p className="text-xs font-medium uppercase tracking-wider text-sidebar-muted">Active source</p>
           <div className="mt-2 flex items-center gap-2 text-sm text-on-primary">
             <PlugsIcon size={18} aria-hidden />
-            <span>No source selected</span>
+            <span className="truncate">{activeSource?.name ?? "No source selected"}</span>
           </div>
         </div>
       </aside>
@@ -122,7 +124,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <PlugsIcon className="shrink-0" size={18} aria-hidden />
             <span className="hidden sm:inline">Active source:</span>
-            <strong className="truncate font-semibold text-text">None</strong>
+            <strong className="truncate font-semibold text-text">
+              {activeSource?.name ?? "None"}
+            </strong>
           </Link>
         </header>
 
@@ -144,5 +148,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         ))}
       </nav>
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <DatasourceProvider>
+      <ShellContent>{children}</ShellContent>
+    </DatasourceProvider>
   );
 }

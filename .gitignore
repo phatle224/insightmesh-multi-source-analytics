@@ -10,6 +10,8 @@
 **/.next/
 **/*.tsbuildinfo
 **/coverage/
+**/playwright-report/
+**/test-results/
 *.log
 evals/reports/*
 !evals/reports/.gitkeep

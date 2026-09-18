@@ -2,7 +2,7 @@
 
 **Status:** Active tracker  
 **Delivery strategy:** Docker-first, PostgreSQL-first vertical slice  
-**Last updated:** 2026-09-18  
+**Last updated:** 2026-09-19
 **Product requirements:** `docs/InsightMesh_PRD.md`  
 **Technical contracts:** `docs/TECHNICAL_DESIGN.md`  
 **Frontend behavior:** `docs/FRONTEND_SPEC.md`
@@ -43,25 +43,26 @@ Implemented artifacts currently present:
 - [x] Docker Compose environment — four healthy services and successful one-shot migration
 - [x] Backend automated test/lint/type-check infrastructure
 - [x] Responsive frontend shell, design tokens, typed API client, and frontend quality tooling
+- [x] PostgreSQL connector, datasource onboarding APIs, Sources UI, and Docker browser flow
 - [ ] Evaluation runner
 
-Overall implementation status: **Phase 3 complete; Docker foundation, backend contracts, persistence schema, and responsive frontend shell verified. Datasource onboarding and analytical execution remain unimplemented**.
+Overall implementation status: **Phase 4 complete; a read-only PostgreSQL datasource can be tested, saved with encrypted credentials, introspected, activated, and refreshed through the Docker UI. Profiling, semantic indexing, and analytical execution remain unimplemented**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 4 — PostgreSQL connector and datasource onboarding (next; not started)**
+**Phase 5 — Metadata, profiling, and semantic index (next; not started)**
 
 ### Current Tasks
 
-- [ ] Implement the connector protocol and PostgreSQL connector.
-- [ ] Add connection testing and encrypted credential persistence.
-- [ ] Implement datasource onboarding APIs and Sources UI against real backend state.
+- [ ] Implement bounded local profiling with timeout and PII exclusions.
+- [ ] Add structured semantic enrichment through the configured OpenRouter boundary.
+- [ ] Persist datasource-scoped embeddings and hash-based refresh artifacts.
 
 ### Next Recommended Task
 
-Begin **Phase 4 — PostgreSQL connector and datasource onboarding**. Reuse the shell and typed client from Phase 3; implement one PostgreSQL end-to-end vertical slice before introducing MySQL or MongoDB.
+Begin **Phase 5 — Metadata, Profiling, and Semantic Index**. Build on the persisted PostgreSQL metadata without sending credentials, raw rows, or raw PII to the LLM.
 
 ### Current Design-System Proposal
 
@@ -173,6 +174,7 @@ docker compose run --rm frontend npm run lint
 docker compose run --rm frontend npm run typecheck
 docker compose run --rm frontend npm run test
 docker compose run --rm frontend npm run build
+docker compose --profile test run --rm e2e
 ```
 
 If a command changes during implementation, update this section and the root README in the same task.
@@ -246,16 +248,16 @@ docker compose ps
 
 ### Phase 4 — PostgreSQL Connector and Datasource Onboarding
 
-**Status:** Not started
+**Status:** Done
 
-- [ ] Implement connector protocol and PostgreSQL connector.
-- [ ] Implement connection test without persistence.
-- [ ] Store connection configuration through the credential boundary.
-- [ ] Implement PostgreSQL schema/key/relationship introspection.
-- [ ] Enforce read-only transaction behavior, allowed schemas, timeout, and row limit.
-- [ ] Implement datasource list, create, detail, activate, refresh, and onboarding-status APIs.
-- [ ] Build Sources list, Add PostgreSQL Connection, and datasource status UI.
-- [ ] Seed a reproducible e-commerce `demo-postgres` database and read-only user.
+- [x] Implement connector protocol and PostgreSQL connector.
+- [x] Implement connection test without persistence.
+- [x] Store connection configuration through the credential boundary.
+- [x] Implement PostgreSQL schema/key/relationship introspection.
+- [x] Enforce read-only transaction behavior, allowed schemas, timeout, and row limit.
+- [x] Implement datasource list, create, detail, activate, refresh, and onboarding-status APIs.
+- [x] Build Sources list, Add PostgreSQL Connection, and datasource status UI.
+- [x] Seed a reproducible e-commerce `demo-postgres` database and read-only user.
 
 **Definition of Done:** a user can add, test, save, introspect, and activate the demo PostgreSQL datasource entirely through the Docker environment.
 
@@ -263,7 +265,7 @@ docker compose ps
 
 **Status:** Not started
 
-- [ ] Normalize PostgreSQL metadata into the canonical model.
+- [x] Normalize PostgreSQL metadata into the canonical model (completed as the Phase 4 persistence boundary).
 - [ ] Implement bounded local profiling with timeout and PII exclusions.
 - [ ] Persist derived profile statistics; never persist raw samples.
 - [ ] Implement relationship discovery and graph representation.
@@ -442,8 +444,12 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-19 | 3 | Frontend lint, strict typing, component/API tests, production build | Docker Compose `npm run lint`, `typecheck`, `test`, and `build` | Pass; 4 tests and all 7 routes built |
 | 2026-09-19 | 3 | Responsive rendering and visual review | Browser container screenshots at 375, 768, 1024, and 1440 px | Pass; mobile bottom navigation, desktop sidebar, loading and empty states reviewed |
 | 2026-09-19 | 3 | Dependency security | Docker Compose `npm audit --omit=dev` and full `npm audit` after Vitest upgrade | Pass; 0 vulnerabilities |
+| 2026-09-19 | 4 | Connector, safety boundaries, onboarding API, and credential persistence | `docker compose run --rm backend uv run pytest`; Ruff; strict Mypy | Pass; 9 tests, including read-only denial, timeout, row cap, schema allowlist, no-persistence test, encrypted credential, introspection, activation, and refresh |
+| 2026-09-19 | 4 | Migration/model parity and demo seed | `docker compose run --rm migrate`; `alembic check`; empty-volume project `insightmesh-phase4check`; repeated demo init; foundation smoke | Pass; clean migration to `37c8d3abd7cf`, idempotent seed, read-only demo user; temporary volume removed |
+| 2026-09-19 | 4 | Sources UI quality gate | Docker Compose `npm run lint`, `typecheck`, `test`, `build`; full `npm audit` | Pass; 6 tests, 9 routes, 0 vulnerabilities |
+| 2026-09-19 | 4 | Browser onboarding and responsive review | `docker compose --profile test run --rm e2e`; screenshots at 375, 768, and 1440 px | Pass; test, save, introspect, activate, active-source shell, relationships, and no horizontal overflow verified |
 
-Phase 1 limitations: development images only; no product UI, e-commerce dataset, full unit-test suite, or evaluation runner yet. Base image tags are not digest-pinned. No existing user files were reset or committed. Previously modified frontend spec/design-system files were preserved.
+Current limitations: development images only; profiling, semantic index, query runtime, dashboards, MySQL/MongoDB, and evaluation runner are not implemented. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

@@ -67,7 +67,9 @@ services:
     ports: ["127.0.0.1:${BACKEND_PORT:-8000}:8000"]
     volumes:
       - ./backend/api:/app/api
+      - ./backend/connectors:/app/connectors
       - ./backend/persistence:/app/persistence
+      - ./backend/services:/app/services
       - ./tests:/app/tests:ro
     depends_on:
       metadata-db:
@@ -106,6 +108,22 @@ services:
       retries: 12
       start_period: 30s
 
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.55.1-noble
+    profiles: [test]
+    working_dir: /app
+    environment:
+      PLAYWRIGHT_BASE_URL: http://frontend:3000
+      DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-local-demo-reader-only}
+    command: [bash, -lc, "npm ci --ignore-scripts && npm run test:e2e"]
+    volumes:
+      - ./frontend:/app
+      - e2e-node-modules:/app/node_modules
+    networks: [app]
+    depends_on:
+      frontend:
+        condition: service_healthy
+
 networks:
   app:
   data:
@@ -114,3 +132,4 @@ networks:
 volumes:
   metadata-data:
   demo-data:
+  e2e-node-modules:
