@@ -1,0 +1,113 @@
+name: insightmesh
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+    target: development
+  environment: &backend-env
+    APP_ENV: development
+    CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
+    PGHOST: metadata-db
+    PGPORT: "5432"
+    PGDATABASE: insightmesh
+    PGUSER: insightmesh
+    PGPASSWORD: ${METADATA_PASSWORD:-local-metadata-only}
+  networks: [app, data]
+
+services:
+  metadata-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: insightmesh
+      POSTGRES_USER: insightmesh
+      POSTGRES_PASSWORD: ${METADATA_PASSWORD:-local-metadata-only}
+    volumes:
+      - metadata-data:/var/lib/postgresql/data
+      - ./docker/metadata/001-vector.sql:/docker-entrypoint-initdb.d/001-vector.sql:ro
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  demo-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: insightmesh_demo
+      POSTGRES_USER: demo_admin
+      POSTGRES_PASSWORD: ${DEMO_ADMIN_PASSWORD:-local-demo-admin-only}
+      DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-local-demo-reader-only}
+    volumes:
+      - demo-data:/var/lib/postgresql/data
+      - ./demo/postgres/init.sh:/docker-entrypoint-initdb.d/001-demo.sh:ro
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  migrate:
+    <<: *backend
+    command: [uv, run, --frozen, alembic, upgrade, head]
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-local-demo-reader-only}
+    ports: ["127.0.0.1:${BACKEND_PORT:-8000}:8000"]
+    volumes:
+      - ./backend/api:/app/api
+      - ./backend/persistence:/app/persistence
+      - ./tests:/app/tests:ro
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: development
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:8000
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:3000"]
+    volumes:
+      - ./frontend/app:/app/app
+    networks: [app]
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok) process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+networks:
+  app:
+  data:
+    internal: true
+
+volumes:
+  metadata-data:
+  demo-data:

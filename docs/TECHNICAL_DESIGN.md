@@ -298,6 +298,7 @@ Minimum application tables:
 
 ```text
 datasources
+datasource_credentials
 entities
 fields
 relationships
@@ -311,7 +312,7 @@ dashboards
 dashboard_widgets
 ```
 
-Datasource credentials, if persisted, must be encrypted at rest and separated from ordinary datasource metadata. The encryption implementation is `TBD`; plaintext persistence is not permitted.
+Datasource credentials are encrypted as a canonical JSON payload with Fernet and stored only in the separate `datasource_credentials` table. The local Docker environment receives its key from `CREDENTIAL_ENCRYPTION_KEY`; the documented local key is rejected when `APP_ENV` is not `development` or `test`. Plaintext persistence is forbidden. Production secret-manager integration and key rotation remain deployment decisions.
 
 ## 11. HTTP API Contract
 
@@ -396,7 +397,7 @@ row_count, duration_ms, repair_count, visualization_type, created_at
 Environment-backed settings must include:
 
 ```text
-application database URL
+application database host, port, database, username, and secret password
 credential encryption key/reference
 LLM provider and model identifiers
 embedding provider and model identifier
@@ -444,7 +445,7 @@ Primary evaluation metric is result accuracy, not query-string equality.
 The following decisions are intentionally not made by the PRD and must not be guessed during implementation:
 
 - LLM and embedding providers/models;
-- credential encryption mechanism and key management;
+- production secret-manager integration and credential-key rotation policy;
 - authentication and multi-user workspace model;
 - deployment target and production secret manager;
 - exact semantic-confidence threshold;

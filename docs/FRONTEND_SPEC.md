@@ -1,13 +1,13 @@
 # InsightMesh Frontend Specification
 
-**Status:** Functional baseline; visual direction pending UI skill/reference  
+**Status:** Functional baseline; visual direction approved in `design-system/insightmesh/MASTER.md`
 **Scope:** V1  
 **Product requirements:** `docs/InsightMesh_PRD.md`  
 **Technical contracts:** `docs/TECHNICAL_DESIGN.md`
 
 ## 1. Purpose and Rules
 
-This document defines frontend information architecture, user flows, UI states, component responsibilities, and backend expectations. It intentionally does not invent a final visual style before the user supplies the UI skill/reference.
+This document defines frontend information architecture, user flows, UI states, component responsibilities, and backend expectations. Visual direction is governed by `design-system/insightmesh/MASTER.md` and must be applied without changing the functional contracts below.
 
 Fixed rules:
 
@@ -329,15 +329,18 @@ Do not use generic “Something went wrong” when the backend supplies a safe a
 
 ## 12. Visual Design Constraints
 
-Until the UI skill/reference is supplied:
+Approved visual direction:
 
-- use a restrained B2B analytics shell with left navigation and a wide content area;
+- use a restrained data-dense B2B analytics shell with left navigation and a wide content area;
+- use the approved blue/navy palette with amber accent tokens from `MASTER.md`;
+- use Fira Sans for product UI and Fira Code only for SQL, MongoDB pipelines, identifiers, and tabular numeric values;
 - prioritize data density, table readability, query readability, and clear state feedback;
-- avoid decorative gradients, excessive motion, glass effects, or marketing-page styling in product screens;
-- use design tokens rather than hard-coded colors and spacing;
-- treat final colors, typography, radius, shadows, icon family, and chart palette as `TBD`.
+- avoid decorative gradients, excessive motion, glass effects, and marketing-page styling in product screens;
+- use the shared 4/8px spacing rhythm and semantic design tokens rather than raw per-component values;
+- use Phosphor as the default SVG icon family unless a documented component-specific exception is approved;
+- respect visible focus, 4.5:1 text contrast, reduced motion, and responsive checkpoints at 375/768/1024/1440px.
 
-When the UI skill arrives, update this section and the shared design tokens before building polished screens. Do not change the functional contracts above solely for visual preference.
+Page-specific overrides may be added under `design-system/insightmesh/pages/`; they override `MASTER.md` only for the named page and must not change the functional contracts above.
 
 ## 13. Frontend Acceptance Scenarios
 
