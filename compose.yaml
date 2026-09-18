@@ -92,6 +92,9 @@ services:
     ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:3000"]
     volumes:
       - ./frontend/app:/app/app
+      - ./frontend/components:/app/components
+      - ./frontend/lib:/app/lib
+      - ./frontend/tests:/app/tests:ro
     networks: [app]
     depends_on:
       backend:

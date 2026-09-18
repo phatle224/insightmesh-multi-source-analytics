@@ -42,25 +42,26 @@ Implemented artifacts currently present:
 - [x] Minimal application foundation source (health endpoints and bootstrap page only)
 - [x] Docker Compose environment — four healthy services and successful one-shot migration
 - [x] Backend automated test/lint/type-check infrastructure
+- [x] Responsive frontend shell, design tokens, typed API client, and frontend quality tooling
 - [ ] Evaluation runner
 
-Overall implementation status: **Phase 2 complete; Docker foundation, backend contracts, credential boundary, and product persistence schema verified. Product APIs and analytics UI remain unimplemented**.
+Overall implementation status: **Phase 3 complete; Docker foundation, backend contracts, persistence schema, and responsive frontend shell verified. Datasource onboarding and analytical execution remain unimplemented**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 3 — Frontend shell and design system (next; not started)**
+**Phase 4 — PostgreSQL connector and datasource onboarding (next; not started)**
 
 ### Current Tasks
 
-- [ ] Scaffold the strict Next.js/Tailwind frontend foundation.
-- [ ] Implement the approved InsightMesh tokens and responsive application shell.
-- [ ] Add typed API/error handling plus frontend test, lint, type-check, and build scripts.
+- [ ] Implement the connector protocol and PostgreSQL connector.
+- [ ] Add connection testing and encrypted credential persistence.
+- [ ] Implement datasource onboarding APIs and Sources UI against real backend state.
 
 ### Next Recommended Task
 
-Begin **Phase 3 — Frontend shell and design system**. Reuse the running backend and the approved tokens in `design-system/insightmesh/MASTER.md`; do not add datasource onboarding behavior scheduled for Phase 4.
+Begin **Phase 4 — PostgreSQL connector and datasource onboarding**. Reuse the shell and typed client from Phase 3; implement one PostgreSQL end-to-end vertical slice before introducing MySQL or MongoDB.
 
 ### Current Design-System Proposal
 
@@ -231,15 +232,15 @@ docker compose ps
 
 ### Phase 3 — Frontend Shell and Design System
 
-**Status:** Not started
+**Status:** Done
 
-- [ ] Scaffold Next.js App Router with strict TypeScript and Tailwind.
-- [ ] Implement approved design tokens from `design-system/insightmesh/MASTER.md`.
-- [ ] Select and document accessible component primitives and one icon family.
-- [ ] Build responsive application shell and routes for Sources, Ask, Dashboards, and Settings.
-- [ ] Implement typed API client and canonical error handling.
-- [ ] Add frontend test, lint, type-check, and build scripts.
-- [ ] Add loading, empty, error, focus, keyboard, and reduced-motion foundations.
+- [x] Scaffold Next.js App Router with strict TypeScript and Tailwind.
+- [x] Implement approved design tokens from `design-system/insightmesh/MASTER.md`.
+- [x] Select and document accessible component primitives and one icon family.
+- [x] Build responsive application shell and routes for Sources, Ask, Dashboards, and Settings.
+- [x] Implement typed API client and canonical error handling.
+- [x] Add frontend test, lint, type-check, and build scripts.
+- [x] Add loading, empty, error, focus, keyboard, and reduced-motion foundations.
 
 **Definition of Done:** shell routes render through Docker at 375, 768, 1024, and 1440 px widths; lint, type-check, tests, and production build pass.
 
@@ -438,6 +439,9 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-18 | 2 | Backend lint and static typing | `docker compose run --rm backend uv run ruff check .`; `docker compose run --rm backend uv run mypy .` | Pass; 16 source files type-checked |
 | 2026-09-18 | 2 | Model/migration parity | `docker compose run --rm migrate alembic check` | Pass; no new upgrade operations |
 | 2026-09-18 | 2 | Empty-database migration gate | temporary project `insightmesh-phase2check`: `docker compose up -d --wait`; revision/query and pytest checks | Pass; revision `963b9a2f25ea`, all services healthy; temporary volumes removed |
+| 2026-09-19 | 3 | Frontend lint, strict typing, component/API tests, production build | Docker Compose `npm run lint`, `typecheck`, `test`, and `build` | Pass; 4 tests and all 7 routes built |
+| 2026-09-19 | 3 | Responsive rendering and visual review | Browser container screenshots at 375, 768, 1024, and 1440 px | Pass; mobile bottom navigation, desktop sidebar, loading and empty states reviewed |
+| 2026-09-19 | 3 | Dependency security | Docker Compose `npm audit --omit=dev` and full `npm audit` after Vitest upgrade | Pass; 0 vulnerabilities |
 
 Phase 1 limitations: development images only; no product UI, e-commerce dataset, full unit-test suite, or evaluation runner yet. Base image tags are not digest-pinned. No existing user files were reset or committed. Previously modified frontend spec/design-system files were preserved.
 

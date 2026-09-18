@@ -1,6 +1,6 @@
 # InsightMesh
 
-Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–2 are complete:** the Docker foundation, backend contracts, and product persistence schema are implemented. Datasource APIs, semantic retrieval, and the analytics UI are not implemented yet.
+Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–3 are complete:** the Docker foundation, backend contracts, persistence schema, and responsive frontend shell are implemented. Datasource APIs and analytical execution begin in later phases.
 
 ## Local development
 
@@ -29,7 +29,7 @@ Only frontend and backend bind to localhost. Database services have no host port
 | `demo-postgres` | Separate PostgreSQL demo database, named volume |
 | `migrate` | One-shot Alembic upgrade; exits successfully before backend starts |
 | `backend` | FastAPI application, canonical errors/request IDs, and persistence layer |
-| `frontend` | Next.js development server, watches mounted `frontend/app` |
+| `frontend` | Next.js/Tailwind application shell, typed API client, and responsive product routes |
 
 Four long-running services should be healthy. `migrate` with `Exited (0)` is expected. Application processes use non-root users. The local stack still uses one metadata-database owner; separate runtime and migration roles remain required before production deployment.
 
@@ -49,8 +49,10 @@ docker compose run --rm migrate alembic check
 docker compose run --rm migrate
 docker compose exec demo-postgres sh /docker-entrypoint-initdb.d/001-demo.sh
 
-# Current frontend checks (lint and test runners arrive in Phase 3)
+# Frontend quality gate
+docker compose run --rm --no-deps frontend npm run lint
 docker compose run --rm --no-deps frontend npm run typecheck
+docker compose run --rm --no-deps frontend npm run test
 docker compose run --rm --no-deps frontend npm run build
 
 docker compose logs --tail 100 backend frontend migrate
@@ -71,7 +73,7 @@ Demo connection inside Compose: host `demo-postgres`, port `5432`, database `ins
 - [Frontend specification](docs/FRONTEND_SPEC.md)
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
-Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema now covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. Product APIs begin in Phase 4; the frontend shell is Phase 3.
+Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. The frontend now exposes responsive Sources, Ask, Dashboards, and Settings routes with intentional empty states; product APIs begin in Phase 4.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 

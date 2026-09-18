@@ -26,8 +26,12 @@ Next.js
 React
 TypeScript with strict mode
 Tailwind CSS
+Local shadcn-style components over Radix UI primitives
+Phosphor SVG icons
 Chart adapter over Recharts or ECharts (TBD)
 ```
+
+Phase 3 selects Tailwind CSS v4, Radix UI as the accessible headless primitive layer, and Phosphor as the single icon family. Components are owned in `frontend/components/` rather than hidden behind a runtime component service.
 
 Use server components for static shell/data where helpful and client components only for interactive forms, tables, charts, reordering, and live run status. API access must pass through one typed client layer; components must not construct endpoint URLs ad hoc.
 
