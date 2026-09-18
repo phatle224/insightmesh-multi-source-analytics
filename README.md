@@ -74,3 +74,8 @@ Demo connection inside Compose: host `demo-postgres`, port `5432`, database `ins
 Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema now covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. Product APIs begin in Phase 4; the frontend shell is Phase 3.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
+
+V1 model note: the budget configuration planned for Phase 5 uses OpenRouter with
+`openai/gpt-4o-mini` for structured generation and
+`openai/text-embedding-3-large` for embeddings. Provider calls are not implemented
+yet; rollback/fallback gates must pass before activation.

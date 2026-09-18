@@ -1284,6 +1284,32 @@ class LLMProvider:
 
 Avoid tightly coupling the Lightweight Harness Runtime to one model provider.
 
+### V1 Model Selection and Rollback
+
+For the student/portfolio deployment, V1 uses OpenRouter as the single remote
+gateway to minimize integration and key-management overhead:
+
+- structured SQL generation, bounded repair, and semantic enrichment:
+  `openai/gpt-4o-mini` through OpenRouter;
+- semantic retrieval embeddings: `openai/text-embedding-3-large` through
+  OpenRouter;
+- direct `gpt-4o-mini` through OpenAI is not enabled because an OpenAI key is not
+  available.
+
+The direct Gemini configurations `gemini-1.5-flash`, `gemini-2.0-flash`, and
+`gemini-1.5-pro` are recorded as failed experiments and are disabled by default.
+They must not be used as automatic fallback targets without passing a fresh
+connectivity and structured-output check.
+
+Provider/model configuration must be versioned. Before activation, a candidate
+must pass connectivity, strict structured-output validation, embedding-dimension
+compatibility, safety checks, and the PostgreSQL benchmark smoke suite. If the
+candidate fails, restore the previous known-good provider/model pair. Runtime
+fallback is optional and must be explicitly enabled; when no fallback is enabled,
+the request ends safely rather than trying known-failing providers. Rollback logs
+may contain model IDs, versions, and safe error categories, but never keys, prompts,
+raw rows, PII, or hidden reasoning.
+
 ---
 
 ## 26. Suggested Repository Structure

@@ -448,7 +448,7 @@ Record only unresolved items that prevent the current or next phase.
 | Item | Affects phase | Status | Required decision |
 |---|---:|---|---|
 | Final design system | 0–3 | Resolved | Approved in Phase 0 and persisted in `design-system/insightmesh/MASTER.md`. |
-| LLM/embedding providers | 5 | Deferred | Select providers and models before semantic enrichment implementation. |
+| LLM/embedding providers | 5 | Resolved for V1 design | OpenRouter is the only configured gateway. Use `openai/gpt-4o-mini` for structured generation and `openai/text-embedding-3-large` for embeddings. Direct Gemini attempts failed; direct OpenAI is unavailable without a key. Implement versioned configuration rollback before enabling provider calls. |
 | Credential encryption | 2–4 | Resolved for local V1 | Fernet payload boundary with environment key; production secret manager and rotation remain deployment decisions. |
 
 ## 10. Prompt Template for Continuing Work

@@ -102,6 +102,53 @@ class LLMProvider(Protocol):
 
 The runtime depends on this abstraction, not a provider SDK. Every structured-generation call must validate its output against a declared schema before use.
 
+#### V1 provider and model decision (budget-conscious portfolio build)
+
+The initial implementation uses OpenRouter as the only remote LLM gateway. Direct
+OpenAI is not part of the V1 deployment because no OpenAI API key is available.
+
+Active configuration:
+
+| Capability | Provider | Model | Status |
+|---|---|---|---|
+| SQL generation, repair, and semantic enrichment | OpenRouter | `openai/gpt-4o-mini` | selected default for Phase 5 |
+| Embeddings | OpenRouter | `openai/text-embedding-3-large` | selected for V1 |
+
+The following models are retained as evaluation/history records, but are disabled by
+default until a connectivity and structured-output check succeeds:
+
+| Model | Route | Status |
+|---|---|---|
+| `gemini-1.5-flash` | direct Gemini | failed during model/provider testing |
+| `gemini-2.0-flash` | direct Gemini | failed during model/provider testing |
+| `gemini-1.5-pro` | direct Gemini | failed during model/provider testing |
+| `gpt-4o-mini` | direct OpenAI | unavailable because no OpenAI key is configured |
+
+The OpenRouter model identifier must include its provider prefix. Do not silently
+translate `gpt-4o-mini` into a direct OpenAI request.
+
+#### Rollback and fallback policy
+
+Model changes are configuration changes, not code changes. Each deployment records an
+active model configuration and the immediately previous known-good configuration.
+
+1. A candidate must pass connectivity, structured-schema, embedding-dimension, and
+   PostgreSQL benchmark smoke checks before activation.
+2. A transient provider failure may retry once, then use the configured fallback for
+   the same capability if one is explicitly enabled.
+3. A schema-validation, safety, or benchmark-regression failure does not trigger an
+   uncontrolled model cascade; the active configuration is rolled back to the
+   previous known-good version.
+4. Rollback restores the complete provider/model pair, not only the model name. This
+   prevents incompatible embedding dimensions or provider-specific response formats.
+5. Logs record the failed candidate, error category, configuration version, and
+   rollback event without API keys, prompts, raw rows, or hidden reasoning.
+
+For the first low-cost release there is no enabled remote fallback after
+`openai/gpt-4o-mini` through OpenRouter. The safe behavior is a user-facing failure,
+not an automatic attempt to use the known-failing Gemini or unavailable direct
+OpenAI configurations.
+
 ### 5.3 Skill Asset
 
 ```text
