@@ -45,27 +45,28 @@ Implemented artifacts currently present:
 - [x] Responsive frontend shell, design tokens, typed API client, and frontend quality tooling
 - [x] PostgreSQL connector, datasource onboarding APIs, Sources UI, and Docker browser flow
 - [x] Bounded local profiling, privacy exclusions, semantic provider boundary, embeddings, and safe profile UI
-- [ ] Evaluation runner
+- [x] Phase 6 PostgreSQL retrieval benchmark runner
+- [ ] Phase 10 result-accuracy and safety evaluation runner
 
-Overall implementation status: **Phase 5 is complete and live-verified. Gemini 2.5 Flash is primary generation with OpenRouter GPT-4o-mini fallback; analytical execution remains unimplemented**.
+Overall implementation status: **Phase 6 is complete and live-verified. PostgreSQL semantic retrieval records reproducible context, while query generation, validation, and analytical execution remain unimplemented**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 6 — Semantic Retrieval (next; not started)**
+**Phase 7 — Lightweight Harness and PostgreSQL Query Path (next; not started)**
 
 ### Current Tasks
 
-- [ ] Implement question embeddings and datasource-scoped Top-K retrieval.
-- [ ] Expand retrieved entities through the relationship graph.
-- [ ] Build compact query-generation context.
-- [ ] Record retrieved context IDs for observability and evaluation.
-- [ ] Add benchmark fixtures for schema-selection and retrieval precision.
+- [ ] Implement runtime state model and deterministic transition table.
+- [ ] Implement the static skill registry for query generation and repair assets.
+- [ ] Implement PostgreSQL structured query generation through the existing provider boundary.
+- [ ] Add SQLGlot AST validation and `EXPLAIN` validation.
+- [ ] Add read-only execution, deterministic result verification, and bounded repair.
 
 ### Next Recommended Task
 
-Begin **Phase 6 — Semantic Retrieval**. The live demo datasource reached `semantic_status=ready`; keep the provider boundary and fallback behavior unchanged while adding question-time retrieval.
+Begin **Phase 7 — Lightweight Harness and PostgreSQL Query Path**. Use the persisted retrieval context and deterministic state transitions; do not add an LLM planner/router or start the Ask UI from Phase 8.
 
 ### Current Design-System Proposal
 
@@ -282,13 +283,13 @@ docker compose ps
 
 ### Phase 6 — Semantic Retrieval
 
-**Status:** Not started
+**Status:** Complete
 
-- [ ] Implement question embeddings and datasource-scoped Top-K retrieval.
-- [ ] Expand retrieved entities through the relationship graph.
-- [ ] Build compact query-generation context.
-- [ ] Record retrieved context IDs for observability and evaluation.
-- [ ] Add benchmark fixtures for schema-selection and retrieval precision.
+- [x] Implement question embeddings and datasource-scoped Top-K retrieval.
+- [x] Expand retrieved entities through the relationship graph.
+- [x] Build compact query-generation context.
+- [x] Record retrieved context IDs for observability and evaluation.
+- [x] Add benchmark fixtures for schema-selection and retrieval precision.
 
 **Definition of Done:** relevant entities and join paths are retrieved for the PostgreSQL benchmark questions with measured schema-selection accuracy.
 
@@ -456,8 +457,10 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-19 | 5 | Migration and empty-volume reproducibility | `docker compose run --rm migrate alembic check`; temporary `insightmesh-phase5check` stack migrated and tested | Pass; head `6f2b3a91c4de`, no pending operations, 12 tests on fresh volumes; temporary volumes removed |
 | 2026-09-19 | 5 | Safe metadata/profile UI and responsive browser flow | Docker Compose frontend test/lint/build; `docker compose --profile test run --rm e2e`; screenshots at 375 and 1440 px | Pass; profile/PII/provider states visible, progressive disclosure and no horizontal page overflow verified |
 | 2026-09-19 | 5 | Live Gemini/OpenRouter semantic refresh | Backend structured-output smoke plus demo datasource refresh via `POST /api/v1/datasources/{id}/refresh` | Pass; 20 profiles, 64 terms, 19 metrics, 6 embeddings, `semantic_status=ready` |
+| 2026-09-19 | 6 | Datasource-scoped vector retrieval, relationship expansion, compact context, and persisted context IDs | `docker compose run --rm --no-deps backend uv run --frozen pytest`; Ruff; strict Mypy; `docker compose run --rm migrate alembic check`; live `POST /api/v1/retrieval/preview` | Pass; 15 tests, 39 files type-checked, no pending migration operations; live request returned 4 entities, 3 join edges, and persisted run/context IDs |
+| 2026-09-19 | 6 | Live PostgreSQL retrieval benchmark | `docker compose exec backend python -m evals.run_retrieval_benchmark` | Pass; 5 cases, schema selection 100%, entity recall 100%, mean precision 60%, join-path accuracy 100% |
 
-Current limitations: development images only; query runtime, dashboards, MySQL/MongoDB, and evaluation runner are not implemented. Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; query runtime, dashboards, MySQL/MongoDB, and the Phase 10 result/safety evaluation runner are not implemented. Retrieval currently favors recall (100% on the five-case benchmark) over precision (60%). Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

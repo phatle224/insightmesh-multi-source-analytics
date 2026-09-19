@@ -1,0 +1,52 @@
+{
+  "suite": "postgres_semantic_retrieval_v1",
+  "description": "Schema-selection and join-path cases for the Docker demo PostgreSQL datasource.",
+  "cases": [
+    {
+      "id": "revenue_by_category",
+      "question": "Revenue by product category for completed orders",
+      "expected_entities": [
+        "public.orders",
+        "public.order_items",
+        "public.products",
+        "public.categories"
+      ],
+      "expected_relationships": [
+        ["public.orders", "public.order_items"],
+        ["public.order_items", "public.products"],
+        ["public.products", "public.categories"]
+      ]
+    },
+    {
+      "id": "top_customers_by_revenue",
+      "question": "Top customers by revenue",
+      "expected_entities": [
+        "public.customers",
+        "public.orders",
+        "public.order_items"
+      ],
+      "expected_relationships": [
+        ["public.customers", "public.orders"],
+        ["public.orders", "public.order_items"]
+      ]
+    },
+    {
+      "id": "monthly_completed_orders",
+      "question": "Monthly count of completed orders",
+      "expected_entities": ["public.orders"],
+      "expected_relationships": []
+    },
+    {
+      "id": "average_product_price",
+      "question": "Average product price by category",
+      "expected_entities": ["public.products", "public.categories"],
+      "expected_relationships": [["public.products", "public.categories"]]
+    },
+    {
+      "id": "pending_orders_by_region",
+      "question": "Pending orders by customer region",
+      "expected_entities": ["public.orders", "public.customers"],
+      "expected_relationships": [["public.orders", "public.customers"]]
+    }
+  ]
+}

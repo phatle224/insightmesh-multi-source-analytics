@@ -396,7 +396,23 @@ exclusion flag; raw sampled rows and credentials are never returned.
 - Create starts onboarding and returns a datasource plus status.
 - Only `ready` datasources can be activated.
 
-### 11.2 Query Runs
+### 11.2 Semantic Retrieval
+
+```text
+POST /retrieval/preview
+```
+
+The request contains `datasource_id`, a complete independent `question`, and an
+optional bounded `top_k`. The runtime embeds only the question, performs
+datasource-scoped pgvector search over entity embeddings, and then deterministically
+adds bridge entities and relationships from the introspected relationship graph.
+The response is compact query-generation context: selected entities, bounded fields,
+derived profiles, semantic terms, metric candidates, join edges, and stable context
+IDs. It never contains credentials or raw sampled rows. Every retrieval creates a
+`query_runs` record with status `retrieve_context` so later evaluation and runtime
+steps can reproduce which artifacts were used.
+
+### 11.3 Query Runs
 
 ```text
 POST /query-runs
@@ -412,7 +428,7 @@ GET  /query-runs/{run_id}/trace
 
 The response contains `run_id`, terminal/current status, generated query when available, validation summary, verified result, visualization config, clarification suggestions, warnings, and a safe user-facing error. The transport may begin synchronously and move to background execution if measured latency requires it; the response shape must remain stable.
 
-### 11.3 Dashboards
+### 11.4 Dashboards
 
 ```text
 GET    /dashboards
@@ -425,7 +441,7 @@ POST   /dashboard-widgets/{widget_id}/refresh
 
 Widget refresh revalidates and executes the stored query. It must not regenerate the query or call the LLM.
 
-### 11.4 Error Envelope
+### 11.5 Error Envelope
 
 ```json
 {
@@ -469,6 +485,7 @@ maximum repair count = 2
 profiling sample/scan bound
 profiling timeout
 retrieval Top-K
+retrieval maximum entities, fields per entity, and relationship hops
 ```
 
 Do not commit secrets. `.env.example` contains placeholders only.

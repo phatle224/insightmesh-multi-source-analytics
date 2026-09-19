@@ -178,7 +178,7 @@ def test_gemini_auth_failure_does_not_fallback() -> None:
 
 def test_refresh_builds_semantic_index_without_pii_values(monkeypatch: Any) -> None:
     provider = FakeProvider()
-    monkeypatch.setattr(datasource_service, "_semantic_provider", lambda settings: provider)
+    monkeypatch.setattr(datasource_service, "build_semantic_provider", lambda settings: provider)
     client = TestClient(app)
     name = f"phase-five-{uuid4()}"
     response = client.post(

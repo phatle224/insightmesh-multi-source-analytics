@@ -1,6 +1,7 @@
 import os
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select, update
 
@@ -23,8 +24,10 @@ def demo_payload(name: str) -> dict[str, object]:
     }
 
 
-def test_datasource_onboarding_lifecycle_and_secret_boundary(monkeypatch) -> None:
-    monkeypatch.setattr("services.datasources._semantic_provider", lambda settings: None)
+def test_datasource_onboarding_lifecycle_and_secret_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("services.datasources.build_semantic_provider", lambda settings: None)
     client = TestClient(app)
     name = f"phase-four-{uuid4()}"
     payload = demo_payload(name)

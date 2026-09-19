@@ -316,7 +316,12 @@ def _openrouter_provider(
     )
 
 
-def _semantic_provider(settings: Settings) -> LLMProvider | None:
+def build_embedding_provider(settings: Settings) -> LLMProvider | None:
+    """Build the dedicated embedding boundary without requiring an LLM key."""
+    return _openrouter_provider(settings)
+
+
+def build_semantic_provider(settings: Settings) -> LLMProvider | None:
     fallback = (
         _openrouter_provider(settings)
         if settings.llm_fallback_provider == "openrouter"
@@ -357,7 +362,7 @@ def _refresh_semantic_index(
     profiles: dict[tuple[str, str, str], ProfileStatistic],
     settings: Settings,
 ) -> None:
-    provider = _semantic_provider(settings)
+    provider = build_semantic_provider(settings)
     if provider is None:
         existing_count = session.scalar(
             select(func.count())
