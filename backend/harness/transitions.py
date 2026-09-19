@@ -10,6 +10,7 @@ TRANSITIONS: dict[TransitionKey, RuntimeStatus] = {
     (RuntimeStatus.RECEIVED, "datasource_unavailable"): RuntimeStatus.FAILED,
     (RuntimeStatus.RETRIEVE_CONTEXT, "context_sufficient"): RuntimeStatus.GENERATE_QUERY,
     (RuntimeStatus.RETRIEVE_CONTEXT, "ambiguous"): RuntimeStatus.CLARIFICATION_REQUIRED,
+    (RuntimeStatus.RETRIEVE_CONTEXT, "out_of_scope"): RuntimeStatus.OUT_OF_SCOPE,
     (RuntimeStatus.RETRIEVE_CONTEXT, "retrieval_failed"): RuntimeStatus.FAILED,
     (RuntimeStatus.GENERATE_QUERY, "structured_output_valid"): RuntimeStatus.VALIDATE_QUERY,
     (RuntimeStatus.GENERATE_QUERY, "generation_failed"): RuntimeStatus.FAILED,

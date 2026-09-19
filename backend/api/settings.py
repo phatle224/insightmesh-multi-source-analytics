@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     model_config_version: str = "v1"
     provider_timeout_seconds: int = Field(30, ge=1, le=120)
     retrieval_top_k: int = Field(4, ge=1, le=10)
+    retrieval_min_similarity: float = Field(0.2, ge=-1, le=1)
     retrieval_max_entities: int = Field(8, ge=1, le=20)
     retrieval_max_fields_per_entity: int = Field(24, ge=1, le=100)
     retrieval_max_relationship_hops: int = Field(3, ge=1, le=6)

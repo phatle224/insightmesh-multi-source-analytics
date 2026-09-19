@@ -1,6 +1,6 @@
 # InsightMesh
 
-Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–7 are complete:** the Docker foundation, PostgreSQL onboarding, privacy-bounded semantic index/retrieval, and a deterministic PostgreSQL query runtime with SQLGlot safety, read-only execution, bounded repair, result verification, and safe traces are implemented.
+Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–8 are complete:** the Docker foundation, PostgreSQL onboarding, privacy-bounded semantic index/retrieval, deterministic query runtime, and responsive Ask workspace are implemented with SQLGlot safety, read-only execution, bounded repair, datasource relevance guardrails, result verification, generated SQL, and safe traces.
 
 ## Local development
 
@@ -29,7 +29,7 @@ Only frontend and backend bind to localhost. Database services have no host port
 | `demo-postgres` | Separate PostgreSQL demo database, named volume |
 | `migrate` | One-shot Alembic upgrade; exits successfully before backend starts |
 | `backend` | FastAPI application, datasource/query APIs, deterministic runtime, PostgreSQL connector, and persistence layer |
-| `frontend` | Next.js/Tailwind Sources experience, typed API client, and responsive product routes |
+| `frontend` | Next.js/Tailwind Sources and Ask experiences, typed API client, and responsive product routes |
 | `e2e` | One-shot Playwright browser test under the optional `test` profile |
 
 Four long-running services should be healthy. `migrate` with `Exited (0)` is expected. Application processes use non-root users. The local stack still uses one metadata-database owner; separate runtime and migration roles remain required before production deployment.
@@ -59,7 +59,7 @@ docker compose run --rm --no-deps frontend npm run typecheck
 docker compose run --rm --no-deps frontend npm run test
 docker compose run --rm --no-deps frontend npm run build
 
-# Full browser onboarding flow
+# Full browser onboarding and Ask acceptance flows
 docker compose --profile test run --rm e2e
 
 docker compose logs --tail 100 backend frontend migrate
@@ -80,7 +80,7 @@ Demo connection inside Compose: host `demo-postgres`, port `5432`, database `ins
 - [Frontend specification](docs/FRONTEND_SPEC.md)
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
-Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. `POST /api/v1/query-runs` now runs the PostgreSQL path synchronously through deterministic states and `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. The frontend exposes datasource onboarding and semantic-index status; the full Ask workspace, Dashboards, and Settings remain later-phase surfaces.
+Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. `POST /api/v1/query-runs` runs the PostgreSQL path synchronously through deterministic states and `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. The frontend exposes datasource onboarding, semantic-index status, complete independent question runs, clarification choices, out-of-scope/blocked/failed states, generated SQL, safe traces, and verified result tables. Visualizations and dashboard management begin in Phase 9; Settings remains a later-phase surface.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 

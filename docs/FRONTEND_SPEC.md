@@ -191,6 +191,7 @@ On narrower screens, panels stack in this order: question, status, generated que
 | `select_visualization` | Show “Preparing visualization”. |
 | `completed` | Render query, verified result, chart, warnings, and save action. |
 | `clarification_required` | Render complete suggested questions; current run is terminal. |
+| `out_of_scope` | Explain that the question does not match the active datasource; no query or continue action. |
 | `blocked` | Render safety explanation; no execute/continue action. |
 | `failed` | Render safe error and retry-as-new-request action where appropriate. |
 
@@ -205,6 +206,13 @@ Top customers by average order value
 ```
 
 Selecting one copies the full text into the question field or immediately submits it as a new independent run with a new `run_id`. Never submit only a fragment such as `revenue`, and never attach hidden prior-turn context.
+
+### 6.3a Out-of-Scope Questions
+
+When the runtime returns `out_of_scope`, explain that Ask only answers analytical
+questions grounded in the active datasource's known schema and metrics. Do not show a
+retry or query-generation action. The user may submit a new complete analytical
+question independently.
 
 ### 6.4 Generated Query Panel
 

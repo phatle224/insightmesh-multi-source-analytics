@@ -14,6 +14,7 @@ class RuntimeStatus(StrEnum):
     SELECT_VISUALIZATION = "select_visualization"
     COMPLETED = "completed"
     CLARIFICATION_REQUIRED = "clarification_required"
+    OUT_OF_SCOPE = "out_of_scope"
     BLOCKED = "blocked"
     FAILED = "failed"
 
@@ -21,6 +22,7 @@ class RuntimeStatus(StrEnum):
 TERMINAL_STATES = {
     RuntimeStatus.COMPLETED,
     RuntimeStatus.CLARIFICATION_REQUIRED,
+    RuntimeStatus.OUT_OF_SCOPE,
     RuntimeStatus.BLOCKED,
     RuntimeStatus.FAILED,
 }

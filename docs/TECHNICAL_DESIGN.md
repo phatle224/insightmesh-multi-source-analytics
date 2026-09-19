@@ -271,6 +271,7 @@ call. This safety precheck supplements, and never replaces, SQL AST validation.
 | `received` | no active datasource | `failed` |
 | `retrieve_context` | context sufficient | `generate_query` |
 | `retrieve_context` | ambiguous/low confidence | `clarification_required` |
+| `retrieve_context` | no relevant datasource context | `out_of_scope` |
 | `generate_query` | structured output valid | `validate_query` |
 | `generate_query` | provider/schema failure | `failed` |
 | `validate_query` | unsafe | `blocked` |
@@ -285,13 +286,24 @@ call. This safety precheck supplements, and never replaces, SQL AST validation.
 | `verify_result` | serialization or enforced-bound check fails | `failed` |
 | `select_visualization` | config produced | `completed` |
 
-Terminal states are `completed`, `clarification_required`, `blocked`, and `failed`. State selection is code-driven; the LLM never chooses the next state.
+Terminal states are `completed`, `clarification_required`, `out_of_scope`, `blocked`, and `failed`. State selection is code-driven; the LLM never chooses the next state.
 
 ### 7.3 Clarification Contract
 
 A clarification response terminates the current run and returns complete suggested questions. Selecting a suggestion creates a new request and new `run_id`. V1 must not accept a fragment such as `revenue` as implicit continuation context.
 
-### 7.4 Deterministic Result Verification
+### 7.4 Out-of-Scope Contract
+
+After datasource-scoped retrieval, the runtime applies a deterministic relevance/domain
+gate using a configurable minimum semantic similarity and lexical anchors from the
+retrieved entities, fields, business terms, and metrics. If the question has no
+relevant datasource context, the run terminates as `out_of_scope` with error code
+`question_out_of_scope`. Query generation, validation, repair, and execution are not
+called. This state is distinct from `clarification_required`: the latter means the
+question is about the datasource but is missing a metric, filter, grouping, or time
+range.
+
+### 7.5 Deterministic Result Verification
 
 `verify_result` checks:
 

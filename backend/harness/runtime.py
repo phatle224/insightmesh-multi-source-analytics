@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from api.errors import AppError
+from api.schemas.retrieval import RetrievalResponse
 from api.settings import Settings, get_settings
 from connectors.base import ConnectorError, DataSourceConnector, QueryLimits, QueryResult
 from harness.state import TERMINAL_STATES, RuntimeStatus
@@ -31,6 +32,11 @@ CUSTOMER_MEASURES = re.compile(
     r"\b(revenue|sales|spend|order count|number of orders|average order value|aov|quantity)\b",
     re.IGNORECASE,
 )
+TOKEN = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+STOP_WORDS = {
+    "a", "an", "and", "are", "by", "for", "from", "how", "is", "of", "our",
+    "the", "this", "to", "what", "when", "which", "who", "with", "show", "give",
+}
 
 ConnectorFactory = Callable[[Session, Datasource, Settings], DataSourceConnector]
 
@@ -97,6 +103,36 @@ def _clarification_suggestions() -> list[str]:
         "Top customers by order count",
         "Top customers by average order value",
     ]
+
+
+def _tokens(value: str) -> set[str]:
+    return {token.lower() for token in TOKEN.findall(value) if token.lower() not in STOP_WORDS}
+
+
+def _is_out_of_scope(
+    question: str, context: RetrievalResponse, minimum_similarity: float
+) -> bool:
+    semantic_scores = [
+        entity.similarity
+        for entity in context.entities
+        if entity.selection_source == "semantic" and entity.similarity is not None
+    ]
+    if semantic_scores and max(semantic_scores) >= minimum_similarity:
+        return False
+
+    vocabulary: set[str] = set()
+    for entity in context.entities:
+        vocabulary.update(_tokens(entity.name))
+        vocabulary.update(_tokens(entity.description or ""))
+        for field in entity.fields:
+            vocabulary.update(_tokens(field.name))
+            vocabulary.update(_tokens(field.description or ""))
+        for term in entity.business_terms:
+            vocabulary.update(_tokens(term))
+        for metric in entity.metrics:
+            vocabulary.update(_tokens(metric.name))
+            vocabulary.update(_tokens(metric.description or ""))
+    return not (_tokens(question) & vocabulary)
 
 
 def _validation_payload(result: SQLValidationResult, explain_valid: bool) -> dict[str, object]:
@@ -193,6 +229,20 @@ def run_postgres_query(
             "evaluate_context",
             "ambiguous",
             details={"suggestion_count": len(suggestions)},
+        )
+        return run
+    if _is_out_of_scope(question, context, app_settings.retrieval_min_similarity):
+        run.warnings = [
+            "The question does not match the active datasource's known analytical context"
+        ]
+        _fail(
+            session,
+            run,
+            state,
+            "out_of_scope",
+            "evaluate_context",
+            "question_out_of_scope",
+            "This question is outside the analytical scope of the active datasource",
         )
         return run
     state = _append_trace(

@@ -453,6 +453,7 @@ received
 retrieve_context
   ↓
 context sufficient? ── no ──→ clarification_required (terminal)
+context outside datasource scope ──→ out_of_scope (terminal)
   │ yes
   ▼
 generate_query
@@ -515,9 +516,26 @@ retrieve context
 → request clarification
 ```
 
+Out-of-scope question:
+
+```text
+retrieve context
+→ deterministic relevance/domain gate
+→ no relevant datasource context
+→ out_of_scope (terminal)
+→ do not generate or execute a query
+```
+
+The relevance/domain gate must use datasource-scoped retrieval evidence, including a
+minimum semantic similarity threshold and available entity, field, business-term, or
+metric anchors. It must not rely on an LLM-only classification. Questions such as
+“What is the weather today?” must be stopped safely with a message that InsightMesh
+only answers analytical questions about the active datasource. A high-confidence
+question with missing detail remains `clarification_required` instead.
+
 The clarification response must ask the user to rewrite or select a complete question. If the user chooses a metric such as `revenue`, the UI should construct a new complete question (for example, `Top customers by revenue`) and submit it as a new independent request. V1 does not retain clarification turns as conversational query context.
 
-Safety blocks, clarification-required responses, and retry exhaustion are terminal states. V1 questions are independent; earlier questions are not used as conversational context.
+Safety blocks, out-of-scope responses, clarification-required responses, and retry exhaustion are terminal states. V1 questions are independent; earlier questions are not used as conversational context.
 
 ---
 
@@ -1820,7 +1838,25 @@ suggest possible metrics:
 user rewrites or selects a complete new question
 ```
 
-### Scenario 6 — Repair
+### Scenario 6 — Out-of-Scope Question
+
+> “What is the weather today?”
+
+Expected:
+
+```text
+retrieve context
+→ relevance/domain gate finds no datasource match
+→ out_of_scope
+no query generation
+no database execution
+```
+
+The UI explains that the active datasource only supports analytical questions about
+its known schema and metrics. This is a terminal response, not a conversational
+follow-up.
+
+### Scenario 7 — Repair
 
 A generated query references a wrong column.
 

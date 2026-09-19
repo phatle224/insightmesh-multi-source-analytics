@@ -49,7 +49,7 @@ class RuntimeProvider:
     def embed(self, inputs: list[str]) -> list[list[float]]:
         assert len(inputs) == 1
         self.embedding_calls += 1
-        return [[1.0, 0.0, 0.0]]
+        return [[0.0, 1.0, 0.0]] if "weather" in inputs[0].lower() else [[1.0, 0.0, 0.0]]
 
     def close(self) -> None:
         return None
@@ -174,6 +174,10 @@ def test_transition_table_rejects_undefined_paths() -> None:
     assert (
         transition(RuntimeStatus.RECEIVED, "datasource_ready")
         == RuntimeStatus.RETRIEVE_CONTEXT
+    )
+    assert (
+        transition(RuntimeStatus.RETRIEVE_CONTEXT, "out_of_scope")
+        == RuntimeStatus.OUT_OF_SCOPE
     )
     with pytest.raises(ValueError, match="Invalid runtime transition"):
         transition(RuntimeStatus.COMPLETED, "continue")
@@ -320,3 +324,21 @@ def test_runtime_requires_new_complete_question_for_ambiguity() -> None:
         assert len(run.validation_result["clarification_suggestions"]) == 3
         assert provider.embedding_calls == 1
         assert provider.generation_calls == 0
+
+
+def test_runtime_stops_out_of_scope_question_before_generation_or_execution() -> None:
+    provider = RuntimeProvider([])
+    with runtime_datasource() as (session, datasource):
+        run = run_postgres_query(
+            session,
+            datasource.id,
+            "What is the weather today?",
+            generation_provider=provider,
+            retrieval_provider=provider,
+        )
+
+        assert run.status == "out_of_scope"
+        assert run.error_code == "question_out_of_scope"
+        assert provider.embedding_calls == 1
+        assert provider.generation_calls == 0
+        assert run.trace_json[-1]["outcome"] == "out_of_scope"
