@@ -83,6 +83,20 @@ def _connector(config: ConnectionConfig, settings: Settings) -> PostgresConnecto
     )
 
 
+def build_datasource_connector(
+    session: Session,
+    datasource: Datasource,
+    settings: Settings,
+) -> PostgresConnector:
+    if datasource.source_type != "postgresql":
+        raise AppError(
+            "datasource_type_unsupported",
+            "The datasource type is not supported by this query runtime",
+            status_code=409,
+        )
+    return _connector(_load_config(session, datasource, settings), settings)
+
+
 def test_connection(
     payload: PostgreSQLConnectionInput, settings: Settings | None = None
 ) -> ConnectionTestResponse:

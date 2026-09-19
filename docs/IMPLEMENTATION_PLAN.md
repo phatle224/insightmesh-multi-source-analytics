@@ -2,7 +2,7 @@
 
 **Status:** Active tracker  
 **Delivery strategy:** Docker-first, PostgreSQL-first vertical slice  
-**Last updated:** 2026-09-19
+**Last updated:** 2026-09-20
 **Product requirements:** `docs/InsightMesh_PRD.md`  
 **Technical contracts:** `docs/TECHNICAL_DESIGN.md`  
 **Frontend behavior:** `docs/FRONTEND_SPEC.md`
@@ -46,27 +46,28 @@ Implemented artifacts currently present:
 - [x] PostgreSQL connector, datasource onboarding APIs, Sources UI, and Docker browser flow
 - [x] Bounded local profiling, privacy exclusions, semantic provider boundary, embeddings, and safe profile UI
 - [x] Phase 6 PostgreSQL retrieval benchmark runner
+- [x] Deterministic Phase 7 PostgreSQL query runtime, safety, repair, and trace APIs
 - [ ] Phase 10 result-accuracy and safety evaluation runner
 
-Overall implementation status: **Phase 6 is complete and live-verified. PostgreSQL semantic retrieval records reproducible context, while query generation, validation, and analytical execution remain unimplemented**.
+Overall implementation status: **Phase 7 is complete and live-verified. The deterministic PostgreSQL runtime now retrieves context, generates structured SQL, validates and explains it, executes read-only, verifies results, performs bounded repair, and persists safe traces**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 7 — Lightweight Harness and PostgreSQL Query Path (next; not started)**
+**Phase 8 — Ask Workspace (next; not started)**
 
 ### Current Tasks
 
-- [ ] Implement runtime state model and deterministic transition table.
-- [ ] Implement the static skill registry for query generation and repair assets.
-- [ ] Implement PostgreSQL structured query generation through the existing provider boundary.
-- [ ] Add SQLGlot AST validation and `EXPLAIN` validation.
-- [ ] Add read-only execution, deterministic result verification, and bounded repair.
+- [ ] Build complete-question input with active datasource guard.
+- [ ] Map every persisted runtime state to explicit UI feedback.
+- [ ] Implement clarification suggestions as new independent requests.
+- [ ] Implement blocked, failed, empty, truncated, and warning states.
+- [ ] Implement generated SQL, safe trace, and accessible result-table panels.
 
 ### Next Recommended Task
 
-Begin **Phase 7 — Lightweight Harness and PostgreSQL Query Path**. Use the persisted retrieval context and deterministic state transitions; do not add an LLM planner/router or start the Ask UI from Phase 8.
+Begin **Phase 8 — Ask Workspace**. Consume the existing query-run and trace APIs without moving runtime decisions into the frontend; follow `docs/FRONTEND_SPEC.md` and the persisted design system.
 
 ### Current Design-System Proposal
 
@@ -295,18 +296,18 @@ docker compose ps
 
 ### Phase 7 — Lightweight Harness and PostgreSQL Query Path
 
-**Status:** Not started
+**Status:** Complete
 
-- [ ] Implement runtime state model and deterministic transition table.
-- [ ] Implement static skill registry for query generation and repair assets.
-- [ ] Implement PostgreSQL structured query generation.
-- [ ] Implement SQLGlot AST validation and `EXPLAIN` validation.
-- [ ] Implement read-only execution with enforced timeout and row limit.
-- [ ] Implement deterministic result verification.
-- [ ] Implement bounded repair with maximum two attempts.
-- [ ] Implement terminal states: completed, clarification required, blocked, failed.
-- [ ] Persist safe structured execution traces and query history.
-- [ ] Add query-run and trace APIs.
+- [x] Implement runtime state model and deterministic transition table.
+- [x] Implement static skill registry for query generation and repair assets.
+- [x] Implement PostgreSQL structured query generation.
+- [x] Implement SQLGlot AST validation and `EXPLAIN` validation.
+- [x] Implement read-only execution with enforced timeout and row limit.
+- [x] Implement deterministic result verification.
+- [x] Implement bounded repair with maximum two attempts.
+- [x] Implement terminal states: completed, clarification required, blocked, failed.
+- [x] Persist safe structured execution traces and query history.
+- [x] Add query-run and trace APIs.
 
 **Definition of Done:** benchmark questions follow deterministic state transitions; safe PostgreSQL queries execute; unsafe requests are blocked; recoverable failures repair within the retry limit.
 
@@ -459,8 +460,10 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-19 | 5 | Live Gemini/OpenRouter semantic refresh | Backend structured-output smoke plus demo datasource refresh via `POST /api/v1/datasources/{id}/refresh` | Pass; 20 profiles, 64 terms, 19 metrics, 6 embeddings, `semantic_status=ready` |
 | 2026-09-19 | 6 | Datasource-scoped vector retrieval, relationship expansion, compact context, and persisted context IDs | `docker compose run --rm --no-deps backend uv run --frozen pytest`; Ruff; strict Mypy; `docker compose run --rm migrate alembic check`; live `POST /api/v1/retrieval/preview` | Pass; 15 tests, 39 files type-checked, no pending migration operations; live request returned 4 entities, 3 join edges, and persisted run/context IDs |
 | 2026-09-19 | 6 | Live PostgreSQL retrieval benchmark | `docker compose exec backend python -m evals.run_retrieval_benchmark` | Pass; 5 cases, schema selection 100%, entity recall 100%, mean precision 60%, join-path accuracy 100% |
+| 2026-09-20 | 7 | Deterministic runtime, static skills, SQLGlot policy, EXPLAIN, read-only execution, verification, bounded repair, and trace APIs | Docker Compose Pytest, Ruff, strict Mypy, Alembic check, and foundation smoke | Pass; 25 tests, 55 files type-checked, validation and execution failures repair deterministically, repair stops at two attempts, no pending migration operations |
+| 2026-09-20 | 7 | Live Gemini/PostgreSQL runtime acceptance | Live `POST /api/v1/query-runs` for unsafe, ambiguous, simple success, plus all five Phase 6 benchmark questions | Pass; unsafe blocked before provider/database, ambiguity returned three complete questions, simple query and 5/5 benchmark questions completed with AST + EXPLAIN validation and read-only execution |
 
-Current limitations: development images only; query runtime, dashboards, MySQL/MongoDB, and the Phase 10 result/safety evaluation runner are not implemented. Retrieval currently favors recall (100% on the five-case benchmark) over precision (60%). Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; the Ask UI, deterministic chart selection, dashboards, MySQL/MongoDB, and the Phase 10 result/safety evaluation runner are not implemented. Phase 7 deliberately returns `table` as the only visualization placeholder until Phase 9. Retrieval currently favors recall (100% on the five-case benchmark) over precision (60%). Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

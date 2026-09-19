@@ -1,6 +1,6 @@
 # InsightMesh
 
-Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–6 are complete:** the Docker foundation, persistence contracts, responsive frontend shell, PostgreSQL onboarding, privacy-bounded local profiling, semantic index, and measured semantic retrieval pipeline are implemented.
+Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–7 are complete:** the Docker foundation, PostgreSQL onboarding, privacy-bounded semantic index/retrieval, and a deterministic PostgreSQL query runtime with SQLGlot safety, read-only execution, bounded repair, result verification, and safe traces are implemented.
 
 ## Local development
 
@@ -28,7 +28,7 @@ Only frontend and backend bind to localhost. Database services have no host port
 | `metadata-db` | PostgreSQL 16 + pgvector, named volume |
 | `demo-postgres` | Separate PostgreSQL demo database, named volume |
 | `migrate` | One-shot Alembic upgrade; exits successfully before backend starts |
-| `backend` | FastAPI application, datasource APIs, PostgreSQL connector, and persistence layer |
+| `backend` | FastAPI application, datasource/query APIs, deterministic runtime, PostgreSQL connector, and persistence layer |
 | `frontend` | Next.js/Tailwind Sources experience, typed API client, and responsive product routes |
 | `e2e` | One-shot Playwright browser test under the optional `test` profile |
 
@@ -80,7 +80,7 @@ Demo connection inside Compose: host `demo-postgres`, port `5432`, database `ins
 - [Frontend specification](docs/FRONTEND_SPEC.md)
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
-Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. The frontend exposes datasource list, add, detail, activation, metadata refresh, safe profile summaries, PII exclusions, and semantic-index status against the live API. The retrieval preview API now returns datasource-scoped semantic entities plus deterministic relationship-graph expansion and records its context IDs. Ask, Dashboards, and Settings remain later-phase surfaces.
+Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. `POST /api/v1/query-runs` now runs the PostgreSQL path synchronously through deterministic states and `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. The frontend exposes datasource onboarding and semantic-index status; the full Ask workspace, Dashboards, and Settings remain later-phase surfaces.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 

@@ -256,10 +256,17 @@ error
 
 `repair_count` starts at `0`; the maximum is `2`.
 
+The V1 implementation stores static `query-generation` and `query-repair` instruction
+assets under `backend/skills/`; code selects them by datasource type and runtime state.
+The runtime also performs a deterministic write-intent precheck before retrieval so an
+explicit destructive request terminates as `blocked` without a provider or datasource
+call. This safety precheck supplements, and never replaces, SQL AST validation.
+
 ### 7.2 States and Transitions
 
 | Current state | Condition | Next state |
 |---|---|---|
+| `received` | explicit write/destructive intent | `blocked` |
 | `received` | active datasource exists | `retrieve_context` |
 | `received` | no active datasource | `failed` |
 | `retrieve_context` | context sufficient | `generate_query` |
@@ -275,6 +282,7 @@ error
 | `execute_query` | non-repairable or exhausted | `failed` |
 | `repair_query` | structured repair returned | `validate_query` |
 | `verify_result` | deterministic checks complete | `select_visualization` |
+| `verify_result` | serialization or enforced-bound check fails | `failed` |
 | `select_visualization` | config produced | `completed` |
 
 Terminal states are `completed`, `clarification_required`, `blocked`, and `failed`. State selection is code-driven; the LLM never chooses the next state.
@@ -306,6 +314,8 @@ It does not prove semantic correctness and is not an agent. Result accuracy is m
 - Reject write/DDL/control statements, multiple statements, unknown schemas/tables/columns, and disallowed functions.
 - Validate with `EXPLAIN` or datasource-native dry validation before execution where supported.
 - Enforce allowed schemas, timeout, and maximum returned rows independently of generated SQL.
+- Reject side-effecting SELECT constructs/functions such as `SELECT INTO`, sequence
+  mutation, server/file access, advisory locks, and server-side delay functions.
 
 ### 8.2 MongoDB
 
@@ -465,8 +475,9 @@ Required query-run fields:
 
 ```text
 run_id, datasource_id, question, retrieved_context_ids,
-generated_query, query_type, validation_result, execution_status,
-row_count, duration_ms, repair_count, visualization_type, created_at
+generated_query, query_type, validation_result, status,
+row_count, duration_ms, repair_count, visualization_type, result_json,
+trace_json, warnings, error_code, error_message, created_at
 ```
 
 ## 13. Configuration

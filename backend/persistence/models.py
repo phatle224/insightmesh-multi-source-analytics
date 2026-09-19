@@ -226,6 +226,10 @@ class QueryRun(Base):
     repair_count: Mapped[int] = mapped_column(Integer, default=0)
     visualization_type: Mapped[str | None] = mapped_column(String(40))
     error_code: Mapped[str | None] = mapped_column(String(80))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    result_json: Mapped[JsonObject | None] = mapped_column(JSONB)
+    trace_json: Mapped[list[JsonObject]] = mapped_column(JSONB, default=list)
+    warnings: Mapped[list[str]] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (

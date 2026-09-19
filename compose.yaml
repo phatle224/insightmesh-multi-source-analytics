@@ -29,6 +29,7 @@ x-backend: &backend
     RETRIEVAL_MAX_ENTITIES: ${RETRIEVAL_MAX_ENTITIES:-8}
     RETRIEVAL_MAX_FIELDS_PER_ENTITY: ${RETRIEVAL_MAX_FIELDS_PER_ENTITY:-24}
     RETRIEVAL_MAX_RELATIONSHIP_HOPS: ${RETRIEVAL_MAX_RELATIONSHIP_HOPS:-3}
+    QUERY_MAX_REPAIR_ATTEMPTS: ${QUERY_MAX_REPAIR_ATTEMPTS:-2}
   networks: [app, data]
 
 services:
@@ -87,6 +88,9 @@ services:
       - ./backend/persistence:/app/persistence
       - ./backend/services:/app/services
       - ./backend/semantic:/app/semantic
+      - ./backend/harness:/app/harness
+      - ./backend/query:/app/query
+      - ./backend/skills:/app/skills
       - ./evals:/app/evals:ro
       - ./tests:/app/tests:ro
     depends_on:

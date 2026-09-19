@@ -446,6 +446,8 @@ Example:
 ### 10.2 Deterministic State Transitions
 
 ```text
+explicit write/destructive intent ──→ blocked (terminal)
+
 received
   ↓
 retrieve_context
@@ -462,10 +464,10 @@ validate_query
                     ├── execution failure and repair_count < 2 ──→ repair_query
                     ├── execution failure after retry limit ──→ failed (terminal)
                     └── execution success ──→ verify_result
-                                                 ↓
-                                          select_visualization
-                                                 ↓
-                                          completed (terminal)
+                                                 ├── verification failure ──→ failed (terminal)
+                                                 └── checks complete ──→ select_visualization
+                                                                            ↓
+                                                                     completed (terminal)
 ```
 
 The runtime selects the applicable procedure by current state and datasource type. Skills provide reusable procedural guidance and prompt assets; they do not autonomously choose the next state or tool.

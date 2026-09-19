@@ -117,6 +117,7 @@ def retrieve_context(
     top_k: int | None = None,
     settings: Settings | None = None,
     provider: LLMProvider | None = None,
+    query_run: QueryRun | None = None,
 ) -> RetrievalResponse:
     app_settings = settings or get_settings()
     datasource = session.get(Datasource, datasource_id)
@@ -309,16 +310,22 @@ def retrieve_context(
             )
         )
 
-    query_run = QueryRun(
-        datasource_id=datasource.id,
-        question=question,
-        retrieved_context_ids=context_ids,
-        generated_query={},
-        query_type=datasource.source_type,
-        validation_result={},
-        status="retrieve_context",
-    )
-    session.add(query_run)
+    if query_run is None:
+        query_run = QueryRun(
+            datasource_id=datasource.id,
+            question=question,
+            retrieved_context_ids=context_ids,
+            generated_query={},
+            query_type=datasource.source_type,
+            validation_result={},
+            status="retrieve_context",
+        )
+        session.add(query_run)
+    else:
+        if query_run.datasource_id != datasource.id or query_run.question != question:
+            raise ValueError("Query run does not match the retrieval request")
+        query_run.retrieved_context_ids = context_ids
+        query_run.status = "retrieve_context"
     session.commit()
     return RetrievalResponse(
         run_id=query_run.id,

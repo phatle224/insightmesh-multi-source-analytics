@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from api.errors import install_error_handlers
 from api.request_id import request_id_middleware
 from api.routes.datasources import router as datasources_router
+from api.routes.query_runs import router as query_runs_router
 from api.routes.retrieval import router as retrieval_router
 from persistence.database import engine
 
@@ -16,6 +17,7 @@ app.middleware("http")(request_id_middleware)
 install_error_handlers(app)
 app.include_router(datasources_router)
 app.include_router(retrieval_router)
+app.include_router(query_runs_router)
 
 
 @app.get("/api/v1/health", response_model=None)
