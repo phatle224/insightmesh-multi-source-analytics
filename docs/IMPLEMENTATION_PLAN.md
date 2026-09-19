@@ -44,25 +44,27 @@ Implemented artifacts currently present:
 - [x] Backend automated test/lint/type-check infrastructure
 - [x] Responsive frontend shell, design tokens, typed API client, and frontend quality tooling
 - [x] PostgreSQL connector, datasource onboarding APIs, Sources UI, and Docker browser flow
+- [x] Bounded local profiling, privacy exclusions, semantic provider boundary, embeddings, and safe profile UI
 - [ ] Evaluation runner
 
-Overall implementation status: **Phase 4 complete; a read-only PostgreSQL datasource can be tested, saved with encrypted credentials, introspected, activated, and refreshed through the Docker UI. Profiling, semantic indexing, and analytical execution remain unimplemented**.
+Overall implementation status: **Phase 5 implementation is complete and verified with a deterministic fake provider. Local profiling runs end to end; the live OpenRouter activation gate is blocked only by the missing local API key. Analytical execution remains unimplemented**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 5 — Metadata, profiling, and semantic index (next; not started)**
+**Phase 5 — Metadata, profiling, and semantic index (implementation complete; live-provider gate blocked)**
 
 ### Current Tasks
 
-- [ ] Implement bounded local profiling with timeout and PII exclusions.
-- [ ] Add structured semantic enrichment through the configured OpenRouter boundary.
-- [ ] Persist datasource-scoped embeddings and hash-based refresh artifacts.
+- [x] Implement bounded local profiling with timeout and PII exclusions.
+- [x] Add structured semantic enrichment through the configured OpenRouter boundary.
+- [x] Persist datasource-scoped embeddings and hash-based refresh artifacts.
+- [!] Run the live OpenRouter enrichment/embedding gate with a user-supplied local API key.
 
 ### Next Recommended Task
 
-Begin **Phase 5 — Metadata, Profiling, and Semantic Index**. Build on the persisted PostgreSQL metadata without sending credentials, raw rows, or raw PII to the LLM.
+Add `OPENROUTER_API_KEY` to the local uncommitted `.env`, refresh the Docker demo datasource, and verify `semantic_status=ready`. Do not begin Phase 6 until this live-provider gate passes.
 
 ### Current Design-System Proposal
 
@@ -263,16 +265,17 @@ docker compose ps
 
 ### Phase 5 — Metadata, Profiling, and Semantic Index
 
-**Status:** Not started
+**Status:** Blocked at live-provider acceptance gate; implementation and offline verification complete
 
 - [x] Normalize PostgreSQL metadata into the canonical model (completed as the Phase 4 persistence boundary).
-- [ ] Implement bounded local profiling with timeout and PII exclusions.
-- [ ] Persist derived profile statistics; never persist raw samples.
-- [ ] Implement relationship discovery and graph representation.
-- [ ] Implement semantic enrichment with structured output validation and confidence/source metadata.
-- [ ] Implement embedding provider abstraction and pgvector storage.
-- [ ] Implement hash-based refresh for changed metadata/profile artifacts.
-- [ ] Expose safe metadata/profile summaries on datasource detail UI.
+- [x] Implement bounded local profiling with timeout and PII exclusions.
+- [x] Persist derived profile statistics; never persist raw samples.
+- [x] Implement relationship discovery and graph representation.
+- [x] Implement semantic enrichment with structured output validation and confidence/source metadata.
+- [x] Implement embedding provider abstraction and pgvector storage.
+- [x] Implement hash-based refresh for changed metadata/profile artifacts.
+- [x] Expose safe metadata/profile summaries on datasource detail UI.
+- [!] Verify the configured OpenRouter models against the live provider; `OPENROUTER_API_KEY` is not present in the local environment.
 
 **Definition of Done:** onboarding the demo datasource produces a searchable semantic index without sending raw rows, credentials, or raw PII to the LLM.
 
@@ -448,8 +451,11 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-19 | 4 | Migration/model parity and demo seed | `docker compose run --rm migrate`; `alembic check`; empty-volume project `insightmesh-phase4check`; repeated demo init; foundation smoke | Pass; clean migration to `37c8d3abd7cf`, idempotent seed, read-only demo user; temporary volume removed |
 | 2026-09-19 | 4 | Sources UI quality gate | Docker Compose `npm run lint`, `typecheck`, `test`, `build`; full `npm audit` | Pass; 6 tests, 9 routes, 0 vulnerabilities |
 | 2026-09-19 | 4 | Browser onboarding and responsive review | `docker compose --profile test run --rm e2e`; screenshots at 375, 768, and 1440 px | Pass; test, save, introspect, activate, active-source shell, relationships, and no horizontal overflow verified |
+| 2026-09-19 | 5 | Bounded profiling, PII exclusion, structured enrichment, embeddings, and hash refresh | `docker compose run --rm backend uv run --frozen pytest`; Ruff; strict Mypy | Pass; 12 tests, including bounded profiles, excluded customer PII, strict OpenRouter request shape, fake-provider indexing, pgvector persistence, and unchanged-index reuse |
+| 2026-09-19 | 5 | Migration and empty-volume reproducibility | `docker compose run --rm migrate alembic check`; temporary `insightmesh-phase5check` stack migrated and tested | Pass; head `6f2b3a91c4de`, no pending operations, 12 tests on fresh volumes; temporary volumes removed |
+| 2026-09-19 | 5 | Safe metadata/profile UI and responsive browser flow | Docker Compose frontend test/lint/build; `docker compose --profile test run --rm e2e`; screenshots at 375 and 1440 px | Pass; profile/PII/provider states visible, progressive disclosure and no horizontal page overflow verified |
 
-Current limitations: development images only; profiling, semantic index, query runtime, dashboards, MySQL/MongoDB, and evaluation runner are not implemented. Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; live semantic indexing awaits a local OpenRouter API key; query runtime, dashboards, MySQL/MongoDB, and evaluation runner are not implemented. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 
@@ -458,7 +464,8 @@ Record only unresolved items that prevent the current or next phase.
 | Item | Affects phase | Status | Required decision |
 |---|---:|---|---|
 | Final design system | 0–3 | Resolved | Approved in Phase 0 and persisted in `design-system/insightmesh/MASTER.md`. |
-| LLM/embedding providers | 5 | Resolved for V1 design | OpenRouter is the only configured gateway. Use `openai/gpt-4o-mini` for structured generation and `openai/text-embedding-3-large` for embeddings. Direct Gemini attempts failed; direct OpenAI is unavailable without a key. Implement versioned configuration rollback before enabling provider calls. |
+| LLM/embedding providers | 5 | Resolved for V1 design | OpenRouter is the only configured gateway. Use `openai/gpt-4o-mini` for structured generation and `openai/text-embedding-3-large` for embeddings. Configuration is versioned, transient retry is bounded to one, no fallback is enabled, and the last good index is retained on provider failure. |
+| Live OpenRouter acceptance gate | 5 | Blocked | Add a valid `OPENROUTER_API_KEY` to the local uncommitted `.env`, refresh the demo datasource, and verify the semantic index becomes ready. |
 | Credential encryption | 2–4 | Resolved for local V1 | Fernet payload boundary with environment key; production secret manager and rotation remain deployment decisions. |
 
 ## 10. Prompt Template for Continuing Work

@@ -51,6 +51,9 @@ class Datasource(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), default="draft")
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     metadata_hash: Mapped[str | None] = mapped_column(String(64))
+    profile_hash: Mapped[str | None] = mapped_column(String(64))
+    semantic_status: Mapped[str] = mapped_column(String(32), default="not_configured")
+    semantic_error_code: Mapped[str | None] = mapped_column(String(80))
     last_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error_code: Mapped[str | None] = mapped_column(String(80))
 
@@ -142,6 +145,8 @@ class ProfileStatistic(Base):
     profile_hash: Mapped[str] = mapped_column(String(64))
     sample_size: Mapped[int | None] = mapped_column(BigInteger)
     sampled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("field_id"),)
 
 
 class SemanticTerm(Base):

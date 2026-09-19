@@ -78,7 +78,9 @@ No module may bypass the connector abstraction to execute an analytical query. A
 class DataSourceConnector(Protocol):
     def test_connection(self) -> ConnectionTestResult: ...
     def introspect(self) -> RawDataSourceMetadata: ...
-    def profile(self, policy: ProfilingPolicy) -> ProfileResult: ...
+    def profile(
+        self, metadata: RawDataSourceMetadata, policy: ProfilingPolicy
+    ) -> ProfileResult: ...
     def explain(self, query: NativeQuery) -> ExplainResult: ...
     def execute_readonly(self, query: NativeQuery, limits: QueryLimits) -> QueryResult: ...
     def close(self) -> None: ...
@@ -111,8 +113,8 @@ Active configuration:
 
 | Capability | Provider | Model | Status |
 |---|---|---|---|
-| SQL generation, repair, and semantic enrichment | OpenRouter | `openai/gpt-4o-mini` | selected default for Phase 5 |
-| Embeddings | OpenRouter | `openai/text-embedding-3-large` | selected for V1 |
+| SQL generation, repair, and semantic enrichment | OpenRouter | `openai/gpt-4o-mini` | implemented; live gate pending |
+| Embeddings | OpenRouter | `openai/text-embedding-3-large` | implemented; live gate pending |
 
 The following models are retained as evaluation/history records, but are disabled by
 default until a connectivity and structured-output check succeeds:
@@ -327,6 +329,11 @@ test connection
 → ready
 ```
 
+If `OPENROUTER_API_KEY` is absent, introspection and local profiling still finish and
+the datasource remains usable with `semantic_status=configuration_required`. If a
+previous index exists, a missing or failed provider refresh retains it as `stale`.
+No local heuristic silently substitutes for the configured remote provider.
+
 Question-time retrieval:
 
 ```text
@@ -376,6 +383,11 @@ POST   /datasources/{datasource_id}/activate
 POST   /datasources/{datasource_id}/refresh
 GET    /datasources/{datasource_id}/onboarding-status
 ```
+
+Datasource summary/detail responses include profile, PII-exclusion, semantic-term,
+metric, and embedding counts plus `semantic_status` and a safe
+`semantic_error_code`. Field detail exposes only derived profile statistics and an
+exclusion flag; raw sampled rows and credentials are never returned.
 
 - Passwords/URIs are write-only and never returned.
 - Test connection does not persist credentials.

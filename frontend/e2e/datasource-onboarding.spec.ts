@@ -24,6 +24,13 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
   await expect(page.getByRole("heading", { name: "Docker demo store" })).toBeVisible();
   await expect(page.getByText("public.orders", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("4 foreign-key relationships.")).toBeVisible();
+  const refresh = page.getByRole("button", { name: "Refresh metadata" });
+  await refresh.click();
+  await expect(refresh).toBeEnabled();
+  await expect(page.getByText("Fields profiled locally")).toBeVisible();
+  await expect(page.getByText("API key required")).toBeVisible();
+  await page.locator("summary").filter({ hasText: "public.customers" }).click();
+  await expect(page.getByText("Excluded by privacy policy")).toBeVisible();
 
   const activate = page.getByRole("button", { name: "Activate source" });
   if (await activate.isVisible()) await activate.click();
@@ -47,4 +54,14 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
   await page.goto(detailUrl);
   await expect(page.getByText("4 foreign-key relationships.")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("source-detail-desktop.png"), fullPage: true });
+
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto(detailUrl);
+  await expect(page.getByRole("heading", { name: "Docker demo store" })).toBeVisible();
+  const detailPageWidth = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    content: document.documentElement.scrollWidth,
+  }));
+  expect(detailPageWidth.content).toBeLessThanOrEqual(detailPageWidth.viewport);
+  await page.screenshot({ path: testInfo.outputPath("source-detail-mobile.png"), fullPage: true });
 });

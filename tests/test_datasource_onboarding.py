@@ -47,6 +47,10 @@ def test_datasource_onboarding_lifecycle_and_secret_boundary() -> None:
     assert created["status"] == "ready"
     assert created["entity_count"] >= 6
     assert created["relationship_count"] >= 4
+    assert created["profile_count"] > 0
+    assert created["pii_excluded_count"] >= 1
+    assert created["semantic_status"] == "configuration_required"
+    assert created["semantic_error_code"] == "openrouter_api_key_missing"
     assert "password" not in create_response.text
     assert "username" not in create_response.text
     assert str(payload["password"]) not in create_response.text

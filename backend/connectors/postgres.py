@@ -3,6 +3,8 @@
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 import psycopg
@@ -14,6 +16,9 @@ from connectors.base import (
     ConnectionTestResult,
     ConnectorError,
     ExplainResult,
+    FieldProfile,
+    ProfileResult,
+    ProfilingPolicy,
     QueryLimits,
     QueryResult,
     RawDataSourceMetadata,
@@ -25,6 +30,12 @@ from connectors.base import (
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]{0,62}$")
 SSL_MODES = {"disable", "prefer", "require", "verify-ca", "verify-full"}
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, (date, datetime, Decimal)):
+        return str(value)
+    return value
 
 
 def _normalized_type(native_type: str) -> str:
@@ -229,6 +240,112 @@ class PostgresConnector:
             for row in relationship_rows
         )
         return RawDataSourceMetadata(entities=entities, relationships=relationships)
+
+    def profile(
+        self, metadata: RawDataSourceMetadata, policy: ProfilingPolicy
+    ) -> ProfileResult:
+        profiles: list[FieldProfile] = []
+        try:
+            with self._connection() as connection, connection.transaction():
+                self._prepare_transaction(connection, policy.timeout_ms)
+                for entity in metadata.entities:
+                    for field in entity.fields:
+                        key = (entity.schema_name, entity.name, field.name)
+                        if key in policy.excluded_fields:
+                            profiles.append(
+                                FieldProfile(
+                                    schema_name=entity.schema_name,
+                                    entity_name=entity.name,
+                                    field_name=field.name,
+                                    sample_size=0,
+                                    statistics={
+                                        "excluded": True,
+                                        "exclusion_reason": "possible_pii",
+                                    },
+                                )
+                            )
+                            continue
+
+                        column = sql.Identifier(field.name)
+                        sampled = sql.SQL(
+                            "SELECT {column} AS value FROM {schema}.{table} LIMIT %s"
+                        ).format(
+                            column=column,
+                            schema=sql.Identifier(entity.schema_name),
+                            table=sql.Identifier(entity.name),
+                        )
+                        aggregate_parts = [
+                            sql.SQL("COUNT(*)::bigint AS sample_size"),
+                            sql.SQL("COUNT(*) FILTER (WHERE value IS NULL)::bigint AS null_count"),
+                        ]
+                        supports_distinct = field.normalized_type in {
+                            "number",
+                            "temporal",
+                            "string",
+                            "boolean",
+                        }
+                        aggregate_parts.append(
+                            sql.SQL("COUNT(DISTINCT value)::bigint AS distinct_count")
+                            if supports_distinct
+                            else sql.SQL("NULL::bigint AS distinct_count")
+                        )
+                        if field.normalized_type in {"number", "temporal"}:
+                            aggregate_parts.extend(
+                                [sql.SQL("MIN(value) AS minimum"), sql.SQL("MAX(value) AS maximum")]
+                            )
+                        query = sql.SQL("SELECT {aggregates} FROM ({sampled}) AS bounded").format(
+                            aggregates=sql.SQL(", ").join(aggregate_parts), sampled=sampled
+                        )
+                        row = connection.execute(query, (policy.max_rows_per_entity,)).fetchone()
+                        if row is None:
+                            continue
+                        sample_size = int(row[0])
+                        null_count = int(row[1])
+                        distinct_count = int(row[2]) if row[2] is not None else None
+                        statistics: dict[str, Any] = {
+                            "null_ratio": round(null_count / sample_size, 6)
+                            if sample_size
+                            else 0.0,
+                        }
+                        if distinct_count is not None:
+                            statistics["distinct_count"] = distinct_count
+                        if field.normalized_type in {"number", "temporal"}:
+                            statistics["minimum"] = _json_value(row[3])
+                            statistics["maximum"] = _json_value(row[4])
+                        elif (
+                            field.normalized_type in {"string", "boolean"}
+                            and distinct_count is not None
+                            and 0 < distinct_count <= policy.enum_max_distinct
+                        ):
+                            values_query = sql.SQL(
+                                "SELECT DISTINCT value FROM ({sampled}) AS bounded "
+                                "WHERE value IS NOT NULL ORDER BY value LIMIT %s"
+                            ).format(sampled=sampled)
+                            values = connection.execute(
+                                values_query,
+                                (policy.max_rows_per_entity, policy.enum_max_distinct),
+                            ).fetchall()
+                            statistics["candidate_values"] = [
+                                _json_value(item[0]) for item in values
+                            ]
+                        profiles.append(
+                            FieldProfile(
+                                schema_name=entity.schema_name,
+                                entity_name=entity.name,
+                                field_name=field.name,
+                                sample_size=sample_size,
+                                statistics=statistics,
+                            )
+                        )
+        except QueryCanceled:
+            raise ConnectorError(
+                "profile_timeout", "PostgreSQL profiling timed out", retryable=True
+            ) from None
+        except psycopg.Error:
+            raise ConnectorError(
+                "profile_failed", "PostgreSQL profiling could not be completed", retryable=True
+            ) from None
+        return ProfileResult(fields=tuple(profiles))
 
     def explain(self, query: ValidatedNativeQuery, limits: QueryLimits) -> ExplainResult:
         self._check_query_boundary(query)

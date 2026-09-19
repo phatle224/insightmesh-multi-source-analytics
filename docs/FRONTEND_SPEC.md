@@ -146,6 +146,12 @@ Show:
 - last successful refresh and latest failure;
 - Activate and Refresh Metadata actions.
 
+The profile summary shows derived counts, ratios, ranges, and privacy exclusions
+through progressive disclosure. Semantic status uses text and iconography, not color
+alone: `API key required`, `Indexing`, `Searchable`, `Stale index retained`, or
+`Index unavailable`. A missing provider key must not hide successfully completed
+local profiling or make the datasource appear unusable.
+
 ## 6. Ask Workspace
 
 ### 6.1 Layout

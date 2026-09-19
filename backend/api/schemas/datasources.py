@@ -69,6 +69,13 @@ class DatasourceSummary(BaseModel):
     is_active: bool
     entity_count: int
     relationship_count: int
+    profile_count: int
+    semantic_term_count: int
+    metric_count: int
+    embedding_count: int
+    pii_excluded_count: int
+    semantic_status: str
+    semantic_error_code: str | None
     last_refreshed_at: datetime | None
     last_error_code: str | None
     created_at: datetime
@@ -84,6 +91,10 @@ class FieldSummary(BaseModel):
     ordinal: int
     primary_key: bool
     unique: bool
+    description: str | None
+    profile: dict[str, object] | None
+    profile_sample_size: int | None
+    profile_excluded: bool
 
 
 class EntitySummary(BaseModel):
@@ -91,6 +102,9 @@ class EntitySummary(BaseModel):
     schema_name: str
     name: str
     entity_type: str
+    description: str | None
+    business_terms: list[str]
+    metrics: list[str]
     fields: list[FieldSummary]
 
 

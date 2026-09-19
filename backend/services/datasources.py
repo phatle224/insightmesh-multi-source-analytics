@@ -4,6 +4,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -21,10 +22,29 @@ from api.schemas.datasources import (
     RelationshipSummary,
 )
 from api.settings import Settings, get_settings
-from connectors.base import ConnectionConfig, ConnectorError, RawDataSourceMetadata
+from connectors.base import (
+    ConnectionConfig,
+    ConnectorError,
+    ProfileResult,
+    ProfilingPolicy,
+    RawDataSourceMetadata,
+)
 from connectors.postgres import PostgresConnector
 from persistence.credentials import CredentialCipher, CredentialDecryptionError
-from persistence.models import Datasource, DatasourceCredential, Entity, Field, Relationship
+from persistence.models import (
+    Datasource,
+    DatasourceCredential,
+    Embedding,
+    Entity,
+    Field,
+    MetricCandidate,
+    ProfileStatistic,
+    Relationship,
+    SemanticTerm,
+)
+from semantic.enrichment import enrich_entity
+from semantic.privacy import is_possible_pii
+from semantic.provider import OpenRouterProvider, ProviderError
 
 
 def _connector_error(error: ConnectorError) -> AppError:
@@ -113,40 +133,74 @@ def _metadata_hash(metadata: RawDataSourceMetadata) -> str:
     return hashlib.sha256(serialized.encode()).hexdigest()
 
 
-def _replace_metadata(
+def _sync_metadata(
     session: Session, datasource: Datasource, metadata: RawDataSourceMetadata
 ) -> None:
-    session.execute(delete(Entity).where(Entity.datasource_id == datasource.id))
+    existing_entities = {
+        (item.schema_name, item.name): item
+        for item in session.scalars(
+            select(Entity).where(Entity.datasource_id == datasource.id)
+        ).all()
+    }
+    desired_entities = {(item.schema_name, item.name) for item in metadata.entities}
+    for key, entity in existing_entities.items():
+        if key not in desired_entities:
+            session.delete(entity)
     session.flush()
     entity_map: dict[tuple[str, str], Entity] = {}
     field_map: dict[tuple[str, str, str], Field] = {}
     for raw_entity in metadata.entities:
-        entity = Entity(
-            datasource_id=datasource.id,
-            schema_name=raw_entity.schema_name,
-            name=raw_entity.name,
-            entity_type=raw_entity.entity_type,
-            metadata_json={},
-        )
-        session.add(entity)
-        session.flush()
-        entity_map[(raw_entity.schema_name, raw_entity.name)] = entity
-        for raw_field in raw_entity.fields:
-            field = Field(
-                entity_id=entity.id,
-                name=raw_field.name,
-                native_type=raw_field.native_type,
-                normalized_type=raw_field.normalized_type,
-                nullable=raw_field.nullable,
-                ordinal=raw_field.ordinal,
-                metadata_json={
-                    "primary_key": raw_field.primary_key,
-                    "unique": raw_field.unique,
-                },
+        entity_key = (raw_entity.schema_name, raw_entity.name)
+        stored_entity = existing_entities.get(entity_key)
+        if stored_entity is None:
+            stored_entity = Entity(
+                datasource_id=datasource.id,
+                schema_name=raw_entity.schema_name,
+                name=raw_entity.name,
+                entity_type=raw_entity.entity_type,
+                metadata_json={},
             )
-            session.add(field)
+            session.add(stored_entity)
+        else:
+            stored_entity.entity_type = raw_entity.entity_type
+        session.flush()
+        entity_map[entity_key] = stored_entity
+        existing_fields = {
+            item.name: item
+            for item in session.scalars(
+                select(Field).where(Field.entity_id == stored_entity.id)
+            ).all()
+        }
+        desired_fields = {item.name for item in raw_entity.fields}
+        for name, stored_field in existing_fields.items():
+            if name not in desired_fields:
+                session.delete(stored_field)
+        for raw_field in raw_entity.fields:
+            field = existing_fields.get(raw_field.name)
+            metadata_json = {
+                "primary_key": raw_field.primary_key,
+                "unique": raw_field.unique,
+            }
+            if field is None:
+                field = Field(
+                    entity_id=stored_entity.id,
+                    name=raw_field.name,
+                    native_type=raw_field.native_type,
+                    normalized_type=raw_field.normalized_type,
+                    nullable=raw_field.nullable,
+                    ordinal=raw_field.ordinal,
+                    metadata_json=metadata_json,
+                )
+                session.add(field)
+            else:
+                field.native_type = raw_field.native_type
+                field.normalized_type = raw_field.normalized_type
+                field.nullable = raw_field.nullable
+                field.ordinal = raw_field.ordinal
+                field.metadata_json = metadata_json
             session.flush()
             field_map[(raw_entity.schema_name, raw_entity.name, raw_field.name)] = field
+    session.execute(delete(Relationship).where(Relationship.datasource_id == datasource.id))
     for raw_relationship in metadata.relationships:
         source_entity = entity_map.get(
             (raw_relationship.source_schema, raw_relationship.source_entity)
@@ -183,6 +237,255 @@ def _replace_metadata(
             )
 
 
+def _hash_json(value: object) -> str:
+    serialized = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(serialized.encode()).hexdigest()
+
+
+def _persist_profiles(
+    session: Session, datasource: Datasource, profiles: ProfileResult
+) -> dict[tuple[str, str, str], ProfileStatistic]:
+    fields = session.execute(
+        select(Field, Entity)
+        .join(Entity, Field.entity_id == Entity.id)
+        .where(Entity.datasource_id == datasource.id)
+    ).all()
+    field_map = {(entity.schema_name, entity.name, field.name): field for field, entity in fields}
+    stored = {
+        item.field_id: item
+        for item in session.scalars(
+            select(ProfileStatistic)
+            .join(Field, ProfileStatistic.field_id == Field.id)
+            .join(Entity, Field.entity_id == Entity.id)
+            .where(Entity.datasource_id == datasource.id)
+        ).all()
+    }
+    result: dict[tuple[str, str, str], ProfileStatistic] = {}
+    now = datetime.now(UTC)
+    for profile in profiles.fields:
+        key = (profile.schema_name, profile.entity_name, profile.field_name)
+        field = field_map.get(key)
+        if field is None:
+            continue
+        profile_hash = _hash_json(
+            {"sample_size": profile.sample_size, "statistics": profile.statistics}
+        )
+        statistic = stored.get(field.id)
+        if statistic is None:
+            statistic = ProfileStatistic(field_id=field.id)
+            session.add(statistic)
+        statistic.statistics = profile.statistics
+        statistic.profile_hash = profile_hash
+        statistic.sample_size = profile.sample_size
+        statistic.sampled_at = now
+        result[key] = statistic
+    session.flush()
+    datasource.profile_hash = _hash_json(
+        [
+            {
+                "field": list(key),
+                "hash": result[key].profile_hash,
+            }
+            for key in sorted(result)
+        ]
+    )
+    return result
+
+
+def _semantic_provider(settings: Settings) -> OpenRouterProvider | None:
+    if settings.llm_provider != "openrouter" or settings.openrouter_api_key is None:
+        return None
+    key = settings.openrouter_api_key.get_secret_value().strip()
+    if not key:
+        return None
+    return OpenRouterProvider(
+        api_key=key,
+        base_url=settings.openrouter_base_url,
+        llm_model=settings.llm_model,
+        embedding_model=settings.embedding_model,
+        embedding_dimensions=settings.embedding_dimensions,
+        timeout_seconds=settings.provider_timeout_seconds,
+    )
+
+
+def _refresh_semantic_index(
+    session: Session,
+    datasource: Datasource,
+    profiles: dict[tuple[str, str, str], ProfileStatistic],
+    settings: Settings,
+) -> None:
+    provider = _semantic_provider(settings)
+    if provider is None:
+        existing_count = session.scalar(
+            select(func.count())
+            .select_from(Embedding)
+            .where(Embedding.datasource_id == datasource.id)
+        )
+        datasource.semantic_status = "stale" if existing_count else "configuration_required"
+        datasource.semantic_error_code = "openrouter_api_key_missing"
+        return
+    entities = session.scalars(
+        select(Entity)
+        .where(Entity.datasource_id == datasource.id)
+        .order_by(Entity.schema_name, Entity.name)
+    ).all()
+    relationships = session.scalars(
+        select(Relationship).where(Relationship.datasource_id == datasource.id)
+    ).all()
+    try:
+        datasource.semantic_status = "indexing"
+        datasource.semantic_error_code = None
+        for entity in entities:
+            fields = session.scalars(
+                select(Field).where(Field.entity_id == entity.id).order_by(Field.ordinal)
+            ).all()
+            payload_fields: list[dict[str, object]] = []
+            for field in fields:
+                profile = profiles.get((entity.schema_name, entity.name, field.name))
+                payload_fields.append(
+                    {
+                        "name": field.name,
+                        "native_type": field.native_type,
+                        "normalized_type": field.normalized_type,
+                        "nullable": field.nullable,
+                        "primary_key": bool(field.metadata_json.get("primary_key")),
+                        "unique": bool(field.metadata_json.get("unique")),
+                        "profile": profile.statistics if profile else None,
+                    }
+                )
+            relation_payload = [
+                {
+                    "source_entity_id": str(item.source_entity_id),
+                    "target_entity_id": str(item.target_entity_id),
+                    "type": item.relationship_type,
+                }
+                for item in relationships
+                if item.source_entity_id == entity.id or item.target_entity_id == entity.id
+            ]
+            payload = {
+                "datasource_type": datasource.source_type,
+                "schema": entity.schema_name,
+                "entity": entity.name,
+                "entity_type": entity.entity_type,
+                "fields": payload_fields,
+                "relationships": relation_payload,
+            }
+            input_hash = _hash_json(
+                {
+                    "payload": payload,
+                    "model": settings.llm_model,
+                    "embedding_model": settings.embedding_model,
+                    "config_version": settings.model_config_version,
+                }
+            )
+            existing_embedding = session.scalar(
+                select(Embedding).where(
+                    Embedding.datasource_id == datasource.id,
+                    Embedding.object_type == "entity",
+                    Embedding.object_id == entity.id,
+                )
+            )
+            if (
+                entity.metadata_json.get("semantic_input_hash") == input_hash
+                and existing_embedding is not None
+            ):
+                continue
+            enrichment = enrich_entity(provider, payload)
+            field_by_name = {field.name: field for field in fields}
+            session.execute(delete(SemanticTerm).where(SemanticTerm.entity_id == entity.id))
+            session.execute(delete(MetricCandidate).where(MetricCandidate.entity_id == entity.id))
+            entity.description = enrichment.entity_description
+            for term in enrichment.business_terms:
+                session.add(
+                    SemanticTerm(
+                        datasource_id=datasource.id,
+                        entity_id=entity.id,
+                        term=term,
+                        description=enrichment.entity_description,
+                        confidence=enrichment.confidence,
+                        source="llm_inferred",
+                    )
+                )
+            for enriched_field in enrichment.fields:
+                matched_field = field_by_name.get(enriched_field.name)
+                if matched_field is None:
+                    continue
+                matched_field.description = enriched_field.description
+                for term in enriched_field.business_terms:
+                    session.add(
+                        SemanticTerm(
+                            datasource_id=datasource.id,
+                            entity_id=entity.id,
+                            field_id=matched_field.id,
+                            term=term,
+                            description=enriched_field.description,
+                            confidence=enriched_field.confidence,
+                            source="llm_inferred",
+                        )
+                    )
+            for metric in enrichment.metrics:
+                session.add(
+                    MetricCandidate(
+                        datasource_id=datasource.id,
+                        entity_id=entity.id,
+                        name=metric.name,
+                        expression=metric.expression,
+                        description=metric.description,
+                        confidence=metric.confidence,
+                        source="llm_inferred",
+                        metadata_json={"verified": False},
+                    )
+                )
+            content = json.dumps(
+                {
+                    "schema": entity.schema_name,
+                    "entity": entity.name,
+                    "description": enrichment.entity_description,
+                    "terms": enrichment.business_terms,
+                    "fields": [item.model_dump() for item in enrichment.fields],
+                    "metrics": [item.model_dump() for item in enrichment.metrics],
+                },
+                sort_keys=True,
+            )
+            vector = provider.embed([content])[0]
+            if existing_embedding is None:
+                existing_embedding = Embedding(
+                    datasource_id=datasource.id,
+                    object_type="entity",
+                    object_id=entity.id,
+                )
+                session.add(existing_embedding)
+            existing_embedding.content = content
+            existing_embedding.embedding = vector
+            existing_embedding.metadata_json = {
+                "content_hash": _hash_json(content),
+                "model": settings.embedding_model,
+                "config_version": settings.model_config_version,
+            }
+            entity.metadata_json = {
+                **entity.metadata_json,
+                "semantic_input_hash": input_hash,
+                "semantic_source": "llm_inferred",
+            }
+            session.flush()
+        datasource.semantic_status = "ready"
+        datasource.semantic_error_code = None
+    except (ProviderError, ValidationError) as exc:
+        session.rollback()
+        datasource = _get_datasource(session, datasource.id)
+        existing_count = session.scalar(
+            select(func.count())
+            .select_from(Embedding)
+            .where(Embedding.datasource_id == datasource.id)
+        )
+        datasource.semantic_status = "stale" if existing_count else "failed"
+        datasource.semantic_error_code = (
+            exc.code if isinstance(exc, ProviderError) else "semantic_schema_invalid"
+        )
+    finally:
+        provider.close()
+
+
 def refresh_datasource(
     session: Session, datasource: Datasource, settings: Settings | None = None
 ) -> DatasourceDetail:
@@ -193,11 +496,30 @@ def refresh_datasource(
     connector = _connector(_load_config(session, datasource, app_settings), app_settings)
     try:
         metadata = connector.introspect()
-        _replace_metadata(session, datasource, metadata)
+        _sync_metadata(session, datasource, metadata)
+        excluded_fields = frozenset(
+            (entity.schema_name, entity.name, field.name)
+            for entity in metadata.entities
+            for field in entity.fields
+            if is_possible_pii(field.name)
+        )
+        profile_result = connector.profile(
+            metadata,
+            ProfilingPolicy(
+                max_rows_per_entity=app_settings.datasource_profile_max_rows,
+                timeout_ms=app_settings.datasource_profile_timeout_ms,
+                enum_max_distinct=app_settings.datasource_profile_enum_max_distinct,
+                excluded_fields=excluded_fields,
+            ),
+        )
+        profiles = _persist_profiles(session, datasource, profile_result)
         datasource.metadata_hash = _metadata_hash(metadata)
         datasource.last_refreshed_at = datetime.now(UTC)
         datasource.last_error_code = None
         datasource.status = "ready"
+        session.commit()
+        datasource = _get_datasource(session, datasource.id)
+        _refresh_semantic_index(session, datasource, profiles, app_settings)
         session.commit()
     except ConnectorError as exc:
         session.rollback()
@@ -256,7 +578,7 @@ def _get_datasource(session: Session, datasource_id: UUID) -> Datasource:
     return datasource
 
 
-def _counts(session: Session, datasource_id: UUID) -> tuple[int, int]:
+def _counts(session: Session, datasource_id: UUID) -> dict[str, int]:
     entity_count = session.scalar(
         select(func.count()).select_from(Entity).where(Entity.datasource_id == datasource_id)
     )
@@ -265,11 +587,49 @@ def _counts(session: Session, datasource_id: UUID) -> tuple[int, int]:
         .select_from(Relationship)
         .where(Relationship.datasource_id == datasource_id)
     )
-    return int(entity_count or 0), int(relationship_count or 0)
+    profile_count = session.scalar(
+        select(func.count())
+        .select_from(ProfileStatistic)
+        .join(Field, ProfileStatistic.field_id == Field.id)
+        .join(Entity, Field.entity_id == Entity.id)
+        .where(Entity.datasource_id == datasource_id)
+    )
+    semantic_term_count = session.scalar(
+        select(func.count())
+        .select_from(SemanticTerm)
+        .where(SemanticTerm.datasource_id == datasource_id)
+    )
+    metric_count = session.scalar(
+        select(func.count())
+        .select_from(MetricCandidate)
+        .where(MetricCandidate.datasource_id == datasource_id)
+    )
+    embedding_count = session.scalar(
+        select(func.count()).select_from(Embedding).where(Embedding.datasource_id == datasource_id)
+    )
+    pii_excluded_count = session.scalar(
+        select(func.count())
+        .select_from(ProfileStatistic)
+        .join(Field, ProfileStatistic.field_id == Field.id)
+        .join(Entity, Field.entity_id == Entity.id)
+        .where(
+            Entity.datasource_id == datasource_id,
+            ProfileStatistic.statistics["excluded"].as_boolean().is_(True),
+        )
+    )
+    return {
+        "entity_count": int(entity_count or 0),
+        "relationship_count": int(relationship_count or 0),
+        "profile_count": int(profile_count or 0),
+        "semantic_term_count": int(semantic_term_count or 0),
+        "metric_count": int(metric_count or 0),
+        "embedding_count": int(embedding_count or 0),
+        "pii_excluded_count": int(pii_excluded_count or 0),
+    }
 
 
 def _summary(session: Session, datasource: Datasource) -> DatasourceSummary:
-    entity_count, relationship_count = _counts(session, datasource.id)
+    counts = _counts(session, datasource.id)
     return DatasourceSummary(
         id=datasource.id,
         name=datasource.name,
@@ -281,8 +641,9 @@ def _summary(session: Session, datasource: Datasource) -> DatasourceSummary:
         allowed_schemas=list(datasource.allowed_schemas),
         status=datasource.status,
         is_active=datasource.is_active,
-        entity_count=entity_count,
-        relationship_count=relationship_count,
+        **counts,
+        semantic_status=datasource.semantic_status,
+        semantic_error_code=datasource.semantic_error_code,
         last_refreshed_at=datasource.last_refreshed_at,
         last_error_code=datasource.last_error_code,
         created_at=datasource.created_at,
@@ -313,12 +674,39 @@ def get_datasource_detail(session: Session, datasource_id: UUID) -> DatasourceDe
     fields_by_entity: dict[UUID, list[Field]] = {}
     for field in fields:
         fields_by_entity.setdefault(field.entity_id, []).append(field)
+    profiles = {
+        item.field_id: item
+        for item in session.scalars(
+            select(ProfileStatistic)
+            .join(Field, ProfileStatistic.field_id == Field.id)
+            .join(Entity, Field.entity_id == Entity.id)
+            .where(Entity.datasource_id == datasource_id)
+        ).all()
+    }
+    terms_by_entity: dict[UUID, list[str]] = {}
+    for term in session.scalars(
+        select(SemanticTerm).where(
+            SemanticTerm.datasource_id == datasource_id,
+            SemanticTerm.field_id.is_(None),
+        )
+    ).all():
+        if term.entity_id is not None:
+            terms_by_entity.setdefault(term.entity_id, []).append(term.term)
+    metrics_by_entity: dict[UUID, list[str]] = {}
+    for metric in session.scalars(
+        select(MetricCandidate).where(MetricCandidate.datasource_id == datasource_id)
+    ).all():
+        if metric.entity_id is not None:
+            metrics_by_entity.setdefault(metric.entity_id, []).append(metric.name)
     entity_responses = [
         EntitySummary(
             id=entity.id,
             schema_name=entity.schema_name,
             name=entity.name,
             entity_type=entity.entity_type,
+            description=entity.description,
+            business_terms=terms_by_entity.get(entity.id, []),
+            metrics=metrics_by_entity.get(entity.id, []),
             fields=[
                 FieldSummary(
                     id=field.id,
@@ -329,6 +717,16 @@ def get_datasource_detail(session: Session, datasource_id: UUID) -> DatasourceDe
                     ordinal=field.ordinal,
                     primary_key=bool(field.metadata_json.get("primary_key")),
                     unique=bool(field.metadata_json.get("unique")),
+                    description=field.description,
+                    profile=profiles[field.id].statistics if field.id in profiles else None,
+                    profile_sample_size=profiles[field.id].sample_size
+                    if field.id in profiles
+                    else None,
+                    profile_excluded=bool(
+                        profiles[field.id].statistics.get("excluded")
+                        if field.id in profiles
+                        else False
+                    ),
                 )
                 for field in fields_by_entity.get(entity.id, [])
             ],
@@ -372,12 +770,12 @@ def activate_datasource(session: Session, datasource_id: UUID) -> DatasourceDeta
 
 def onboarding_status(session: Session, datasource_id: UUID) -> OnboardingStatusResponse:
     datasource = _get_datasource(session, datasource_id)
-    entity_count, relationship_count = _counts(session, datasource_id)
+    counts = _counts(session, datasource_id)
     return OnboardingStatusResponse(
         datasource_id=datasource.id,
         status=datasource.status,
-        entity_count=entity_count,
-        relationship_count=relationship_count,
+        entity_count=counts["entity_count"],
+        relationship_count=counts["relationship_count"],
         last_refreshed_at=datasource.last_refreshed_at,
         last_error_code=datasource.last_error_code,
     )

@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     datasource_connect_timeout_seconds: int = Field(5, ge=1, le=30)
     datasource_statement_timeout_ms: int = Field(5_000, ge=100, le=120_000)
     datasource_max_rows: int = Field(1_000, ge=1, le=10_000)
+    datasource_profile_max_rows: int = Field(1_000, ge=1, le=100_000)
+    datasource_profile_timeout_ms: int = Field(10_000, ge=100, le=120_000)
+    datasource_profile_enum_max_distinct: int = Field(20, ge=1, le=100)
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_api_key: SecretStr | None = None
+    llm_provider: str = "openrouter"
+    llm_model: str = "openai/gpt-4o-mini"
+    embedding_model: str = "openai/text-embedding-3-large"
+    embedding_dimensions: int = Field(1536, ge=1, le=4096)
+    model_config_version: str = "v1"
+    provider_timeout_seconds: int = Field(30, ge=1, le=120)
 
     @field_validator("credential_encryption_key")
     @classmethod

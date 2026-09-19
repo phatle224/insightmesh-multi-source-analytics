@@ -13,6 +13,13 @@ x-backend: &backend
     PGDATABASE: insightmesh
     PGUSER: insightmesh
     PGPASSWORD: ${METADATA_PASSWORD:-local-metadata-only}
+    OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+    OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    LLM_PROVIDER: ${LLM_PROVIDER:-openrouter}
+    LLM_MODEL: ${LLM_MODEL:-openai/gpt-4o-mini}
+    EMBEDDING_MODEL: ${EMBEDDING_MODEL:-openai/text-embedding-3-large}
+    EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+    MODEL_CONFIG_VERSION: ${MODEL_CONFIG_VERSION:-v1}
   networks: [app, data]
 
 services:
@@ -70,6 +77,7 @@ services:
       - ./backend/connectors:/app/connectors
       - ./backend/persistence:/app/persistence
       - ./backend/services:/app/services
+      - ./backend/semantic:/app/semantic
       - ./tests:/app/tests:ro
     depends_on:
       metadata-db:

@@ -65,6 +65,28 @@ class RawDataSourceMetadata:
 
 
 @dataclass(frozen=True)
+class ProfilingPolicy:
+    max_rows_per_entity: int
+    timeout_ms: int
+    enum_max_distinct: int = 20
+    excluded_fields: frozenset[tuple[str, str, str]] = field(default_factory=frozenset)
+
+
+@dataclass(frozen=True)
+class FieldProfile:
+    schema_name: str
+    entity_name: str
+    field_name: str
+    sample_size: int
+    statistics: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ProfileResult:
+    fields: tuple[FieldProfile, ...]
+
+
+@dataclass(frozen=True)
 class QueryLimits:
     timeout_ms: int
     max_rows: int
@@ -93,6 +115,10 @@ class DataSourceConnector(Protocol):
     def test_connection(self) -> ConnectionTestResult: ...
 
     def introspect(self) -> RawDataSourceMetadata: ...
+
+    def profile(
+        self, metadata: RawDataSourceMetadata, policy: ProfilingPolicy
+    ) -> ProfileResult: ...
 
     def explain(self, query: ValidatedNativeQuery, limits: QueryLimits) -> ExplainResult: ...
 

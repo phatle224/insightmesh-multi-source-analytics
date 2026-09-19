@@ -1,6 +1,6 @@
 # InsightMesh
 
-Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–4 are complete:** the Docker foundation, persistence contracts, responsive frontend shell, and PostgreSQL datasource onboarding vertical slice are implemented. Profiling and semantic enrichment begin in Phase 5.
+Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–4 are complete and Phase 5 is implemented pending its live-provider gate:** the Docker foundation, persistence contracts, responsive frontend shell, PostgreSQL onboarding, privacy-bounded local profiling, and semantic-index pipeline are implemented.
 
 ## Local development
 
@@ -77,11 +77,14 @@ Demo connection inside Compose: host `demo-postgres`, port `5432`, database `ins
 - [Frontend specification](docs/FRONTEND_SPEC.md)
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
-Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. The frontend now exposes datasource list, add, detail, activation, and metadata refresh against the live API. Ask, Dashboards, and Settings remain later-phase surfaces.
+Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. The frontend exposes datasource list, add, detail, activation, metadata refresh, safe profile summaries, PII exclusions, and semantic-index status against the live API. Ask, Dashboards, and Settings remain later-phase surfaces.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 
-V1 model note: the budget configuration planned for Phase 5 uses OpenRouter with
+V1 model note: Phase 5 uses OpenRouter with
 `openai/gpt-4o-mini` for structured generation and
-`openai/text-embedding-3-large` for embeddings. Provider calls are not implemented
-yet; rollback/fallback gates must pass before activation.
+`openai/text-embedding-3-large` for embeddings. Set `OPENROUTER_API_KEY` in the local,
+uncommitted `.env`, then refresh a datasource to build the live index. Without a key,
+local introspection and profiling still complete and the UI reports `API key required`.
+Provider calls use strict structured output, one bounded transient retry, and no
+automatic fallback model.

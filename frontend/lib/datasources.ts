@@ -38,6 +38,13 @@ export interface DatasourceSummary {
   is_active: boolean;
   entity_count: number;
   relationship_count: number;
+  profile_count: number;
+  semantic_term_count: number;
+  metric_count: number;
+  embedding_count: number;
+  pii_excluded_count: number;
+  semantic_status: "not_configured" | "configuration_required" | "indexing" | "ready" | "stale" | "failed";
+  semantic_error_code: string | null;
   last_refreshed_at: string | null;
   last_error_code: string | null;
   created_at: string;
@@ -53,6 +60,10 @@ export interface DatasourceField {
   ordinal: number;
   primary_key: boolean;
   unique: boolean;
+  description: string | null;
+  profile: Record<string, unknown> | null;
+  profile_sample_size: number | null;
+  profile_excluded: boolean;
 }
 
 export interface DatasourceEntity {
@@ -60,6 +71,9 @@ export interface DatasourceEntity {
   schema_name: string;
   name: string;
   entity_type: string;
+  description: string | null;
+  business_terms: string[];
+  metrics: string[];
   fields: DatasourceField[];
 }
 
