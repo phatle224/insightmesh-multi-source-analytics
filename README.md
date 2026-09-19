@@ -81,10 +81,10 @@ Phase numbers in the tracker are delivery milestones; the PRD groups requirement
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 
-V1 model note: Phase 5 uses OpenRouter with
-`openai/gpt-4o-mini` for structured generation and
-`openai/text-embedding-3-large` for embeddings. Set `OPENROUTER_API_KEY` in the local,
-uncommitted `.env`, then refresh a datasource to build the live index. Without a key,
-local introspection and profiling still complete and the UI reports `API key required`.
-Provider calls use strict structured output, one bounded transient retry, and no
-automatic fallback model.
+V1 model note: Gemini 2.5 Flash from Google AI Studio is the primary structured-
+generation model. OpenRouter `openai/gpt-4o-mini` is the bounded fallback for Gemini
+timeouts/rate limits, and OpenRouter `openai/text-embedding-3-large` handles
+embeddings. Set both provider keys in the local, uncommitted `.env`; local
+introspection and profiling still complete if semantic provider configuration is
+missing. Provider calls use strict structured output, one bounded retry, and no
+fallback for authentication, safety, or schema failures.

@@ -15,8 +15,13 @@ x-backend: &backend
     PGPASSWORD: ${METADATA_PASSWORD:-local-metadata-only}
     OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
     OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-    LLM_PROVIDER: ${LLM_PROVIDER:-openrouter}
-    LLM_MODEL: ${LLM_MODEL:-openai/gpt-4o-mini}
+    GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+    LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+    LLM_FALLBACK_PROVIDER: ${LLM_FALLBACK_PROVIDER:-openrouter}
+    LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-openai/gpt-4o-mini}
     EMBEDDING_MODEL: ${EMBEDDING_MODEL:-openai/text-embedding-3-large}
     EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
     MODEL_CONFIG_VERSION: ${MODEL_CONFIG_VERSION:-v1}

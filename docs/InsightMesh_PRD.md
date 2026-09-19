@@ -1286,20 +1286,20 @@ Avoid tightly coupling the Lightweight Harness Runtime to one model provider.
 
 ### V1 Model Selection and Rollback
 
-For the student/portfolio deployment, V1 uses OpenRouter as the single remote
-gateway to minimize integration and key-management overhead:
+For the student/portfolio deployment, V1 uses Google AI Studio's direct Gemini API
+as the primary generation provider:
 
 - structured SQL generation, bounded repair, and semantic enrichment:
-  `openai/gpt-4o-mini` through OpenRouter;
+  `gemini-2.5-flash` through the direct Gemini API;
 - semantic retrieval embeddings: `openai/text-embedding-3-large` through
   OpenRouter;
-- direct `gpt-4o-mini` through OpenAI is not enabled because an OpenAI key is not
-  available.
+- fallback generation: `openai/gpt-4o-mini` through OpenRouter.
 
-The direct Gemini configurations `gemini-1.5-flash`, `gemini-2.0-flash`, and
-`gemini-1.5-pro` are recorded as failed experiments and are disabled by default.
-They must not be used as automatic fallback targets without passing a fresh
-connectivity and structured-output check.
+The fallback is attempted only after Gemini exhausts its bounded retry on a timeout
+or rate-limit response. Authentication failures, invalid structured output, safety
+failures, and business-validation failures do not trigger fallback. Direct Gemini
+requests use `GEMINI_API_KEY` from Google AI Studio and never expose that key in
+logs, traces, prompts, or API responses.
 
 Provider/model configuration must be versioned. Before activation, a candidate
 must pass connectivity, strict structured-output validation, embedding-dimension

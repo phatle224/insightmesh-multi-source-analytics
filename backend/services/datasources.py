@@ -44,7 +44,13 @@ from persistence.models import (
 )
 from semantic.enrichment import enrich_entity
 from semantic.privacy import is_possible_pii
-from semantic.provider import OpenRouterProvider, ProviderError
+from semantic.provider import (
+    FallbackProvider,
+    GeminiProvider,
+    LLMProvider,
+    OpenRouterProvider,
+    ProviderError,
+)
 
 
 def _connector_error(error: ConnectorError) -> AppError:
@@ -292,8 +298,10 @@ def _persist_profiles(
     return result
 
 
-def _semantic_provider(settings: Settings) -> OpenRouterProvider | None:
-    if settings.llm_provider != "openrouter" or settings.openrouter_api_key is None:
+def _openrouter_provider(
+    settings: Settings, *, model: str | None = None
+) -> OpenRouterProvider | None:
+    if settings.openrouter_api_key is None:
         return None
     key = settings.openrouter_api_key.get_secret_value().strip()
     if not key:
@@ -301,11 +309,46 @@ def _semantic_provider(settings: Settings) -> OpenRouterProvider | None:
     return OpenRouterProvider(
         api_key=key,
         base_url=settings.openrouter_base_url,
-        llm_model=settings.llm_model,
+        llm_model=model or settings.llm_fallback_model,
         embedding_model=settings.embedding_model,
         embedding_dimensions=settings.embedding_dimensions,
         timeout_seconds=settings.provider_timeout_seconds,
     )
+
+
+def _semantic_provider(settings: Settings) -> LLMProvider | None:
+    fallback = (
+        _openrouter_provider(settings)
+        if settings.llm_fallback_provider == "openrouter"
+        else None
+    )
+    if settings.llm_provider == "gemini":
+        if settings.gemini_api_key is None:
+            if fallback is not None:
+                fallback.close()
+            return None
+        key = settings.gemini_api_key.get_secret_value().strip()
+        if not key:
+            if fallback is not None:
+                fallback.close()
+            return None
+        primary = GeminiProvider(
+            api_key=key,
+            base_url=settings.gemini_base_url,
+            model=settings.gemini_model,
+            timeout_seconds=settings.provider_timeout_seconds,
+        )
+        return FallbackProvider(primary, fallback)
+    if settings.llm_provider == "openrouter":
+        openrouter_primary = _openrouter_provider(settings, model=settings.llm_model)
+        if openrouter_primary is None:
+            return None
+        if fallback is not None:
+            fallback.close()
+        return openrouter_primary
+    if fallback is not None:
+        fallback.close()
+    return None
 
 
 def _refresh_semantic_index(
@@ -322,7 +365,11 @@ def _refresh_semantic_index(
             .where(Embedding.datasource_id == datasource.id)
         )
         datasource.semantic_status = "stale" if existing_count else "configuration_required"
-        datasource.semantic_error_code = "openrouter_api_key_missing"
+        datasource.semantic_error_code = (
+            "gemini_api_key_missing"
+            if settings.llm_provider == "gemini"
+            else "provider_key_missing"
+        )
         return
     entities = session.scalars(
         select(Entity)

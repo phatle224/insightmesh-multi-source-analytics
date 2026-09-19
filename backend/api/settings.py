@@ -28,8 +28,13 @@ class Settings(BaseSettings):
     datasource_profile_enum_max_distinct: int = Field(20, ge=1, le=100)
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_api_key: SecretStr | None = None
-    llm_provider: str = "openrouter"
-    llm_model: str = "openai/gpt-4o-mini"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com"
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = "gemini-2.5-flash"
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-2.5-flash"
+    llm_fallback_provider: str = "openrouter"
+    llm_fallback_model: str = "openai/gpt-4o-mini"
     embedding_model: str = "openai/text-embedding-3-large"
     embedding_dimensions: int = Field(1536, ge=1, le=4096)
     model_config_version: str = "v1"

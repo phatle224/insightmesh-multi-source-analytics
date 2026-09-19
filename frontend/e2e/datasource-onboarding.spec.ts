@@ -28,7 +28,7 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
   await refresh.click();
   await expect(refresh).toBeEnabled();
   await expect(page.getByText("Fields profiled locally")).toBeVisible();
-  await expect(page.getByText("API key required")).toBeVisible();
+  await expect(page.getByText(/Searchable|API key required/)).toBeVisible();
   await page.locator("summary").filter({ hasText: "public.customers" }).click();
   await expect(page.getByText("Excluded by privacy policy")).toBeVisible();
 

@@ -106,15 +106,17 @@ The runtime depends on this abstraction, not a provider SDK. Every structured-ge
 
 #### V1 provider and model decision (budget-conscious portfolio build)
 
-The initial implementation uses OpenRouter as the only remote LLM gateway. Direct
-OpenAI is not part of the V1 deployment because no OpenAI API key is available.
+The initial implementation uses direct Google AI Studio Gemini for generation and
+OpenRouter for fallback generation plus embeddings. Direct OpenAI is not used as a
+primary provider.
 
 Active configuration:
 
 | Capability | Provider | Model | Status |
 |---|---|---|---|
-| SQL generation, repair, and semantic enrichment | OpenRouter | `openai/gpt-4o-mini` | implemented; live gate pending |
-| Embeddings | OpenRouter | `openai/text-embedding-3-large` | implemented; live gate pending |
+| SQL generation, repair, and semantic enrichment | Google AI Studio Gemini API | `gemini-2.5-flash` | primary |
+| Embeddings | OpenRouter | `openai/text-embedding-3-large` | live-verified |
+| Generation fallback | OpenRouter | `openai/gpt-4o-mini` | timeout/rate-limit only |
 
 The following models are retained as evaluation/history records, but are disabled by
 default until a connectivity and structured-output check succeeds:
@@ -126,8 +128,8 @@ default until a connectivity and structured-output check succeeds:
 | `gemini-1.5-pro` | direct Gemini | failed during model/provider testing |
 | `gpt-4o-mini` | direct OpenAI | unavailable because no OpenAI key is configured |
 
-The OpenRouter model identifier must include its provider prefix. Do not silently
-translate `gpt-4o-mini` into a direct OpenAI request.
+The OpenRouter model identifier must include its provider prefix. Gemini uses the
+direct `generativelanguage.googleapis.com` endpoint with `GEMINI_API_KEY`.
 
 #### Rollback and fallback policy
 
@@ -136,8 +138,8 @@ active model configuration and the immediately previous known-good configuration
 
 1. A candidate must pass connectivity, structured-schema, embedding-dimension, and
    PostgreSQL benchmark smoke checks before activation.
-2. A transient provider failure may retry once, then use the configured fallback for
-   the same capability if one is explicitly enabled.
+2. Gemini timeout and rate-limit failures may retry once, then use the configured
+   OpenRouter fallback for generation if it is explicitly enabled.
 3. A schema-validation, safety, or benchmark-regression failure does not trigger an
    uncontrolled model cascade; the active configuration is rolled back to the
    previous known-good version.
@@ -146,10 +148,10 @@ active model configuration and the immediately previous known-good configuration
 5. Logs record the failed candidate, error category, configuration version, and
    rollback event without API keys, prompts, raw rows, or hidden reasoning.
 
-For the first low-cost release there is no enabled remote fallback after
-`openai/gpt-4o-mini` through OpenRouter. The safe behavior is a user-facing failure,
-not an automatic attempt to use the known-failing Gemini or unavailable direct
-OpenAI configurations.
+For the first low-cost release, Gemini is the primary generation model and
+`openai/gpt-4o-mini` is the only enabled generation fallback. Embeddings remain an
+independent OpenRouter capability; if they are unavailable, the semantic index must
+fail safely without sending raw rows or credentials elsewhere.
 
 ### 5.3 Skill Asset
 
