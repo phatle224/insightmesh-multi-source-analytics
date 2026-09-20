@@ -526,12 +526,15 @@ retrieve context
 → do not generate or execute a query
 ```
 
-The relevance/domain gate must use datasource-scoped retrieval evidence, including a
-minimum semantic similarity threshold and available entity, field, business-term, or
-metric anchors. It must not rely on an LLM-only classification. Questions such as
-“What is the weather today?” must be stopped safely with a message that InsightMesh
-only answers analytical questions about the active datasource. A high-confidence
-question with missing detail remains `clarification_required` instead.
+The scope guard must use two deterministic layers. A pre-retrieval check rejects
+explicit questions about the application's model, prompt, or system configuration. A
+post-retrieval relevance/domain gate requires either an entity, field, business-term,
+or metric anchor, or both an analytical-intent cue and the configured minimum semantic
+similarity. Semantic similarity alone must never authorize query generation. It must
+not rely on an LLM-only classification. Questions such as “What is the weather today?”
+or “Bạn đang dùng model gì?” must be stopped safely with a message that InsightMesh
+only answers analytical questions about the active datasource. A relevant question
+with missing detail remains `clarification_required` instead.
 
 The clarification response must ask the user to rewrite or select a complete question. If the user chooses a metric such as `revenue`, the UI should construct a new complete question (for example, `Top customers by revenue`) and submit it as a new independent request. V1 does not retain clarification turns as conversational query context.
 

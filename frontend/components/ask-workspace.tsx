@@ -17,8 +17,9 @@ import { ApiErrorNotice } from "@/components/api-error-notice";
 import { useDatasources } from "@/components/datasource-provider";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
-import { QueryResultTable } from "@/components/query-result-table";
 import { QueryRunDetails } from "@/components/query-run-details";
+import { ResultVisualization } from "@/components/result-visualization";
+import { SaveWidgetDialog } from "@/components/save-widget-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -31,6 +32,7 @@ import {
   type QueryTrace,
 } from "@/lib/query-runs";
 import { cn } from "@/lib/utils";
+import { isChartType, type ChartType } from "@/lib/visualization";
 
 interface StatusPresentation {
   label: string;
@@ -196,6 +198,7 @@ export function AskWorkspace() {
   const [submitError, setSubmitError] = useState<ApiClientError | null>(null);
   const [traceError, setTraceError] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [chartType, setChartType] = useState<ChartType | undefined>();
   const statusRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -219,6 +222,7 @@ export function AskWorkspace() {
     setTraceError(false);
     setRun(null);
     setTrace(null);
+    setChartType(undefined);
     setPending(true);
     try {
       const nextRun = await createQueryRun(activeSource.id, normalized);
@@ -492,7 +496,23 @@ export function AskWorkspace() {
         </>
       ) : null}
 
-      {run?.status === "completed" && run.result ? <QueryResultTable result={run.result} /> : null}
+      {run?.status === "completed" && run.result ? (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <SaveWidgetDialog
+              runId={run.run_id}
+              defaultTitle={run.question}
+              chartType={chartType ?? (isChartType(run.visualization_type) ? run.visualization_type : "table")}
+            />
+          </div>
+          <ResultVisualization
+            result={run.result}
+            initialType={run.visualization_type}
+            selectedType={chartType}
+            onTypeChange={setChartType}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

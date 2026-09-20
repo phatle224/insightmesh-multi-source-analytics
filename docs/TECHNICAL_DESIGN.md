@@ -294,14 +294,16 @@ A clarification response terminates the current run and returns complete suggest
 
 ### 7.4 Out-of-Scope Contract
 
-After datasource-scoped retrieval, the runtime applies a deterministic relevance/domain
-gate using a configurable minimum semantic similarity and lexical anchors from the
-retrieved entities, fields, business terms, and metrics. If the question has no
-relevant datasource context, the run terminates as `out_of_scope` with error code
-`question_out_of_scope`. Query generation, validation, repair, and execution are not
-called. This state is distinct from `clarification_required`: the latter means the
-question is about the datasource but is missing a metric, filter, grouping, or time
-range.
+The runtime applies two deterministic scope layers. Before retrieval, an explicit
+meta/system precheck rejects questions about the application's model, prompt, or system
+configuration. After datasource-scoped retrieval, the relevance/domain gate requires
+either a lexical anchor from retrieved entities, fields, business terms, or metrics, or
+both an analytical-intent cue and the configured minimum semantic similarity. Semantic
+similarity alone is not sufficient. If either layer rejects the question, the run
+terminates as `out_of_scope` with error code `question_out_of_scope`; query generation,
+validation, repair, and execution are not called. This state is distinct from
+`clarification_required`: the latter means the question is about the datasource but is
+missing a metric, filter, grouping, or time range.
 
 ### 7.5 Deterministic Result Verification
 
@@ -455,15 +457,20 @@ The response contains `run_id`, terminal/current status, generated query when av
 ```text
 GET    /dashboards
 POST   /dashboards
+GET    /dashboards/{dashboard_id}
 POST   /dashboards/{dashboard_id}/widgets
 PATCH  /dashboard-widgets/{widget_id}
 DELETE /dashboard-widgets/{widget_id}
 POST   /dashboard-widgets/{widget_id}/refresh
 ```
 
-Widget refresh revalidates and executes the stored query. It must not regenerate the query or call the LLM.
+Widget refresh rebuilds validator context from persisted datasource metadata, revalidates the stored query, runs `EXPLAIN`, and executes through the read-only connector. It must not perform retrieval, regenerate the query, or call the LLM. A failed refresh marks an existing snapshot `stale` and preserves its last successful result; a widget without a successful snapshot becomes `failed`.
 
-### 11.5 Error Envelope
+### 11.5 Visualization Adapter
+
+V1 uses Recharts only behind the local frontend visualization adapter. The backend and frontend implement the same deterministic compatibility rules over verified column types and row count: Table accepts any result; KPI requires one row and a numeric metric; Bar requires a categorical dimension and numeric metric with at most 50 rows; Line/Area require a temporal dimension, numeric metric, and at least two rows; Pie/Donut additionally limits categorical results to two through five rows. The backend recommends `KPI`, then `Line`, then `Bar`, then `Table`. No model participates in compatibility or selection.
+
+### 11.6 Error Envelope
 
 ```json
 {
@@ -539,7 +546,7 @@ Primary evaluation metric is result accuracy, not query-string equality.
 8. PostgreSQL evaluation baseline.
 9. MySQL connector and dialect path.
 10. MongoDB connector, schema model, query generation, and nested pipeline safety.
-11. Remaining visualizations, dashboards, repair, and full evaluation.
+11. Full evaluation and remaining release hardening.
 
 ## 16. Explicit TBDs
 
@@ -551,5 +558,4 @@ The following decisions are intentionally not made by the PRD and must not be gu
 - deployment target and production secret manager;
 - exact semantic-confidence threshold;
 - exact profiling sample size, Top-K, timeout, and row-limit defaults;
-- Recharts versus ECharts;
 - final visual design system, pending the user-provided UI skill/reference.

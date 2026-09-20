@@ -28,7 +28,7 @@ TypeScript with strict mode
 Tailwind CSS
 Local shadcn-style components over Radix UI primitives
 Phosphor SVG icons
-Chart adapter over Recharts or ECharts (TBD)
+Recharts behind a local deterministic chart adapter
 ```
 
 Phase 3 selects Tailwind CSS v4, Radix UI as the accessible headless primitive layer, and Phosphor as the single icon family. Components are owned in `frontend/components/` rather than hidden behind a runtime component service.
@@ -261,6 +261,8 @@ Supported types:
 | Area | One temporal dimension and one or more numeric metrics |
 
 The backend recommends the initial type. The UI only enables compatible alternatives. Switching chart type does not rerun the query or call the LLM.
+
+Implementation decision: Recharts is used behind `frontend/lib/visualization.ts`, which owns compatibility, row-to-chart conversion, keys, and accessible text descriptions. Components do not depend on chart-library data inference. Chart animation is disabled, every chart has a visible legend/tooltip where applicable, a concise text summary, and the exact verified data table rendered alongside it.
 
 ### 6.8 Save to Dashboard
 

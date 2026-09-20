@@ -1,6 +1,7 @@
 """Synchronous deterministic V1 runtime for the PostgreSQL vertical slice."""
 
 import re
+import unicodedata
 from collections.abc import Callable
 from time import perf_counter
 from uuid import UUID
@@ -22,6 +23,7 @@ from query.sql_validator import SQLValidationResult, validate_postgres_sql
 from semantic.provider import LLMProvider, ProviderError
 from services.datasources import build_datasource_connector, build_semantic_provider
 from services.retrieval import retrieve_context
+from visualization.selection import select_visualization
 
 UNSAFE_REQUEST = re.compile(
     r"\b(delete|drop|truncate|update|insert|merge|alter|create|grant|revoke)\b",
@@ -33,9 +35,67 @@ CUSTOMER_MEASURES = re.compile(
     re.IGNORECASE,
 )
 TOKEN = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+META_REQUEST = re.compile(
+    r"(?:\b(?:ban|you|system|he thong)\b.{0,48}\b(?:model|llm|prompt|mo hinh)\b)"
+    r"|(?:\b(?:model|llm|prompt|mo hinh)\b.{0,48}\b(?:ban|you|system|he thong)\b)",
+    re.IGNORECASE,
+)
 STOP_WORDS = {
-    "a", "an", "and", "are", "by", "for", "from", "how", "is", "of", "our",
-    "the", "this", "to", "what", "when", "which", "who", "with", "show", "give",
+    "a",
+    "an",
+    "and",
+    "are",
+    "by",
+    "for",
+    "from",
+    "how",
+    "is",
+    "of",
+    "our",
+    "the",
+    "this",
+    "to",
+    "what",
+    "when",
+    "which",
+    "who",
+    "with",
+    "show",
+    "give",
+}
+ANALYTICAL_CUES = {
+    "average",
+    "bottom",
+    "compare",
+    "comparison",
+    "count",
+    "daily",
+    "dem",
+    "group",
+    "highest",
+    "lowest",
+    "max",
+    "mean",
+    "min",
+    "monthly",
+    "percent",
+    "percentage",
+    "ratio",
+    "rate",
+    "revenue",
+    "sales",
+    "so",
+    "sum",
+    "theo",
+    "thong",
+    "top",
+    "total",
+    "trend",
+    "trung",
+    "ty",
+    "weekly",
+    "yearly",
+    "xu",
 }
 
 ConnectorFactory = Callable[[Session, Datasource, Settings], DataSourceConnector]
@@ -105,21 +165,34 @@ def _clarification_suggestions() -> list[str]:
     ]
 
 
+def _normalized(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
+    return "".join(
+        character for character in decomposed if not unicodedata.combining(character)
+    ).lower()
+
+
 def _tokens(value: str) -> set[str]:
-    return {token.lower() for token in TOKEN.findall(value) if token.lower() not in STOP_WORDS}
+    result: set[str] = set()
+    for token in TOKEN.findall(_normalized(value)):
+        if token in STOP_WORDS:
+            continue
+        result.add(token)
+        if len(token) > 4 and token.endswith("s") and not token.endswith("ss"):
+            result.add(token[:-1])
+    return result
 
 
-def _is_out_of_scope(
-    question: str, context: RetrievalResponse, minimum_similarity: float
-) -> bool:
+def _is_meta_request(question: str) -> bool:
+    return bool(META_REQUEST.search(_normalized(question)))
+
+
+def _is_out_of_scope(question: str, context: RetrievalResponse, minimum_similarity: float) -> bool:
     semantic_scores = [
         entity.similarity
         for entity in context.entities
         if entity.selection_source == "semantic" and entity.similarity is not None
     ]
-    if semantic_scores and max(semantic_scores) >= minimum_similarity:
-        return False
-
     vocabulary: set[str] = set()
     for entity in context.entities:
         vocabulary.update(_tokens(entity.name))
@@ -132,7 +205,11 @@ def _is_out_of_scope(
         for metric in entity.metrics:
             vocabulary.update(_tokens(metric.name))
             vocabulary.update(_tokens(metric.description or ""))
-    return not (_tokens(question) & vocabulary)
+    question_tokens = _tokens(question)
+    has_domain_anchor = bool(question_tokens & vocabulary)
+    has_analytical_cue = bool(question_tokens & ANALYTICAL_CUES)
+    similarity_sufficient = bool(semantic_scores and max(semantic_scores) >= minimum_similarity)
+    return not has_domain_anchor and not (has_analytical_cue and similarity_sufficient)
 
 
 def _validation_payload(result: SQLValidationResult, explain_valid: bool) -> dict[str, object]:
@@ -194,6 +271,18 @@ def run_postgres_query(
             "question_safety_precheck",
             "unsafe_request_blocked",
             "The request asks to modify datasource data and was blocked",
+        )
+        return run
+    if _is_meta_request(question):
+        run.warnings = ["Ask only accepts analytical questions about the active datasource"]
+        _fail(
+            session,
+            run,
+            state,
+            "out_of_scope",
+            "question_scope_precheck",
+            "question_out_of_scope",
+            "Ask cannot answer questions about its model, prompt, or system configuration",
         )
         return run
 
@@ -298,9 +387,7 @@ def run_postgres_query(
             )
             return run
         run.generated_query = generated.model_dump(mode="json")
-        state = _append_trace(
-            session, run, state, "generate_query", "structured_output_valid"
-        )
+        state = _append_trace(session, run, state, "generate_query", "structured_output_valid")
         try:
             connector = connector_factory(session, datasource, app_settings)
         except (AppError, ConnectorError) as error:
@@ -482,8 +569,7 @@ def run_postgres_query(
                     repairable = error.code in {"query_invalid", "query_timeout"}
                     outcome = (
                         "repairable"
-                        if repairable
-                        and run.repair_count < app_settings.query_max_repair_attempts
+                        if repairable and run.repair_count < app_settings.query_max_repair_attempts
                         else "failed"
                     )
                     if outcome == "failed":
@@ -557,14 +643,14 @@ def run_postgres_query(
                 continue
 
             if state == RuntimeStatus.SELECT_VISUALIZATION:
-                run.visualization_type = "table"
+                run.visualization_type = select_visualization(run.result_json)
                 state = _append_trace(
                     session,
                     run,
                     state,
                     "select_visualization",
                     "config_produced",
-                    details={"visualization_type": "table"},
+                    details={"visualization_type": run.visualization_type},
                 )
                 continue
 

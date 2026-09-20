@@ -7,6 +7,7 @@ TransitionKey = tuple[RuntimeStatus, str]
 TRANSITIONS: dict[TransitionKey, RuntimeStatus] = {
     (RuntimeStatus.RECEIVED, "datasource_ready"): RuntimeStatus.RETRIEVE_CONTEXT,
     (RuntimeStatus.RECEIVED, "unsafe_request"): RuntimeStatus.BLOCKED,
+    (RuntimeStatus.RECEIVED, "out_of_scope"): RuntimeStatus.OUT_OF_SCOPE,
     (RuntimeStatus.RECEIVED, "datasource_unavailable"): RuntimeStatus.FAILED,
     (RuntimeStatus.RETRIEVE_CONTEXT, "context_sufficient"): RuntimeStatus.GENERATE_QUERY,
     (RuntimeStatus.RETRIEVE_CONTEXT, "ambiguous"): RuntimeStatus.CLARIFICATION_REQUIRED,

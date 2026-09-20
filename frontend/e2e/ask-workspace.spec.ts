@@ -38,7 +38,9 @@ test("runs independent Ask requests and remains responsive", async ({ page }, te
     const empty = request.question.toLowerCase().includes("no matching");
     const failed = request.question.toLowerCase().includes("forced failure");
     const repaired = request.question.toLowerCase().includes("repaired result");
-    const outOfScope = request.question.toLowerCase().includes("weather");
+    const outOfScope =
+      request.question.toLowerCase().includes("weather") ||
+      request.question.toLowerCase().includes("model");
     await route.fulfill({
       json: {
         run_id: `run-${runNumber}`,
@@ -123,7 +125,7 @@ test("runs independent Ask requests and remains responsive", async ({ page }, te
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "Request blocked" })).toBeVisible();
 
-  await question.fill("What is the weather today?");
+  await question.fill("bạn đang dùng model gì");
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "Question outside datasource scope" })).toBeVisible();
 

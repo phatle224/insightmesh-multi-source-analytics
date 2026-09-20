@@ -199,7 +199,7 @@ def test_runtime_executes_verified_read_only_query_and_exposes_trace_api() -> No
         assert run.row_count == 4
         assert run.result_json is not None
         assert run.result_json["columns"][1]["name"] == "order_count"
-        assert run.visualization_type == "table"
+        assert run.visualization_type == "bar"
         assert [event["state"] for event in run.trace_json] == [
             "received",
             "retrieve_context",
@@ -307,6 +307,40 @@ def test_runtime_blocks_write_intent_before_provider_or_database_calls() -> None
         assert run.error_code == "unsafe_request_blocked"
         assert provider.embedding_calls == 0
         assert provider.generation_calls == 0
+
+
+def test_runtime_blocks_model_meta_question_before_retrieval() -> None:
+    provider = RuntimeProvider([])
+    with runtime_datasource() as (session, datasource):
+        run = run_postgres_query(
+            session,
+            datasource.id,
+            "Bạn đang dùng model gì?",
+            generation_provider=provider,
+            retrieval_provider=provider,
+        )
+
+        assert run.status == "out_of_scope"
+        assert run.error_code == "question_out_of_scope"
+        assert provider.embedding_calls == 0
+        assert provider.generation_calls == 0
+        assert run.trace_json[-1]["event"] == "question_scope_precheck"
+
+
+def test_runtime_allows_relevant_vietnamese_analytical_question() -> None:
+    provider = RuntimeProvider([_correct_query()])
+    with runtime_datasource() as (session, datasource):
+        run = run_postgres_query(
+            session,
+            datasource.id,
+            "Đếm số đơn hàng theo trạng thái",
+            generation_provider=provider,
+            retrieval_provider=provider,
+        )
+
+        assert run.status == "completed"
+        assert provider.embedding_calls == 1
+        assert provider.generation_calls == 1
 
 
 def test_runtime_requires_new_complete_question_for_ambiguity() -> None:

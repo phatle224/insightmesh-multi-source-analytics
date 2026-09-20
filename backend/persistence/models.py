@@ -258,5 +258,18 @@ class DashboardWidget(TimestampMixin, Base):
     chart_type: Mapped[str] = mapped_column(String(40))
     chart_config: Mapped[JsonObject] = mapped_column(JSONB, default=dict)
     position: Mapped[int] = mapped_column(Integer)
+    source_query_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("query_runs.id", ondelete="SET NULL")
+    )
+    result_json: Mapped[JsonObject | None] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(24), default="ready")
+    row_count: Mapped[int | None] = mapped_column(BigInteger)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    last_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(80))
+    last_error_message: Mapped[str | None] = mapped_column(Text)
 
-    __table_args__ = (UniqueConstraint("dashboard_id", "position"),)
+    __table_args__ = (
+        UniqueConstraint("dashboard_id", "position"),
+        CheckConstraint("status IN ('ready', 'empty', 'stale', 'failed')", name="status"),
+    )

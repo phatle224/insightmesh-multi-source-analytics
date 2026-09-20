@@ -91,6 +91,7 @@ services:
       - ./backend/harness:/app/harness
       - ./backend/query:/app/query
       - ./backend/skills:/app/skills
+      - ./backend/visualization:/app/visualization
       - ./evals:/app/evals:ro
       - ./tests:/app/tests:ro
     depends_on:

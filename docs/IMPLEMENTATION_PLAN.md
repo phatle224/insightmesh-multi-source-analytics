@@ -49,27 +49,27 @@ Implemented artifacts currently present:
 - [x] Deterministic Phase 7 PostgreSQL query runtime, safety, repair, and trace APIs
 - [x] Deterministic datasource relevance guard with terminal `out_of_scope` state
 - [x] Phase 8 Ask workspace with complete-question runs, explicit runtime states, safe trace, and verified result table
+- [x] Phase 9 deterministic visualizations, dashboard persistence, and provider-free widget refresh
 - [ ] Phase 10 result-accuracy and safety evaluation runner
 
-Overall implementation status: **Phase 8 is complete and Docker-verified. The frontend now consumes the deterministic PostgreSQL runtime through independent question runs and exposes clarification, out-of-scope, safety, failure, trace, generated-query, warning, empty, truncated, and verified-result states without making orchestration decisions**.
+Overall implementation status: **Phase 9 is complete and Docker-verified. Completed PostgreSQL results receive deterministic chart compatibility, remain available through an exact-value table, can be saved and managed as dashboard widgets, and refresh from their stored validated query without any LLM call**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 9 — Visualization and Dashboard (next; not started)**
+**Phase 10 — PostgreSQL Evaluation Gate (next; not started)**
 
 ### Current Tasks
 
-- [ ] Select Recharts or ECharts behind a chart adapter and record the decision.
-- [ ] Implement deterministic chart compatibility and selection.
-- [ ] Implement accessible chart views with an exact-value table fallback.
-- [ ] Implement dashboard and widget persistence flows.
-- [ ] Refresh widgets from stored validated queries without an LLM call.
+- [ ] Create PostgreSQL Easy, Medium, Hard, Ambiguous, and Unsafe cases.
+- [ ] Store expected result fixtures independent of SQL string formatting.
+- [ ] Implement the reproducible evaluation runner and datasource-level report.
+- [ ] Measure result accuracy, retrieval, execution, repair, safety, and ambiguity metrics.
 
 ### Next Recommended Task
 
-Begin **Phase 9 — Visualization and Dashboard**. First record the chart-library decision and adapter contract, then implement deterministic compatibility from the existing verified result schema; do not use an LLM for chart selection or dashboard refresh.
+Begin **Phase 10 — PostgreSQL Evaluation Gate** by defining result-based fixtures and report dimensions before implementing the runner.
 
 ### Current Design-System Proposal
 
@@ -107,7 +107,7 @@ These defaults prevent repeated decisions during implementation. Change them her
 | Node dependency management | `npm` with committed lockfile |
 | UI components | Accessible headless components; exact library selected during Phase 3 |
 | Icons | One SVG icon family; Phosphor preferred by the UI skill |
-| Charts | Adapter interface; Recharts versus ECharts remains a Phase 9 decision |
+| Charts | Recharts behind the local deterministic visualization adapter |
 | Application database | PostgreSQL with pgvector |
 | Migrations | Alembic |
 | First demo datasource | Separate PostgreSQL container |
@@ -330,15 +330,15 @@ docker compose ps
 
 ### Phase 9 — Visualization and Dashboard
 
-**Status:** Not started
+**Status:** Complete
 
-- [ ] Select Recharts or ECharts behind a chart adapter and record the decision.
-- [ ] Implement deterministic chart compatibility and selection.
-- [ ] Implement Table, KPI, Bar, Line, Pie/Donut, and Area views.
-- [ ] Provide accessible data table and text summary for every chart.
-- [ ] Implement dashboard creation and widget save/remove/reorder/rename.
-- [ ] Implement widget refresh using stored validated query with no LLM call.
-- [ ] Preserve last successful widget result when refresh fails.
+- [x] Select Recharts or ECharts behind a chart adapter and record the decision.
+- [x] Implement deterministic chart compatibility and selection.
+- [x] Implement Table, KPI, Bar, Line, Pie/Donut, and Area views.
+- [x] Provide accessible data table and text summary for every chart.
+- [x] Implement dashboard creation and widget save/remove/reorder/rename.
+- [x] Implement widget refresh using stored validated query with no LLM call.
+- [x] Preserve last successful widget result when refresh fails.
 
 **Definition of Done:** a completed PostgreSQL result can be visualized, saved, reordered, refreshed without LLM usage, and read through an accessible table fallback.
 
@@ -464,11 +464,14 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-19 | 6 | Live PostgreSQL retrieval benchmark | `docker compose exec backend python -m evals.run_retrieval_benchmark` | Pass; 5 cases, schema selection 100%, entity recall 100%, mean precision 60%, join-path accuracy 100% |
 | 2026-09-20 | 7 | Deterministic runtime, static skills, SQLGlot policy, EXPLAIN, read-only execution, verification, bounded repair, and trace APIs | Docker Compose Pytest, Ruff, strict Mypy, Alembic check, and foundation smoke | Pass; 25 tests, 55 files type-checked, validation and execution failures repair deterministically, repair stops at two attempts, no pending migration operations |
 | 2026-09-20 | 7 | Live Gemini/PostgreSQL runtime acceptance | Live `POST /api/v1/query-runs` for unsafe, ambiguous, out-of-scope, simple success, plus all five Phase 6 benchmark questions | Pass; unsafe and out-of-scope requests stop before generation/database execution, ambiguity returned three complete questions, simple query and 5/5 benchmark questions completed with AST + EXPLAIN validation and read-only execution |
-| 2026-09-20 | 7 | Datasource relevance guard | Backend Pytest, Ruff, strict Mypy, and live `POST /api/v1/query-runs` with “What is the weather today?” | Pass; `out_of_scope` with `question_out_of_scope`, no generated query, no execution |
+| 2026-09-20 | 7 | Datasource relevance guard | Backend Pytest, Ruff, strict Mypy, and live `POST /api/v1/query-runs` with weather, model-meta, and valid Vietnamese analytical questions | Pass; model-meta request stops at one precheck trace event with no generated query/result; valid Vietnamese aggregation completes without repair |
 | 2026-09-20 | 8 | Ask workspace, typed query-run client, all runtime states, independent clarification, generated SQL, safe trace, and accessible verified results | Docker Compose frontend lint, strict type-check, unit/component tests, and production build | Pass; 15 tests, `/ask` production route built, empty/truncated/warning/null states covered |
 | 2026-09-20 | 8 | Browser acceptance and responsive review | `docker compose --profile test run --rm e2e`; screenshots at 375, 768, and 1440 px | Pass; blocked, clarification-as-new-request, success, repaired/truncated, empty, and execution-failure states verified with no horizontal page overflow |
+| 2026-09-20 | 9 | Deterministic chart selection, stored-query widget refresh, and stale snapshot preservation | Docker Compose Pytest, Ruff, strict Mypy, Alembic check | Pass; 30 backend tests, revision `b8d2e41c730a`, no pending migration operations |
+| 2026-09-20 | 9 | Recharts adapter, six result views, dashboard CRUD interactions, and exact table fallback | Docker Compose frontend lint, strict type-check, Vitest, and production build | Pass; 19 frontend tests and all dashboard routes built |
+| 2026-09-20 | 9 | Dashboard browser flow and responsive review | `docker compose --profile test run --rm e2e` | Pass; 3 browser flows, including create/reorder/refresh and 375/1440 px overflow checks |
 
-Current limitations: development images only; deterministic chart selection, dashboards, MySQL/MongoDB, and the Phase 10 result/safety evaluation runner are not implemented. Phase 7 deliberately returns `table` as the only visualization placeholder until Phase 9. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Retrieval currently favors recall (100% on the five-case benchmark) over precision (60%). Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; MySQL/MongoDB and the Phase 10 result/safety evaluation runner are not implemented. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. Retrieval currently favors recall (100% on the five-case benchmark) over precision (60%). Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 
