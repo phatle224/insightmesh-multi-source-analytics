@@ -254,7 +254,12 @@ Never display prompts, model chain-of-thought, credentials, raw database excepti
 - Preserve null as a visible null marker, not an empty string.
 - Format decimals, currency, dates, and percentages for display without changing underlying values.
 - Show returned row count, truncation state, execution duration, and warnings.
-- Pagination is client-side only for already returned bounded rows; it must not imply that all database rows were loaded.
+- Client-side pagination:
+  - Bounded row slicing: Slices `result.rows` client-side so large results (such as the 1,000-row query limit) do not render all DOM rows simultaneously or create unconstrained page scrolling.
+  - Page size: Defaults to 10 rows per page, with selectable page sizes: 10, 25, 50, and 100.
+  - Pagination toolbar: Shows current row range (`Showing X–Y of Z returned rows`), rows-per-page selector, and accessible navigation controls (`Previous`, `Page X of Y`, `Next`) that disable at boundary pages, along with a compact page indicator and quick navigation in the table header.
+  - State reset: Active page resets to 1 whenever a new query result is provided or when the page size changes.
+  - Truncation clarity: Pagination operates strictly on already returned bounded rows; it must not imply that all remote database rows were loaded. Truncation notices remain visible alongside row counts.
 - Empty result is a successful empty state, not an error.
 
 ### 6.7 Visualization
