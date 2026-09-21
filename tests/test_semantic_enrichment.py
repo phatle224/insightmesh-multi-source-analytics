@@ -9,7 +9,13 @@ from sqlalchemy import delete, func, select
 
 from api.main import app
 from persistence.database import SessionLocal
-from persistence.models import Datasource, Embedding, MetricCandidate, SemanticTerm
+from persistence.models import (
+    Datasource,
+    Embedding,
+    MetricCandidate,
+    SemanticManifest,
+    SemanticTerm,
+)
 from semantic.provider import (
     FallbackProvider,
     GeminiProvider,
@@ -219,6 +225,50 @@ def test_refresh_builds_semantic_index_without_pii_values(monkeypatch: Any) -> N
     assert refresh_response.status_code == 200, refresh_response.text
     assert len(provider.requests) == first_request_count
 
+    manifest_response = client.get(f"/api/v1/datasources/{detail['id']}/semantic-manifest")
+    assert manifest_response.status_code == 200, manifest_response.text
+    manifest = manifest_response.json()
+    assert manifest["version"] == 1
+    assert manifest["configuration"]["generation_provider"] == "gemini"
+    assert manifest["configuration"]["generation_model"] == "gemini-2.5-flash"
+    assert manifest["configuration"]["skill_versions"] == {
+        "query-generation": "v1",
+        "query-repair": "v1",
+    }
+    assert len(manifest["metadata_hash"]) == 64
+    assert len(manifest["profile_hash"]) == 64
+    customer_manifest = next(
+        entity for entity in manifest["entities"] if entity["name"] == "customers"
+    )
+    customer_name_manifest = next(
+        field for field in customer_manifest["fields"] if field["name"] == "customer_name"
+    )
+    assert customer_name_manifest["profile"] == {
+        "excluded": True,
+        "exclusion_reason": "possible_pii",
+    }
+    assert customer_manifest["embedding_artifact_id"]
+    serialized_manifest = json.dumps(manifest)
+    assert "Acme Retail" not in serialized_manifest
+    manifest_keys: set[str] = set()
+
+    def collect_keys(value: object) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                manifest_keys.add(str(key))
+                collect_keys(item)
+        elif isinstance(value, list):
+            for item in value:
+                collect_keys(item)
+
+    collect_keys(manifest)
+    assert {"embedding", "content", "encrypted_payload"}.isdisjoint(manifest_keys)
+    assert all(
+        relationship["provenance"] == "declared"
+        and relationship["generation_eligible"] is True
+        for relationship in manifest["relationships"]
+    )
+
     with SessionLocal() as session:
         datasource = session.scalar(select(Datasource).where(Datasource.name == name))
         assert datasource is not None
@@ -237,5 +287,27 @@ def test_refresh_builds_semantic_index_without_pii_values(monkeypatch: Any) -> N
                 MetricCandidate.datasource_id == datasource.id
             )
         )
+        assert session.scalar(
+            select(func.count()).select_from(SemanticManifest).where(
+                SemanticManifest.datasource_id == datasource.id
+            )
+        ) == 1
+        term = session.scalar(
+            select(SemanticTerm).where(SemanticTerm.datasource_id == datasource.id).limit(1)
+        )
+        assert term is not None
+        term.description = f"{term.description} (reviewed)"
+        second_manifest = datasource_service.create_semantic_manifest_snapshot(
+            session, datasource
+        )
+        session.commit()
+        assert second_manifest.version == 2
+        manifests = session.scalars(
+            select(SemanticManifest)
+            .where(SemanticManifest.datasource_id == datasource.id)
+            .order_by(SemanticManifest.version)
+        ).all()
+        assert [item.version for item in manifests] == [1, 2]
+        assert manifests[0].manifest_hash != manifests[1].manifest_hash
         session.execute(delete(Datasource).where(Datasource.id == datasource.id))
         session.commit()

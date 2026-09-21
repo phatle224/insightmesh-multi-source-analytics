@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     retrieval_max_entities: int = Field(8, ge=1, le=20)
     retrieval_max_fields_per_entity: int = Field(24, ge=1, le=100)
     retrieval_max_relationship_hops: int = Field(3, ge=1, le=6)
+    relationship_inferred_min_confidence: float = Field(0.8, ge=0, le=1)
     query_max_repair_attempts: int = Field(2, ge=0, le=2)
 
     @field_validator("credential_encryption_key")

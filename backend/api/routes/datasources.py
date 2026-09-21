@@ -11,9 +11,11 @@ from api.schemas.datasources import (
     DatasourceSummary,
     OnboardingStatusResponse,
     PostgreSQLConnectionInput,
+    SemanticManifestResponse,
 )
 from persistence.database import get_session
 from services import datasources as service
+from services import semantic_manifests
 
 router = APIRouter(prefix="/api/v1/datasources", tags=["datasources"])
 SessionDependency = Annotated[Session, Depends(get_session)]
@@ -54,3 +56,10 @@ def get_onboarding_status(
     datasource_id: UUID, session: SessionDependency
 ) -> OnboardingStatusResponse:
     return service.onboarding_status(session, datasource_id)
+
+
+@router.get("/{datasource_id}/semantic-manifest", response_model=SemanticManifestResponse)
+def get_semantic_manifest(
+    datasource_id: UUID, session: SessionDependency
+) -> SemanticManifestResponse:
+    return semantic_manifests.get_latest_semantic_manifest(session, datasource_id)

@@ -29,6 +29,12 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
   await expect(refresh).toBeEnabled();
   await expect(page.getByText("Fields profiled locally")).toBeVisible();
   await expect(page.getByText(/Searchable|API key required/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Semantic manifest" })).toBeVisible();
+  await expect(page.getByText("Version and configuration")).toBeVisible();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/semantic-manifest-v\d+\.json$/);
   await page.locator("summary").filter({ hasText: "public.customers" }).click();
   await expect(page.getByText("Excluded by privacy policy")).toBeVisible();
 

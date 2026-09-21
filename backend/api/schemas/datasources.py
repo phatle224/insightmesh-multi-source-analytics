@@ -127,3 +127,91 @@ class OnboardingStatusResponse(BaseModel):
     relationship_count: int
     last_refreshed_at: datetime | None
     last_error_code: str | None
+
+
+class SemanticManifestTerm(BaseModel):
+    id: UUID
+    term: str
+    description: str | None
+    confidence: float
+    source: str
+
+
+class SemanticManifestMetric(BaseModel):
+    id: UUID
+    name: str
+    expression: str
+    description: str | None
+    confidence: float
+    source: str
+    verified: bool
+
+
+class SemanticManifestField(BaseModel):
+    id: UUID
+    name: str
+    native_type: str
+    normalized_type: str
+    nullable: bool
+    ordinal: int
+    primary_key: bool
+    unique: bool
+    description: str | None
+    profile: dict[str, object] | None
+    profile_sample_size: int | None
+    profile_excluded: bool
+    semantic_terms: list[SemanticManifestTerm]
+
+
+class SemanticManifestEntity(BaseModel):
+    id: UUID
+    schema_name: str
+    name: str
+    entity_type: str
+    description: str | None
+    semantic_terms: list[SemanticManifestTerm]
+    metrics: list[SemanticManifestMetric]
+    embedding_artifact_id: UUID | None
+    fields: list[SemanticManifestField]
+
+
+class SemanticManifestRelationship(BaseModel):
+    id: UUID
+    source: str
+    target: str
+    source_field: str | None
+    target_field: str | None
+    relationship_type: str
+    provenance: Literal["declared", "inferred"]
+    confidence: float
+    evidence: list[str]
+    generation_eligible: bool
+
+
+class SemanticManifestConfiguration(BaseModel):
+    model_config_version: str
+    retrieval_config_version: str
+    generation_provider: str
+    generation_model: str
+    fallback_provider: str
+    fallback_model: str
+    embedding_model: str
+    embedding_dimensions: int
+    relationship_inferred_min_confidence: float
+    privacy_policy_version: str
+    skill_versions: dict[str, str]
+
+
+class SemanticManifestResponse(BaseModel):
+    manifest_id: UUID
+    datasource_id: UUID
+    datasource_name: str
+    datasource_type: str
+    version: int
+    manifest_hash: str
+    metadata_hash: str
+    profile_hash: str
+    configuration: SemanticManifestConfiguration
+    entities: list[SemanticManifestEntity]
+    relationships: list[SemanticManifestRelationship]
+    created_at: datetime

@@ -210,6 +210,31 @@ class Embedding(Base):
     __table_args__ = (UniqueConstraint("datasource_id", "object_type", "object_id"),)
 
 
+class SemanticManifest(Base):
+    __tablename__ = "semantic_manifests"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    datasource_id: Mapped[UUID] = mapped_column(ForeignKey("datasources.id", ondelete="CASCADE"))
+    version: Mapped[int] = mapped_column(Integer)
+    manifest_hash: Mapped[str] = mapped_column(String(64))
+    metadata_hash: Mapped[str] = mapped_column(String(64))
+    profile_hash: Mapped[str] = mapped_column(String(64))
+    configuration_json: Mapped[JsonObject] = mapped_column(JSONB)
+    manifest_json: Mapped[JsonObject] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "datasource_id", "version", name="uq_semantic_manifests_datasource_version"
+        ),
+        UniqueConstraint(
+            "datasource_id", "manifest_hash", name="uq_semantic_manifests_datasource_hash"
+        ),
+        CheckConstraint("version > 0", name="version"),
+        Index("ix_semantic_manifests_datasource_created", "datasource_id", "created_at"),
+    )
+
+
 class QueryRun(Base):
     __tablename__ = "query_runs"
 

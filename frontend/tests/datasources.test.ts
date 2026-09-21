@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createDatasource,
+  getSemanticManifest,
   testDatasourceConnection,
   type DatasourceConnectionInput,
   type DatasourceCreateInput,
@@ -68,5 +69,21 @@ describe("datasource API", () => {
     await createDatasource(payload);
 
     expect(fetcher.mock.calls[0]?.[1]?.body).toContain('"name":"Docker demo"');
+  });
+
+  it("loads the latest semantic manifest from the datasource boundary", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ manifest_id: "manifest-1", version: 2 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(getSemanticManifest("source-1")).resolves.toMatchObject({ version: 2 });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/v1/datasources/source-1/semantic-manifest",
+      expect.any(Object),
+    );
   });
 });

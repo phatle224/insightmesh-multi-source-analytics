@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiErrorNotice } from "@/components/api-error-notice";
 import { useDatasources } from "@/components/datasource-provider";
 import { PageHeader } from "@/components/page-header";
+import { SemanticManifestPanel } from "@/components/semantic-manifest-panel";
 import { SourceStatus } from "@/components/source-status";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -146,6 +147,7 @@ export function DatasourceDetailWorkspace({ id }: { id: string }) {
           {source.relationships.length ? <ul className="mt-4 space-y-3">{source.relationships.map((relationship) => <li key={relationship.id} className="rounded-md border border-border bg-background p-3 text-sm"><p className="font-mono text-xs text-primary">{relationship.source}</p><p className="my-1 text-muted-foreground">references</p><p className="font-mono text-xs text-text">{relationship.target}</p></li>)}</ul> : <p className="mt-4 text-sm text-muted-foreground">No foreign keys were discovered.</p>}
         </Card>
       </div>
+      <SemanticManifestPanel key={source.updated_at} datasourceId={source.id} />
     </div>
   );
 }

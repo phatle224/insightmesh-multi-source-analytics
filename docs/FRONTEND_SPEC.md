@@ -160,6 +160,12 @@ alone: `API key required`, `Indexing`, `Searchable`, `Stale index retained`, or
 `Index unavailable`. A missing provider key must not hide successfully completed
 local profiling or make the datasource appear unusable.
 
+The implemented semantic-manifest card loads the latest immutable version without
+blocking the rest of datasource detail. It shows entity/field/term/metric/relationship
+counts first, places hashes and provider configuration behind keyboard-accessible
+progressive disclosure, and exports the already-sanitized API payload as a versioned
+JSON file. Export is client-side and must not add hidden fields or refetch raw data.
+
 The detail page provides Table and Relationship Graph views. The graph supports
 keyboard entity selection and join-path highlighting and always has an equivalent
 table/list representation. Low-confidence inferred relationships remain inspectable

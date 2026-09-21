@@ -449,6 +449,22 @@ its metadata/profile/configuration hashes. Relationship entries distinguish
 evidence. Low-confidence inferred edges are visible for inspection but excluded from
 query-generation context.
 
+Implementation contract:
+
+- `semantic_manifests` stores immutable JSONB snapshots keyed by datasource/version
+  and a deterministic content hash;
+- a successful metadata refresh creates a snapshot, while the first read lazily
+  backfills one for compatible datasources created before this table existed;
+- equivalent refreshes reuse the existing version because trace-only artifact UUIDs
+  do not participate in the semantic content hash;
+- snapshots contain normalized entities/fields, privacy-filtered derived profiles,
+  semantic terms, metric candidates, relationship provenance, artifact IDs, and
+  provider/model/retrieval/skill/privacy-policy versions;
+- embedding vectors/content, credentials, raw rows, profiling samples, and raw PII
+  are excluded from both storage and the response;
+- the default inferred-relationship generation threshold is `0.8` and is recorded in
+  every snapshot rather than treated as an unversioned constant.
+
 - Passwords/URIs are write-only and never returned.
 - Test connection does not persist credentials.
 - Create starts onboarding and returns a datasource plus status.
@@ -613,6 +629,7 @@ The following decisions are intentionally not made by the PRD and must not be gu
 - production secret-manager integration and credential-key rotation policy;
 - authentication and multi-user workspace model;
 - deployment target and production secret manager;
-- exact semantic-confidence threshold;
+- exact general semantic-enrichment confidence threshold (the inferred-relationship
+  generation threshold is implemented and versioned separately);
 - exact profiling sample size, Top-K, timeout, and row-limit defaults;
 - final visual design system, pending the user-provided UI skill/reference.

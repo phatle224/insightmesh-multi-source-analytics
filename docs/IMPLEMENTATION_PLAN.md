@@ -52,8 +52,9 @@ Implemented artifacts currently present:
 - [x] Phase 9 deterministic visualizations, dashboard persistence, and provider-free widget refresh
 - [x] Phase 10 PostgreSQL evaluation, adversarial guardrails, and hybrid-retrieval quality gate
 - [~] Phase 11 query history and semantic explainability
+- [x] Immutable privacy-safe semantic manifests with deterministic versioning and JSON export
 
-Overall implementation status: **Phase 11 is in progress. Cursor-paginated query history, safe retained-run inspection, filters, and independent rerun are Docker-verified; semantic manifest and relationship explainability are next. Phase 10 remains complete with 100% result/status/execution/safety/scope/ambiguity accuracy on 20 PostgreSQL cases and hybrid retrieval precision of 65.38% versus 46.92% vector-only**.
+Overall implementation status: **Phase 11 is in progress. Cursor-paginated query history and privacy-safe versioned semantic manifests are Docker-verified; the accessible relationship graph and expanded relationship/trace explainability are next. Phase 10 remains complete with 100% result/status/execution/safety/scope/ambiguity accuracy on 20 PostgreSQL cases and hybrid retrieval precision of 65.38% versus 46.92% vector-only**.
 
 ## 3. Current Focus
 
@@ -64,14 +65,14 @@ Overall implementation status: **Phase 11 is in progress. Cursor-paginated query
 ### Current Tasks
 
 - [x] Add paginated/filterable query-run history API and `/history` UI; rerun always creates a new independent request.
-- [ ] Expose a versioned semantic manifest without raw rows, credentials, or raw PII.
+- [x] Expose a versioned semantic manifest without raw rows, credentials, embedding vectors, or raw PII, with client-side JSON export.
 - [ ] Add an accessible datasource relationship graph with table/list fallback and join-path highlighting.
 - [ ] Add relationship provenance/confidence and expanded safe trace evidence.
 - [ ] Implement retrieval-context caching only if the Phase 10 latency/provider evidence justifies it.
 
 ### Next Recommended Task
 
-Continue **Phase 11 — Query History and Semantic Explainability** with the privacy-safe, versioned semantic-manifest API before building the relationship graph.
+Continue **Phase 11 — Query History and Semantic Explainability** with the accessible datasource relationship graph, table/list fallback, and join-path highlighting.
 
 ### Current Design-System Proposal
 
@@ -365,7 +366,7 @@ docker compose ps
 **Status:** In progress
 
 - [x] Add paginated/filterable query-run history API and `/history` UI; rerun always creates a new independent request.
-- [ ] Expose a versioned semantic manifest containing normalized entities, fields, relationships, profile summaries, terms, metrics, hashes, and configuration versions without raw rows or secrets.
+- [x] Expose a versioned semantic manifest containing normalized entities, fields, relationships, privacy-filtered profile summaries, terms, metrics, artifact IDs, hashes, and configuration versions without raw rows, embedding vectors, PII, or secrets.
 - [ ] Add an accessible datasource relationship graph with a table/list fallback and join-path highlighting.
 - [ ] Mark relationships as database-declared or inferred; inferred edges include confidence and evidence and are excluded from generation below the configured threshold.
 - [ ] Extend safe traces with per-state duration, provider/model identity, fallback usage, provider-call count, retrieval counts/scores, repair count, and validation category.
@@ -494,8 +495,9 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-21 | 10 | Hybrid retrieval regression against the original Phase 6 fixture | `docker compose exec backend python -m evals.run_retrieval_benchmark` | Pass; fixture selects its named Docker demo datasource deterministically; 5/5 schema selections and join paths, 100% entity recall, 76.67% mean precision |
 | 2026-09-21 | 10 | Hybrid retrieval, normalized/obfuscated safety precheck, CTE/alias-aware SQL validation, and evaluation regression tests | Docker Compose Pytest plus targeted Ruff and strict Mypy | Pass; 37 tests; changed-file quality checks clean |
 | 2026-09-21 | 11 | Cursor-paginated/filterable query history API, safe retained-run details, and independent rerun | Docker Compose backend Pytest plus changed-file Ruff/strict Mypy and Alembic check; frontend ESLint/TypeScript/Vitest/build; full Playwright suite | Pass; 38 backend tests, 23 frontend tests, production `/history` route, 4 browser flows, and responsive 375/1440 px history checks |
+| 2026-09-21 | 11 | Immutable versioned semantic-manifest persistence/API, privacy-safe artifact contract, datasource-detail summary, and JSON export | Docker Compose migration/Alembic check, 38 backend tests, changed-file Ruff and strict Mypy; frontend ESLint/TypeScript, 26 Vitest tests, production build; live API probe; Playwright run sequentially | Pass; unchanged refreshes deduplicate by stable content hash, semantic changes create a new immutable version, excluded PII and embedding vectors/content stay out of the manifest; live Docker demo returns v1 with 6 entities/4 relationships and Gemini 2.5 Flash configuration; all 4 browser flows pass including versioned export and responsive source detail |
 
-Current limitations: development images only; MySQL/MongoDB are not implemented. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 40–60-case cross-datasource suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Semantic-manifest inspection and the relationship graph remain in Phase 11. Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; MySQL/MongoDB are not implemented. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 40–60-case cross-datasource suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. The relationship graph and expanded relationship/trace explainability remain in Phase 11. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

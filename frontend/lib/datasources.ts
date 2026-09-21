@@ -89,6 +89,80 @@ export interface DatasourceDetail extends DatasourceSummary {
   relationships: DatasourceRelationship[];
 }
 
+export interface SemanticManifestTerm {
+  id: string;
+  term: string;
+  description: string | null;
+  confidence: number;
+  source: string;
+}
+
+export interface SemanticManifestMetric {
+  id: string;
+  name: string;
+  expression: string;
+  description: string | null;
+  confidence: number;
+  source: string;
+  verified: boolean;
+}
+
+export interface SemanticManifestField extends DatasourceField {
+  semantic_terms: SemanticManifestTerm[];
+}
+
+export interface SemanticManifestEntity {
+  id: string;
+  schema_name: string;
+  name: string;
+  entity_type: string;
+  description: string | null;
+  semantic_terms: SemanticManifestTerm[];
+  metrics: SemanticManifestMetric[];
+  embedding_artifact_id: string | null;
+  fields: SemanticManifestField[];
+}
+
+export interface SemanticManifestRelationship {
+  id: string;
+  source: string;
+  target: string;
+  source_field: string | null;
+  target_field: string | null;
+  relationship_type: string;
+  provenance: "declared" | "inferred";
+  confidence: number;
+  evidence: string[];
+  generation_eligible: boolean;
+}
+
+export interface SemanticManifest {
+  manifest_id: string;
+  datasource_id: string;
+  datasource_name: string;
+  datasource_type: string;
+  version: number;
+  manifest_hash: string;
+  metadata_hash: string;
+  profile_hash: string;
+  configuration: {
+    model_config_version: string;
+    retrieval_config_version: string;
+    generation_provider: string;
+    generation_model: string;
+    fallback_provider: string;
+    fallback_model: string;
+    embedding_model: string;
+    embedding_dimensions: number;
+    relationship_inferred_min_confidence: number;
+    privacy_policy_version: string;
+    skill_versions: Record<string, string>;
+  };
+  entities: SemanticManifestEntity[];
+  relationships: SemanticManifestRelationship[];
+  created_at: string;
+}
+
 export const listDatasources = () => apiRequest<DatasourceSummary[]>("/api/v1/datasources");
 
 export function testDatasourceConnection(payload: DatasourceConnectionInput) {
@@ -111,3 +185,5 @@ export const activateDatasource = (id: string) =>
   apiRequest<DatasourceDetail>(`/api/v1/datasources/${id}/activate`, { method: "POST" });
 export const refreshDatasource = (id: string) =>
   apiRequest<DatasourceDetail>(`/api/v1/datasources/${id}/refresh`, { method: "POST" });
+export const getSemanticManifest = (id: string) =>
+  apiRequest<SemanticManifest>(`/api/v1/datasources/${id}/semantic-manifest`);

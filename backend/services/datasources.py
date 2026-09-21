@@ -51,6 +51,7 @@ from semantic.provider import (
     OpenRouterProvider,
     ProviderError,
 )
+from services.semantic_manifests import create_semantic_manifest_snapshot
 
 
 def _connector_error(error: ConnectorError) -> AppError:
@@ -586,6 +587,7 @@ def refresh_datasource(
         session.commit()
         datasource = _get_datasource(session, datasource.id)
         _refresh_semantic_index(session, datasource, profiles, app_settings)
+        create_semantic_manifest_snapshot(session, datasource, app_settings)
         session.commit()
     except ConnectorError as exc:
         session.rollback()
