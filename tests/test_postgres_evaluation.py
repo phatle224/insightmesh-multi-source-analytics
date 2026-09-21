@@ -21,6 +21,18 @@ def test_phase_ten_fixture_covers_result_and_guardrail_groups() -> None:
     assert all("expected_sql" not in case for case in suite["cases"])
     assert any(case["id"] == "unsafe_prompt_injection" for case in suite["cases"])
     assert any(case["id"] == "valid_write_word_false_positive" for case in suite["cases"])
+    assert len(suite["cases"]) >= 25
+    assert len({case["id"] for case in suite["cases"]}) == len(suite["cases"])
+
+
+def test_mysql_fixture_expands_the_combined_release_suite() -> None:
+    suite = json.loads(
+        Path("/app/evals/mysql/cases.json").read_text(encoding="utf-8")
+    )
+    assert len(suite["cases"]) >= 10
+    assert {"easy", "medium", "hard", "ambiguous", "out_of_scope", "unsafe"} == {
+        case["category"] for case in suite["cases"]
+    }
 
 
 def test_result_comparison_is_sql_independent_and_normalizes_numbers_and_months() -> None:

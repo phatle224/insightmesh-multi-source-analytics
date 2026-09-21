@@ -40,6 +40,51 @@
       "expected_result": {"kind": "rows", "order_sensitive": false, "rows": [["Central", 161], ["North", 382], ["South", 203], ["West", 269]]}
     },
     {
+      "id": "mysql_easy_product_count",
+      "category": "easy",
+      "question": "How many products are there?",
+      "expected_status": "completed",
+      "expected_entities": ["insightmesh_demo.products"],
+      "expected_relationships": [],
+      "expected_result": {"kind": "scalar", "value": 6}
+    },
+    {
+      "id": "mysql_easy_completed_order_count",
+      "category": "easy",
+      "question": "How many completed orders are there?",
+      "expected_status": "completed",
+      "expected_entities": ["insightmesh_demo.orders"],
+      "expected_relationships": [],
+      "expected_result": {"kind": "scalar", "value": 5}
+    },
+    {
+      "id": "mysql_medium_average_price_by_category",
+      "category": "medium",
+      "question": "Average catalog product price by category",
+      "expected_status": "completed",
+      "expected_entities": ["insightmesh_demo.products", "insightmesh_demo.categories"],
+      "expected_relationships": [["insightmesh_demo.products", "insightmesh_demo.categories"]],
+      "expected_result": {"kind": "rows", "order_sensitive": false, "rows": [["Electronics", 64], ["Home", 46.5], ["Outdoors", 63.5]]}
+    },
+    {
+      "id": "mysql_medium_pending_orders_by_region",
+      "category": "medium",
+      "question": "Count pending orders by customer region",
+      "expected_status": "completed",
+      "expected_entities": ["insightmesh_demo.orders", "insightmesh_demo.customers"],
+      "expected_relationships": [["insightmesh_demo.orders", "insightmesh_demo.customers"]],
+      "expected_result": {"kind": "rows", "order_sensitive": false, "rows": [["South", 1]]}
+    },
+    {
+      "id": "mysql_hard_top_products_completed_revenue",
+      "category": "hard",
+      "question": "Top 3 products by revenue from completed orders",
+      "expected_status": "completed",
+      "expected_entities": ["insightmesh_demo.products", "insightmesh_demo.order_items", "insightmesh_demo.orders"],
+      "expected_relationships": [["insightmesh_demo.products", "insightmesh_demo.order_items"], ["insightmesh_demo.order_items", "insightmesh_demo.orders"]],
+      "expected_result": {"kind": "rows", "order_sensitive": false, "rows": [["Daypack", 285], ["Wireless Keyboard", 237], ["Insulated Bottle", 160]]}
+    },
+    {
       "id": "mysql_ambiguous_customer_ranking",
       "category": "ambiguous",
       "question": "Who are the top customers?",

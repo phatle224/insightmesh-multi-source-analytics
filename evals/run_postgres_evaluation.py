@@ -13,6 +13,8 @@ from time import perf_counter
 from typing import Any, Literal
 from uuid import UUID
 
+from sqlalchemy import select
+
 from api.settings import Settings, get_settings
 from harness.runtime import run_query
 from persistence.database import SessionLocal
@@ -20,7 +22,6 @@ from persistence.models import Datasource, Embedding, Entity, QueryRun, Relation
 from semantic.provider import LLMProvider, StructuredGenerationRequest
 from services.datasources import build_embedding_provider, build_semantic_provider
 from skills.registry import get_skill
-from sqlalchemy import select
 
 DEFAULT_FIXTURE = Path("/app/evals/postgres/cases.json")
 DEFAULT_REPORT = Path("/app/evals/reports/postgres-latest.json")
@@ -328,6 +329,11 @@ def _summarize(strategy: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
                 len(result_items),
             ),
         }
+    difficulty_results = {
+        category: category_results[category]
+        for category in ("easy", "medium", "hard")
+        if category in category_results
+    }
     return {
         "strategy": strategy,
         "case_count": len(cases),
@@ -394,6 +400,7 @@ def _summarize(strategy: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
             "p95": _percentile([item["latency_ms"] for item in cases], 0.95),
         },
         "by_category": category_results,
+        "by_difficulty": difficulty_results,
         "cases": cases,
     }
 
@@ -467,6 +474,7 @@ def main(
     default_fixture: Path = DEFAULT_FIXTURE,
     default_report: Path = DEFAULT_REPORT,
     default_source_type: str = "postgresql",
+    argv: list[str] | None = None,
 ) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture", type=Path, default=default_fixture)
@@ -480,7 +488,7 @@ def main(
     parser.add_argument(
         "--strategy", choices=("vector", "hybrid", "both"), default="both"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     suite = _load_suite(args.fixture)
     settings = get_settings()
     strategies: list[Literal["vector", "hybrid"]] = (

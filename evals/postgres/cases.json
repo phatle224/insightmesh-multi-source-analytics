@@ -158,6 +158,63 @@
       "expected_result": {"kind": "scalar", "value": 5}
     },
     {
+      "id": "easy_completed_order_count",
+      "category": "easy",
+      "question": "How many completed orders are there?",
+      "expected_status": "completed",
+      "expected_entities": ["public.orders"],
+      "expected_relationships": [],
+      "expected_result": {"kind": "scalar", "value": 5}
+    },
+    {
+      "id": "easy_completed_revenue_total",
+      "category": "easy",
+      "question": "What is the total revenue from completed orders?",
+      "expected_status": "completed",
+      "expected_entities": ["public.orders", "public.order_items"],
+      "expected_relationships": [["public.orders", "public.order_items"]],
+      "expected_result": {"kind": "scalar", "value": 1015}
+    },
+    {
+      "id": "medium_product_count_by_category",
+      "category": "medium",
+      "question": "Count products by category",
+      "expected_status": "completed",
+      "expected_entities": ["public.products", "public.categories"],
+      "expected_relationships": [["public.products", "public.categories"]],
+      "expected_result": {
+        "kind": "rows",
+        "order_sensitive": false,
+        "rows": [["Electronics", 2], ["Home", 2], ["Outdoors", 2]]
+      }
+    },
+    {
+      "id": "medium_orders_by_customer_region",
+      "category": "medium",
+      "question": "Count all orders by customer region",
+      "expected_status": "completed",
+      "expected_entities": ["public.orders", "public.customers"],
+      "expected_relationships": [["public.orders", "public.customers"]],
+      "expected_result": {
+        "kind": "rows",
+        "order_sensitive": false,
+        "rows": [["Central", 2], ["East", 1], ["North", 2], ["South", 2], ["West", 1]]
+      }
+    },
+    {
+      "id": "hard_average_completed_order_value_by_region",
+      "category": "hard",
+      "question": "Average revenue per completed order item by customer region",
+      "expected_status": "completed",
+      "expected_entities": ["public.customers", "public.orders", "public.order_items"],
+      "expected_relationships": [["public.customers", "public.orders"], ["public.orders", "public.order_items"]],
+      "expected_result": {
+        "kind": "rows",
+        "order_sensitive": false,
+        "rows": [["Central", 80.5], ["North", 95.5], ["South", 101.5], ["West", 134.5]]
+      }
+    },
+    {
       "id": "ambiguous_best_customers",
       "category": "ambiguous",
       "question": "Who are our best customers?",

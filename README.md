@@ -54,6 +54,9 @@ docker compose exec backend python -m evals.run_retrieval_benchmark
 docker compose --profile mysql up -d demo-mysql
 docker compose exec backend python -m evals.run_mysql_evaluation --strategy hybrid
 
+# Run the 37-case PostgreSQL + MySQL release evaluation and write combined metrics
+docker compose exec backend python -m evals.run_combined_evaluation --strategy hybrid
+
 # Safe to repeat; does not drop data
 docker compose run --rm migrate
 docker compose exec demo-postgres sh /docker-entrypoint-initdb.d/001-demo.sh
@@ -86,6 +89,12 @@ PostgreSQL demo connection inside Compose: host `demo-postgres`, port `5432`, da
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
 Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. `POST /api/v1/query-runs` selects PostgreSQL or MySQL deterministically and runs through fixed states; `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. The frontend exposes datasource onboarding, semantic-index status, complete independent question runs, clarification choices, out-of-scope/blocked/failed states, generated SQL, safe traces, verified paginated result tables, and dashboard management.
+
+The combined evaluation expects ready semantic indexes for the named Docker demo
+datasources (`Docker demo store` and `Docker demo MySQL store`). It writes separate
+reports plus `evals/reports/combined-latest.json`, including per-datasource,
+per-difficulty, and overall metrics. Reports are generated artifacts and are ignored
+by Git.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 

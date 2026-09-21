@@ -34,3 +34,14 @@ docker compose exec backend python -m evals.run_mysql_evaluation --strategy hybr
 
 The runner writes `evals/reports/mysql-latest.json`; PostgreSQL and MySQL metrics
 remain separate so a strong result on one engine cannot hide regressions on the other.
+
+The Phase 13 release runner executes the 37-case combined suite with one selected
+strategy and writes both datasource reports plus a combined report:
+
+```powershell
+docker compose exec backend python -m evals.run_combined_evaluation --strategy hybrid
+```
+
+`combined-latest.json` contains per-datasource, per-difficulty, and overall result,
+status, retrieval, and execution metrics. Use `--postgres-name` or `--mysql-name`
+when the local datasource names differ from the Docker demo defaults.
