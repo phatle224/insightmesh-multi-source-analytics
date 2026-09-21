@@ -1,4 +1,4 @@
-"""Structured PostgreSQL generation and repair using static skill assets."""
+"""Structured SQL generation and repair using static dialect-specific assets."""
 
 from typing import Any
 
@@ -16,9 +16,9 @@ class GeneratedSQL(BaseModel):
     expected_columns: list[str] = Field(max_length=50)
 
 
-def _context_payload(context: RetrievalResponse) -> dict[str, Any]:
+def _context_payload(context: RetrievalResponse, dialect: str) -> dict[str, Any]:
     return {
-        "datasource_type": "postgresql",
+        "datasource_type": dialect,
         "entities": [
             {
                 "schema": entity.schema_name,
@@ -52,7 +52,7 @@ def generate_postgres_sql(
     response = provider.generate_structured(
         StructuredGenerationRequest(
             system_prompt=skill.instructions,
-            user_payload={"question": question, "context": _context_payload(context)},
+            user_payload={"question": question, "context": _context_payload(context, "postgresql")},
             schema_name="postgresql_query_generation",
             json_schema=GeneratedSQL.model_json_schema(),
         )
@@ -74,12 +74,53 @@ def repair_postgres_sql(
             system_prompt=skill.instructions,
             user_payload={
                 "question": question,
-                "context": _context_payload(context),
+                "context": _context_payload(context, "postgresql"),
                 "previous_sql": previous_sql,
                 "error_code": error_code,
                 "validation_issues": issues,
             },
             schema_name="postgresql_query_repair",
+            json_schema=GeneratedSQL.model_json_schema(),
+        )
+    )
+    return GeneratedSQL.model_validate(response)
+
+
+def generate_mysql_sql(
+    provider: LLMProvider, question: str, context: RetrievalResponse
+) -> GeneratedSQL:
+    skill = get_skill("mysql-query-generation")
+    response = provider.generate_structured(
+        StructuredGenerationRequest(
+            system_prompt=skill.instructions,
+            user_payload={"question": question, "context": _context_payload(context, "mysql")},
+            schema_name="mysql_query_generation",
+            json_schema=GeneratedSQL.model_json_schema(),
+        )
+    )
+    return GeneratedSQL.model_validate(response)
+
+
+def repair_mysql_sql(
+    provider: LLMProvider,
+    question: str,
+    context: RetrievalResponse,
+    previous_sql: str,
+    error_code: str,
+    issues: list[str],
+) -> GeneratedSQL:
+    skill = get_skill("mysql-query-repair")
+    response = provider.generate_structured(
+        StructuredGenerationRequest(
+            system_prompt=skill.instructions,
+            user_payload={
+                "question": question,
+                "context": _context_payload(context, "mysql"),
+                "previous_sql": previous_sql,
+                "error_code": error_code,
+                "validation_issues": issues,
+            },
+            schema_name="mysql_query_repair",
             json_schema=GeneratedSQL.model_json_schema(),
         )
     )

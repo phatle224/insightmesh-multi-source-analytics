@@ -18,8 +18,9 @@ import {
   type SslMode,
 } from "@/lib/datasources";
 
-const initialValues: DatasourceCreateInput = {
-  name: "Docker demo store",
+const presets: Record<DatasourceCreateInput["source_type"], DatasourceCreateInput> = {
+  postgresql: {
+  name: "Docker demo PostgreSQL store",
   source_type: "postgresql",
   host: "demo-postgres",
   port: 5432,
@@ -28,7 +29,21 @@ const initialValues: DatasourceCreateInput = {
   password: "",
   ssl_mode: "disable",
   allowed_schemas: ["public"],
+  },
+  mysql: {
+    name: "Docker demo MySQL store",
+    source_type: "mysql",
+    host: "demo-mysql",
+    port: 3306,
+    database: "insightmesh_demo",
+    username: "demo_reader",
+    password: "",
+    ssl_mode: "disable",
+    allowed_schemas: ["insightmesh_demo"],
+  },
 };
+
+const initialValues = presets.postgresql;
 
 function fingerprint(values: DatasourceCreateInput) {
   return JSON.stringify(values);
@@ -76,7 +91,8 @@ export function DatasourceForm() {
       };
       const result = await testDatasourceConnection(connection);
       setTestedFingerprint(fingerprint(values));
-      setTestSummary(`Connected to ${result.database}. PostgreSQL ${result.server_version}. Read-only transaction confirmed.`);
+      const engine = values.source_type === "mysql" ? "MySQL" : "PostgreSQL";
+      setTestSummary(`Connected to ${result.database}. ${engine} ${result.server_version}. Read-only transaction confirmed.`);
     } catch (reason) {
       setTestedFingerprint(null);
       setError(errorMessage(reason));
@@ -108,7 +124,7 @@ export function DatasourceForm() {
       <Link href="/sources" className="inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-primary hover:text-primary-hover">
         <ArrowLeftIcon size={18} aria-hidden /> Back to sources
       </Link>
-      <PageHeader eyebrow="Datasource onboarding" title="Add PostgreSQL source" description="Test access first, then save encrypted credentials and discover schema metadata." />
+      <PageHeader eyebrow="Datasource onboarding" title="Add SQL source" description="Choose PostgreSQL or MySQL, test access, then save encrypted credentials and discover metadata." />
       <form onSubmit={handleSubmit} className="space-y-5">
         {error ? (
           <div ref={errorRef} tabIndex={-1} role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
@@ -126,16 +142,25 @@ export function DatasourceForm() {
             <div><h2 className="font-semibold text-text">Read-only connection</h2><p className="mt-1 text-sm text-muted-foreground">Use a database account with SELECT-only permissions. Passwords are encrypted and never returned by the API.</p></div>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
+            <SelectField label="Database engine" name="source_type" value={values.source_type} onChange={(event) => {
+              const sourceType = event.target.value as DatasourceCreateInput["source_type"];
+              setValues({ ...presets[sourceType], password: values.password });
+              setTestedFingerprint(null);
+              setTestSummary(null);
+              setError(null);
+            }}>
+              <option value="postgresql">PostgreSQL</option><option value="mysql">MySQL 8+</option>
+            </SelectField>
             <FormField label="Connection name" name="name" required value={values.name} onChange={(event) => setField("name", event.target.value)} />
-            <FormField label="Host" name="host" required value={values.host} onChange={(event) => setField("host", event.target.value)} hint="Use demo-postgres for the Docker demo." />
+            <FormField label="Host" name="host" required value={values.host} onChange={(event) => setField("host", event.target.value)} hint={`Use ${values.source_type === "mysql" ? "demo-mysql" : "demo-postgres"} for the Docker demo.`} />
             <FormField label="Port" name="port" type="number" min={1} max={65535} required value={values.port} onChange={(event) => setField("port", Number(event.target.value))} />
             <FormField label="Database" name="database" required value={values.database} onChange={(event) => setField("database", event.target.value)} />
             <FormField label="Username" name="username" autoComplete="username" required value={values.username} onChange={(event) => setField("username", event.target.value)} />
             <FormField label="Password" name="password" type="password" autoComplete="new-password" required value={values.password} onChange={(event) => setField("password", event.target.value)} hint="For the demo, use DEMO_READER_PASSWORD from your local .env." />
             <SelectField label="SSL mode" name="ssl_mode" value={values.ssl_mode} onChange={(event) => setField("ssl_mode", event.target.value as SslMode)}>
-              <option value="disable">Disable (local Docker only)</option><option value="prefer">Prefer</option><option value="require">Require</option><option value="verify-ca">Verify CA</option><option value="verify-full">Verify full</option>
+              <option value="disable">Disable (local Docker only)</option><option value="prefer">Prefer</option><option value="require">Require</option>{values.source_type === "postgresql" ? <><option value="verify-ca">Verify CA</option><option value="verify-full">Verify full</option></> : null}
             </SelectField>
-            <FormField label="Allowed schemas" name="allowed_schemas" required value={values.allowed_schemas.join(", ")} onChange={(event) => setField("allowed_schemas", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} hint="Comma-separated PostgreSQL schemas. Queries outside this list are blocked." />
+            <FormField label={values.source_type === "mysql" ? "Allowed databases" : "Allowed schemas"} name="allowed_schemas" required value={values.allowed_schemas.join(", ")} onChange={(event) => setField("allowed_schemas", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} hint={`Comma-separated ${values.source_type === "mysql" ? "MySQL databases" : "PostgreSQL schemas"}. Queries outside this list are blocked.`} />
           </div>
         </Card>
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

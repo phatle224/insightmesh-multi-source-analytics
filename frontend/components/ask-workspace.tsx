@@ -53,12 +53,12 @@ export const RUN_STATUS_PRESENTATION: Record<QueryRunStatus, StatusPresentation>
   },
   generate_query: {
     label: "Generating a read-only query",
-    description: "Creating PostgreSQL SQL from the retrieved context.",
+    description: "Creating dialect-specific SQL from the retrieved context.",
     tone: "neutral",
   },
   validate_query: {
     label: "Checking query safety",
-    description: "Applying AST policy and PostgreSQL EXPLAIN validation.",
+    description: "Applying AST policy and database-native EXPLAIN validation.",
     tone: "neutral",
   },
   execute_query: {
@@ -329,7 +329,7 @@ export function AskWorkspace() {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active source</p>
           <p className="truncate font-semibold text-text">{activeSource.name}</p>
           <p className="truncate text-xs text-muted-foreground">
-            PostgreSQL · {activeSource.database_name} · semantic index {activeSource.semantic_status}
+            {activeSource.source_type === "mysql" ? "MySQL" : "PostgreSQL"} · {activeSource.database_name} · semantic index {activeSource.semantic_status}
           </p>
         </div>
         <StatusPill>{canRun ? "Ready to query" : "Query unavailable"}</StatusPill>

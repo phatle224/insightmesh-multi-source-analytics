@@ -54,26 +54,26 @@ Implemented artifacts currently present:
 - [x] Phase 11 query history and semantic explainability
 - [x] Immutable privacy-safe semantic manifests with deterministic versioning and JSON export
 
-Overall implementation status: **Phase 11 is complete. Query history, privacy-safe versioned semantic manifests, relationship explainability, and expanded safe traces are Docker-verified. Retrieval-context caching was deliberately deferred because Phase 10 contains no repeated-question hit-rate or material embedding-cost evidence that justifies cache invalidation complexity. Phase 12 MySQL expansion is next**.
+Overall implementation status: **Phase 12 is complete. PostgreSQL and MySQL now share the normalized metadata, deterministic runtime, safety, visualization, dashboard, and UI contracts. MySQL has its own Docker profile, seed, dialect assets, connector tests, acceptance coverage, and evaluation report path. Phase 13 full evaluation and portfolio readiness is next**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 11 — Query History and Semantic Explainability (complete)**
+**Phase 12 — MySQL Expansion (complete)**
 
 ### Current Tasks
 
-- [x] Add paginated/filterable query-run history API and `/history` UI; rerun always creates a new independent request.
-- [x] Expose a versioned semantic manifest without raw rows, credentials, embedding vectors, or raw PII, with client-side JSON export.
-- [x] Add an accessible datasource relationship graph with table/list fallback and generation-eligible join-path highlighting.
-- [x] Add relationship provenance/confidence, privacy-safe evidence, and threshold-based generation eligibility.
-- [x] Extend safe traces with per-state/provider/retrieval/validation evidence and privacy-safe progressive disclosure in Ask/History.
-- [x] Evaluate retrieval-context caching against Phase 10 evidence; defer it because no repeated-question hit rate or material embedding-cost saving was measured.
+- [x] Add the profiled `demo-mysql` service and reproducible e-commerce seed.
+- [x] Add connector capability flags, shared conformance coverage, and a MySQL connector.
+- [x] Add MySQL introspection, privacy-safe local profiling, AST validation, `EXPLAIN`, timeout/row limits, and read-only execution.
+- [x] Select PostgreSQL/MySQL generation, repair, and validation deterministically from datasource type.
+- [x] Reuse onboarding, semantic manifest, retrieval, query result pagination, visualization, dashboard, history, and trace UI contracts.
+- [x] Add a separate MySQL benchmark fixture, runner entrypoint, and report destination.
 
 ### Next Recommended Task
 
-Start **Phase 12 — MySQL Expansion** with the Docker demo service/seed, connector capability flags, and reusable connector conformance suite before implementing MySQL query generation.
+Start **Phase 13 — Full Evaluation and Portfolio Readiness** by expanding the combined benchmark to 30–50 cases, generating measured per-datasource results, then completing security, accessibility, clean-clone, and portfolio evidence gates.
 
 ### Current Design-System Proposal
 
@@ -377,13 +377,13 @@ docker compose ps
 
 ### Phase 12 — MySQL Expansion
 
-**Status:** Not started
+**Status:** Complete
 
-- [ ] Add `demo-mysql` Compose profile and reproducible seed data.
-- [ ] Define connector capability flags and a reusable connector conformance suite, then implement the MySQL connector contract.
-- [ ] Implement MySQL introspection, profiling, dialect generation, `EXPLAIN`, validation, and read-only execution.
-- [ ] Reuse runtime, normalized metadata, UI, chart, and dashboard contracts.
-- [ ] Add MySQL benchmark cases and report breakdown.
+- [x] Add `demo-mysql` Compose profile and reproducible seed data.
+- [x] Define connector capability flags and a reusable connector conformance suite, then implement the MySQL connector contract.
+- [x] Implement MySQL introspection, profiling, dialect generation, `EXPLAIN`, validation, and read-only execution.
+- [x] Reuse runtime, normalized metadata, UI, chart, and dashboard contracts.
+- [x] Add MySQL benchmark cases and report breakdown.
 
 **Definition of Done:** MySQL acceptance scenarios pass without PostgreSQL regressions, and evaluation reports MySQL separately.
 
@@ -485,8 +485,9 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-21 | 11 | Accessible relationship map, deterministic shortest generation-eligible join path, provenance/confidence/evidence contract, and query-result pagination regression | Docker Compose rebuild/health check; 38 backend tests; changed-file Ruff, strict Mypy, and Alembic check; frontend ESLint, TypeScript, 29 Vitest tests, and production build; live datasource-detail API probe; `docker compose --profile test run --rm e2e npx playwright test --workers=1` | Pass; Docker services healthy and migration exited 0; 21 backend files type-checked and no migration drift detected; declared edge returned confidence 1.0, privacy-safe FK evidence, and generation eligibility; all 4 browser flows pass, including relationship path/list fallback and responsive overflow checks; pagination tests remain green |
 | 2026-09-21 | 11 | Expanded privacy-safe traces, persisted provider-call count, fallback/retrieval/validation evidence, and accessible progressive disclosure | Docker Compose rebuild and revision `d4a71f93c820`; 39 backend tests; changed-file Ruff, strict Mypy, and Alembic check; frontend ESLint, TypeScript, 29 Vitest tests, production build, and visual review; sequential Playwright suite; live query/trace API probe | Pass; all seven successful-run transitions include duration; live run records two provider calls, Gemini 2.5 Flash, no fallback, valid validation category, and no forbidden prompt/credential/vector payload; fallback path is covered deterministically; all 4 browser flows pass. Retrieval caching was reviewed and deferred because Phase 10 has no repeat-hit or material cost-saving evidence |
 | 2026-09-21 | Scope | V1 datasource scope reduced to PostgreSQL and MySQL only | Cross-document search across PRD, technical design, frontend spec, implementation tracker, README, demo notes, and design system | Pass; MongoDB implementation phase, connector/query/safety/UI requirements, demo dataset, acceptance scenario, evaluation column, and portfolio claims removed; explicit non-goal retained to prevent scope drift |
+| 2026-09-21 | Phase 12 | MySQL expansion: profiled Docker seed, capability contract, connector, dialect runtime, UI, safety, dashboard refresh, and separate evaluation path | `docker compose --profile mysql up -d demo-mysql`; backend pytest/mypy/Ruff; frontend lint/unit/build | Pass; 46 backend tests and 29 frontend tests passed, MySQL integration ran against the real container, and the production frontend build passed |
 
-Current limitations: development images only; MySQL is not implemented yet, and MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 30–50-case PostgreSQL/MySQL suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Retrieval-context caching is deferred pending measured repeat-hit and cost evidence. Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The PostgreSQL and MySQL fixtures are not yet the final combined 30–50-case release suite, and the MySQL report still needs a live Phase 13 provider run before portfolio metrics are claimed. No live PostgreSQL case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Retrieval-context caching is deferred pending measured repeat-hit and cost evidence. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

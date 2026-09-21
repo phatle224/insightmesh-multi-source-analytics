@@ -100,7 +100,7 @@ export function QueryRunDetails({ run, trace }: { run: QueryRun; trace: QueryTra
       <Card className="min-w-0 overflow-hidden">
         <details>
           <summary className="flex min-h-12 items-center gap-2 px-4 py-3 font-semibold text-text transition-colors hover:bg-muted/55">
-            <CodeIcon size={19} aria-hidden /> Generated PostgreSQL
+            <CodeIcon size={19} aria-hidden /> Generated {run.query_type === "mysql" ? "MySQL" : "PostgreSQL"}
           </summary>
           <div className="border-t border-border p-4">
             {run.generated_query ? (

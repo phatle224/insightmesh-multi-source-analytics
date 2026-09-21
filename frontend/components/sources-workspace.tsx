@@ -75,10 +75,10 @@ export function SourcesWorkspace() {
         <EmptyState
           icon={<DatabaseIcon size={24} weight="duotone" />}
           title="No data sources yet"
-          description="Add the Docker demo PostgreSQL database or another read-only PostgreSQL connection."
+          description="Add a Docker demo or another read-only PostgreSQL or MySQL connection."
           action={
             <Button asChild>
-              <Link href="/sources/new">Add PostgreSQL source</Link>
+              <Link href="/sources/new">Add SQL source</Link>
             </Button>
           }
         />
@@ -90,7 +90,7 @@ export function SourcesWorkspace() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                    PostgreSQL
+                    {source.source_type === "mysql" ? "MySQL" : "PostgreSQL"}
                   </p>
                   <h2 className="mt-1 truncate text-lg font-semibold text-text">{source.name}</h2>
                 </div>

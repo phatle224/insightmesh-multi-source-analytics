@@ -1,7 +1,7 @@
 # InsightMesh Technical Design
 
 **Status:** Implementation baseline  
-**Scope:** V1 — independent questions, one active datasource, PostgreSQL-first  
+**Scope:** V1 — independent questions, one active datasource, PostgreSQL and MySQL  
 **Product requirements:** `docs/InsightMesh_PRD.md`  
 **Frontend behavior:** `docs/FRONTEND_SPEC.md`
 
@@ -20,7 +20,7 @@ When a required decision is absent or contradictory, mark it `TBD` and request a
 
 ## 2. Fixed V1 Boundaries
 
-- Build and validate one PostgreSQL vertical slice before MySQL.
+- PostgreSQL established the connector/runtime vertical slice; MySQL now reuses the validated contracts.
 - Supported V1 datasource types are PostgreSQL and MySQL only. MongoDB and other
   non-SQL connectors are out of scope and must not be added to the roadmap or runtime.
 - One datasource is active per workspace/session. No cross-datasource joins or federation.
@@ -77,7 +77,7 @@ No module may bypass the connector abstraction to execute an analytical query. A
 
 ```python
 class DataSourceConnector(Protocol):
-    def capabilities(self) -> ConnectorCapabilities: ...
+    capabilities: ConnectorCapabilities
     def test_connection(self) -> ConnectionTestResult: ...
     def introspect(self) -> RawDataSourceMetadata: ...
     def profile(

@@ -1,3 +1,3 @@
 # Demo datasources
 
-The current Docker demo provisions PostgreSQL with a synthetic e-commerce dataset and a read-only role. MySQL is the second and final planned V1 datasource and will be added after the PostgreSQL quality gate. MongoDB is intentionally out of scope.
+The Docker demo provisions equivalent PostgreSQL and MySQL synthetic e-commerce datasets with SELECT-only reader roles. PostgreSQL starts with the default stack; MySQL is opt-in through `docker compose --profile mysql up -d demo-mysql`. MongoDB is intentionally out of scope.

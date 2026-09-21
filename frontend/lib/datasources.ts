@@ -4,7 +4,7 @@ export type DatasourceStatus = "draft" | "testing" | "introspecting" | "ready" |
 export type SslMode = "disable" | "prefer" | "require" | "verify-ca" | "verify-full";
 
 export interface DatasourceConnectionInput {
-  source_type: "postgresql";
+  source_type: "postgresql" | "mysql";
   host: string;
   port: number;
   database: string;

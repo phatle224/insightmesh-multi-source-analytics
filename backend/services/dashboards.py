@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 from time import perf_counter
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -15,11 +16,11 @@ from api.settings import Settings, get_settings
 from connectors.base import ConnectorError, DataSourceConnector, QueryLimits
 from persistence.models import Dashboard, DashboardWidget, Datasource, Entity, Field, QueryRun
 from query.result_verifier import verify_result
-from query.sql_validator import validate_postgres_sql
+from query.sql_validator import validate_mysql_sql, validate_postgres_sql
 from services.datasources import build_datasource_connector
 from visualization.selection import build_chart_config, compatible_chart_types
 
-ConnectorFactory = Callable[[Session, Datasource, Settings], DataSourceConnector]
+ConnectorFactory = Callable[[Session, Datasource, Settings], Any]
 
 
 def _dashboard(session: Session, dashboard_id: UUID) -> Dashboard:
@@ -240,7 +241,10 @@ def refresh_widget(
         generated_sql = str(widget.validated_query.get("sql", ""))
         expected = widget.validated_query.get("expected_columns", [])
         expected_columns = [str(value) for value in expected] if isinstance(expected, list) else []
-        validation = validate_postgres_sql(
+        validator = (
+            validate_mysql_sql if datasource.source_type == "mysql" else validate_postgres_sql
+        )
+        validation = validator(
             generated_sql,
             _validation_entities(session, datasource.id),
             set(datasource.allowed_schemas),

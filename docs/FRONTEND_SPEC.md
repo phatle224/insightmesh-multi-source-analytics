@@ -114,6 +114,7 @@ Only `ready` sources expose Activate. Refresh shows progress and preserves the l
 PostgreSQL/MySQL fields:
 
 ```text
+Database Engine
 Connection Name
 Host
 Port
@@ -121,14 +122,16 @@ Database
 Username
 Password
 SSL
+Allowed Schemas (PostgreSQL) / Allowed Databases (MySQL)
 ```
 
 Form behavior:
 
-1. Test Connection validates transport/authentication without saving.
-2. Save Connection is enabled only after a successful test for the unchanged form values.
-3. Saving starts onboarding and navigates to the datasource detail/status page.
-4. Password values are never redisplayed after save.
+1. Choosing the database engine applies editable Docker-demo defaults for that engine.
+2. Test Connection validates transport/authentication without saving.
+3. Save Connection is enabled only after a successful test for the unchanged form values.
+4. Saving starts onboarding and navigates to the datasource detail/status page.
+5. Password values are never redisplayed after save.
 
 Errors distinguish connection refused, authentication failure, permission failure, timeout, and unsupported configuration without exposing driver secrets.
 

@@ -15,6 +15,8 @@ class SkillAsset:
 _SKILL_PATHS = {
     "query-generation": Path(__file__).parent / "query-generation" / "SKILL.md",
     "query-repair": Path(__file__).parent / "query-repair" / "SKILL.md",
+    "mysql-query-generation": Path(__file__).parent / "mysql-query-generation" / "SKILL.md",
+    "mysql-query-repair": Path(__file__).parent / "mysql-query-repair" / "SKILL.md",
 }
 
 

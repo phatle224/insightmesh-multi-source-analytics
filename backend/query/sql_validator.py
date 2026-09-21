@@ -1,4 +1,4 @@
-"""Deterministic PostgreSQL AST policy backed by SQLGlot."""
+"""Deterministic PostgreSQL/MySQL AST policy backed by SQLGlot."""
 
 from dataclasses import dataclass
 
@@ -48,6 +48,11 @@ DISALLOWED_FUNCTIONS = {
     "pg_terminate_backend",
     "set_config",
     "setval",
+    "benchmark",
+    "get_lock",
+    "load_file",
+    "release_lock",
+    "sleep",
 }
 
 
@@ -64,13 +69,16 @@ def _invalid(code: str, issue: str, *, unsafe: bool = False) -> SQLValidationRes
     return SQLValidationResult(False, unsafe, code, (issue,))
 
 
-def validate_postgres_sql(
+def _validate_sql(
     sql: str,
     entities: list[RetrievedEntity],
     allowed_schemas: set[str],
+    *,
+    read_dialect: str,
+    output_dialect: str,
 ) -> SQLValidationResult:
     try:
-        statements = [item for item in parse(sql, read="postgres") if item is not None]
+        statements = [item for item in parse(sql, read=read_dialect) if item is not None]
     except ParseError:
         return _invalid("sql_parse_failed", "SQL could not be parsed")
     if len(statements) != 1:
@@ -90,9 +98,7 @@ def validate_postgres_sql(
                 unsafe=True,
             )
         if isinstance(node, exp.Func):
-            function_name = (
-                node.name if isinstance(node, exp.Anonymous) else node.key
-            ).lower()
+            function_name = (node.name if isinstance(node, exp.Anonymous) else node.key).lower()
             if function_name in DISALLOWED_FUNCTIONS or function_name.startswith(
                 ("dblink", "pg_advisory_")
             ):
@@ -110,9 +116,7 @@ def validate_postgres_sql(
         entities_by_name.setdefault(entity.name.lower(), []).append(entity)
     cte_fields = {
         cte.alias_or_name.lower(): {
-            item.alias_or_name.lower()
-            for item in cte.this.selects
-            if item.alias_or_name
+            item.alias_or_name.lower() for item in cte.this.selects if item.alias_or_name
         }
         for cte in statement.find_all(exp.CTE)
     }
@@ -163,11 +167,7 @@ def validate_postgres_sql(
         for table, entity in real_tables
     }
     available_fields = set().union(*alias_fields.values(), *alias_fields_for_ctes.values())
-    projection_aliases = {
-        item.alias.lower()
-        for item in statement.selects
-        if item.alias
-    }
+    projection_aliases = {item.alias.lower() for item in statement.selects if item.alias}
     for column in statement.find_all(exp.Column):
         name = column.name.lower()
         if name == "*":
@@ -180,7 +180,7 @@ def validate_postgres_sql(
             if name not in cte_available_fields:
                 return _invalid(
                     "unknown_column",
-                    f"SQL references an unavailable CTE column: {column.sql(dialect='postgres')}",
+                    f"SQL references an unavailable CTE column: {column.sql(dialect=read_dialect)}",
                 )
             continue
         if qualifier:
@@ -188,7 +188,7 @@ def validate_postgres_sql(
             if qualified_fields is None or name not in qualified_fields:
                 return _invalid(
                     "unknown_column",
-                    f"SQL references an unavailable column: {column.sql(dialect='postgres')}",
+                    f"SQL references an unavailable column: {column.sql(dialect=read_dialect)}",
                 )
         elif name not in available_fields and name not in projection_aliases:
             return _invalid(
@@ -203,7 +203,35 @@ def validate_postgres_sql(
         issues=(),
         query=ValidatedNativeQuery(
             text=sql.strip(),
-            dialect="postgresql",
+            dialect=output_dialect,
             referenced_schemas=frozenset(referenced_schemas),
         ),
+    )
+
+
+def validate_postgres_sql(
+    sql: str,
+    entities: list[RetrievedEntity],
+    allowed_schemas: set[str],
+) -> SQLValidationResult:
+    return _validate_sql(
+        sql,
+        entities,
+        allowed_schemas,
+        read_dialect="postgres",
+        output_dialect="postgresql",
+    )
+
+
+def validate_mysql_sql(
+    sql: str,
+    entities: list[RetrievedEntity],
+    allowed_schemas: set[str],
+) -> SQLValidationResult:
+    return _validate_sql(
+        sql,
+        entities,
+        allowed_schemas,
+        read_dialect="mysql",
+        output_dialect="mysql",
     )

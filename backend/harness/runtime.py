@@ -1,4 +1,4 @@
-"""Synchronous deterministic V1 runtime for the PostgreSQL vertical slice."""
+"""Synchronous deterministic V1 runtime for supported SQL datasources."""
 
 import re
 import unicodedata
@@ -18,9 +18,15 @@ from harness.state import TERMINAL_STATES, RuntimeStatus
 from harness.trace import trace_event
 from harness.transitions import transition
 from persistence.models import Datasource, QueryRun
-from query.generation import GeneratedSQL, generate_postgres_sql, repair_postgres_sql
+from query.generation import (
+    GeneratedSQL,
+    generate_mysql_sql,
+    generate_postgres_sql,
+    repair_mysql_sql,
+    repair_postgres_sql,
+)
 from query.result_verifier import verify_result
-from query.sql_validator import SQLValidationResult, validate_postgres_sql
+from query.sql_validator import SQLValidationResult, validate_mysql_sql, validate_postgres_sql
 from semantic.provider import LLMProvider, ProviderError
 from services.datasources import build_datasource_connector, build_semantic_provider
 from services.retrieval import retrieve_context
@@ -221,8 +227,7 @@ def _is_out_of_scope(question: str, context: RetrievalResponse, minimum_similari
     semantic_scores = [
         entity.semantic_score
         for entity in context.entities
-        if entity.selection_source != "relationship_expansion"
-        and entity.semantic_score is not None
+        if entity.selection_source != "relationship_expansion" and entity.semantic_score is not None
     ]
     vocabulary: set[str] = set()
     for entity in context.entities:
@@ -287,9 +292,7 @@ def _provider_details(
     details: dict[str, object] = {
         "provider": settings.llm_provider,
         "model": (
-            settings.gemini_model
-            if settings.llm_provider == "gemini"
-            else settings.llm_model
+            settings.gemini_model if settings.llm_provider == "gemini" else settings.llm_model
         ),
         "fallback_used": fallback_used,
         "provider_call_count": measured_calls or logical_call_count,
@@ -308,7 +311,7 @@ def _record_provider_usage(run: QueryRun, details: dict[str, object]) -> None:
         details["provider_call_count"] = run.provider_call_count
 
 
-def run_postgres_query(
+def run_query(
     session: Session,
     datasource_id: UUID,
     question: str,
@@ -339,7 +342,7 @@ def run_postgres_query(
     session.commit()
     state = RuntimeStatus.RECEIVED
 
-    if datasource.status != "ready" or datasource.source_type != "postgresql":
+    if datasource.status != "ready" or datasource.source_type not in {"postgresql", "mysql"}:
         _fail(
             session,
             run,
@@ -347,7 +350,7 @@ def run_postgres_query(
             "datasource_unavailable",
             "resolve_datasource",
             "datasource_unavailable",
-            "The selected PostgreSQL datasource is not ready",
+            "The selected SQL datasource is not ready or is not supported",
             duration_ms=_elapsed_ms(state_started),
         )
         return run
@@ -473,12 +476,10 @@ def run_postgres_query(
         details={
             "entity_count": len(context.entities),
             "direct_entity_count": sum(
-                item.selection_source != "relationship_expansion"
-                for item in context.entities
+                item.selection_source != "relationship_expansion" for item in context.entities
             ),
             "expanded_entity_count": sum(
-                item.selection_source == "relationship_expansion"
-                for item in context.entities
+                item.selection_source == "relationship_expansion" for item in context.entities
             ),
             "relationship_count": len(context.relationships),
             "retrieval_strategy": context.strategy,
@@ -515,6 +516,13 @@ def run_postgres_query(
         )
         return run
 
+    generate_sql = (
+        generate_mysql_sql if datasource.source_type == "mysql" else generate_postgres_sql
+    )
+    repair_sql = repair_mysql_sql if datasource.source_type == "mysql" else repair_postgres_sql
+    validate_sql = (
+        validate_mysql_sql if datasource.source_type == "mysql" else validate_postgres_sql
+    )
     connector: DataSourceConnector | None = None
     execution_result: QueryResult | None = None
     generated: GeneratedSQL
@@ -526,7 +534,7 @@ def run_postgres_query(
         _, fallback_calls_before = _provider_counters(provider)
         logical_generation_calls += 1
         try:
-            generated = generate_postgres_sql(provider, question, context)
+            generated = generate_sql(provider, question, context)
         except (ProviderError, ValidationError) as error:
             provider_details = _provider_details(
                 provider,
@@ -593,7 +601,7 @@ def run_postgres_query(
         while state not in TERMINAL_STATES:
             state_started = perf_counter()
             if state == RuntimeStatus.VALIDATE_QUERY:
-                validation = validate_postgres_sql(
+                validation = validate_sql(
                     generated.sql,
                     context.entities,
                     set(datasource.allowed_schemas),
@@ -636,9 +644,7 @@ def run_postgres_query(
                             "The query could not be validated within the repair limit",
                             duration_ms=_elapsed_ms(state_started),
                             details={
-                                "validation_category": _validation_category(
-                                    validation, False
-                                ),
+                                "validation_category": _validation_category(validation, False),
                                 "repair_count": run.repair_count,
                                 "provider_call_count": run.provider_call_count,
                             },
@@ -698,7 +704,7 @@ def run_postgres_query(
                             outcome,
                             "explain_query",
                             error.code,
-                            "PostgreSQL could not validate the query within the repair limit",
+                            "The datasource could not validate the query within the repair limit",
                             duration_ms=_elapsed_ms(state_started),
                             details={
                                 "validation_category": "database_explain",
@@ -743,7 +749,7 @@ def run_postgres_query(
                 _, fallback_calls_before = _provider_counters(provider)
                 logical_generation_calls += 1
                 try:
-                    generated = repair_postgres_sql(
+                    generated = repair_sql(
                         provider,
                         question,
                         context,
@@ -951,6 +957,16 @@ def run_postgres_query(
         if owns_generation_provider:
             provider.close()
     return run
+
+
+def run_postgres_query(
+    session: Session,
+    datasource_id: UUID,
+    question: str,
+    **kwargs: object,
+) -> QueryRun:
+    """Backward-compatible entry point retained for existing integrations."""
+    return run_query(session, datasource_id, question, **kwargs)  # type: ignore[arg-type]
 
 
 def _query_limits(settings: Settings) -> QueryLimits:

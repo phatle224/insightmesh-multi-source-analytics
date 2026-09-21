@@ -1,6 +1,6 @@
 # InsightMesh
 
-Natural-language analytics for PostgreSQL and MySQL. PostgreSQL is the implemented vertical slice; MySQL is the planned second and final V1 datasource. MongoDB is intentionally out of scope. The Docker foundation, PostgreSQL onboarding, privacy-bounded semantic index/retrieval, deterministic query runtime, responsive Ask workspace, dashboards, evaluation, query history, and semantic manifests are implemented with SQLGlot safety, read-only execution, bounded repair, datasource relevance guardrails, result verification, generated SQL, and safe traces.
+Natural-language analytics for PostgreSQL and MySQL. Both V1 datasource paths are implemented; MongoDB is intentionally out of scope. The Docker foundation, datasource onboarding, privacy-bounded semantic index/retrieval, dialect-aware deterministic query runtime, responsive Ask workspace, dashboards, evaluation, query history, and semantic manifests use SQLGlot safety, read-only execution, bounded repair, datasource relevance guardrails, result verification, inspectable SQL, and safe traces.
 
 ## Local development
 
@@ -27,8 +27,9 @@ Only frontend and backend bind to localhost. Database services have no host port
 |---|---|
 | `metadata-db` | PostgreSQL 16 + pgvector, named volume |
 | `demo-postgres` | Separate PostgreSQL demo database, named volume |
+| `demo-mysql` | Optional MySQL 8 demo database under the `mysql` profile, named volume |
 | `migrate` | One-shot Alembic upgrade; exits successfully before backend starts |
-| `backend` | FastAPI application, datasource/query APIs, deterministic runtime, PostgreSQL connector, and persistence layer |
+| `backend` | FastAPI application, datasource/query APIs, deterministic runtime, PostgreSQL/MySQL connectors, and persistence layer |
 | `frontend` | Next.js/Tailwind Sources and Ask experiences, typed API client, and responsive product routes |
 | `e2e` | One-shot Playwright browser test under the optional `test` profile |
 
@@ -48,6 +49,10 @@ docker compose run --rm migrate alembic check
 
 # Live PostgreSQL schema-selection and join-path retrieval benchmark
 docker compose exec backend python -m evals.run_retrieval_benchmark
+
+# Start and evaluate the optional MySQL demo path
+docker compose --profile mysql up -d demo-mysql
+docker compose exec backend python -m evals.run_mysql_evaluation --strategy hybrid
 
 # Safe to repeat; does not drop data
 docker compose run --rm migrate
@@ -70,7 +75,7 @@ docker compose down
 
 Lockfiles are generated in Docker and must be committed. Builds use `uv sync --frozen` and `npm ci`. Base-image tags receive upstream updates; package versions are locked but image digests are not pinned yet.
 
-Demo connection inside Compose: host `demo-postgres`, port `5432`, database `insightmesh_demo`, user `demo_reader`; password comes from `DEMO_READER_PASSWORD`. The synthetic e-commerce schema contains customers, products, categories, orders, and order items. The reader has SELECT grants only, and both connector tests and the smoke check verify write denial.
+PostgreSQL demo connection inside Compose: host `demo-postgres`, port `5432`, database `insightmesh_demo`, user `demo_reader`. MySQL uses host `demo-mysql`, port `3306`, and allowed database `insightmesh_demo`. Both use the password from `DEMO_READER_PASSWORD`, contain equivalent synthetic e-commerce data, and grant the reader SELECT only.
 
 ## Progress and specifications
 
@@ -80,7 +85,7 @@ Demo connection inside Compose: host `demo-postgres`, port `5432`, database `ins
 - [Frontend specification](docs/FRONTEND_SPEC.md)
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
-Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. `POST /api/v1/query-runs` runs the PostgreSQL path synchronously through deterministic states and `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. The frontend exposes datasource onboarding, semantic-index status, complete independent question runs, clarification choices, out-of-scope/blocked/failed states, generated SQL, safe traces, and verified result tables. Visualizations and dashboard management begin in Phase 9; Settings remains a later-phase surface.
+Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. `POST /api/v1/query-runs` selects PostgreSQL or MySQL deterministically and runs through fixed states; `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. The frontend exposes datasource onboarding, semantic-index status, complete independent question runs, clarification choices, out-of-scope/blocked/failed states, generated SQL, safe traces, verified paginated result tables, and dashboard management.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 

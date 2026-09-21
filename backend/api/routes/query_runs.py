@@ -18,7 +18,7 @@ from api.schemas.query_runs import (
     QueryTraceResponse,
     query_run_response,
 )
-from harness.runtime import run_postgres_query
+from harness.runtime import run_query
 from persistence.database import get_session
 from persistence.models import Datasource, QueryRun
 
@@ -56,7 +56,7 @@ def _get_run(session: Session, run_id: UUID) -> QueryRun:
 
 @router.post("", response_model=QueryRunResponse)
 def create_query_run(payload: QueryRunCreate, session: SessionDependency) -> QueryRunResponse:
-    run = run_postgres_query(session, payload.datasource_id, payload.question)
+    run = run_query(session, payload.datasource_id, payload.question)
     return query_run_response(run)
 
 

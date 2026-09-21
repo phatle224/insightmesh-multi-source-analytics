@@ -18,17 +18,19 @@ from api.schemas.datasources import (
     EntitySummary,
     FieldSummary,
     OnboardingStatusResponse,
-    PostgreSQLConnectionInput,
     RelationshipSummary,
+    SQLConnectionInput,
 )
 from api.settings import Settings, get_settings
 from connectors.base import (
     ConnectionConfig,
     ConnectorError,
+    DataSourceConnector,
     ProfileResult,
     ProfilingPolicy,
     RawDataSourceMetadata,
 )
+from connectors.mysql import MySQLConnector
 from connectors.postgres import PostgresConnector
 from persistence.credentials import CredentialCipher, CredentialDecryptionError
 from persistence.models import (
@@ -51,7 +53,9 @@ from semantic.provider import (
     OpenRouterProvider,
     ProviderError,
 )
-from services.semantic_manifests import create_semantic_manifest_snapshot
+from services.semantic_manifests import (
+    create_semantic_manifest_snapshot as create_semantic_manifest_snapshot,
+)
 
 
 def _connector_error(error: ConnectorError) -> AppError:
@@ -64,7 +68,7 @@ def _connector_error(error: ConnectorError) -> AppError:
     )
 
 
-def _config_from_input(value: PostgreSQLConnectionInput) -> ConnectionConfig:
+def _config_from_input(value: SQLConnectionInput) -> ConnectionConfig:
     return ConnectionConfig(
         host=value.host,
         port=value.port,
@@ -76,8 +80,21 @@ def _config_from_input(value: PostgreSQLConnectionInput) -> ConnectionConfig:
     )
 
 
-def _connector(config: ConnectionConfig, settings: Settings) -> PostgresConnector:
-    return PostgresConnector(
+def _connector(
+    config: ConnectionConfig, settings: Settings, source_type: str
+) -> DataSourceConnector:
+    connector_type: type[PostgresConnector] | type[MySQLConnector]
+    if source_type == "postgresql":
+        connector_type = PostgresConnector
+    elif source_type == "mysql":
+        connector_type = MySQLConnector
+    else:
+        raise AppError(
+            "datasource_type_unsupported",
+            "The datasource type is not supported by this query runtime",
+            status_code=409,
+        )
+    return connector_type(
         config,
         connect_timeout_seconds=settings.datasource_connect_timeout_seconds,
         statement_timeout_ms=settings.datasource_statement_timeout_ms,
@@ -88,21 +105,15 @@ def build_datasource_connector(
     session: Session,
     datasource: Datasource,
     settings: Settings,
-) -> PostgresConnector:
-    if datasource.source_type != "postgresql":
-        raise AppError(
-            "datasource_type_unsupported",
-            "The datasource type is not supported by this query runtime",
-            status_code=409,
-        )
-    return _connector(_load_config(session, datasource, settings), settings)
+) -> DataSourceConnector:
+    return _connector(_load_config(session, datasource, settings), settings, datasource.source_type)
 
 
 def test_connection(
-    payload: PostgreSQLConnectionInput, settings: Settings | None = None
+    payload: SQLConnectionInput, settings: Settings | None = None
 ) -> ConnectionTestResponse:
     app_settings = settings or get_settings()
-    connector = _connector(_config_from_input(payload), app_settings)
+    connector = _connector(_config_from_input(payload), app_settings, payload.source_type)
     try:
         result = connector.test_connection()
     except ConnectorError as exc:
@@ -338,9 +349,7 @@ def build_embedding_provider(settings: Settings) -> LLMProvider | None:
 
 def build_semantic_provider(settings: Settings) -> LLMProvider | None:
     fallback = (
-        _openrouter_provider(settings)
-        if settings.llm_fallback_provider == "openrouter"
-        else None
+        _openrouter_provider(settings) if settings.llm_fallback_provider == "openrouter" else None
     )
     if settings.llm_provider == "gemini":
         if settings.gemini_api_key is None:
@@ -560,7 +569,11 @@ def refresh_datasource(
     datasource.status = "introspecting"
     datasource.last_error_code = None
     session.commit()
-    connector = _connector(_load_config(session, datasource, app_settings), app_settings)
+    connector = _connector(
+        _load_config(session, datasource, app_settings),
+        app_settings,
+        datasource.source_type,
+    )
     try:
         metadata = connector.introspect()
         _sync_metadata(session, datasource, metadata)

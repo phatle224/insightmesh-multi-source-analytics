@@ -1,4 +1,4 @@
-"""Run the reproducible Phase 10 PostgreSQL result, retrieval, and safety evaluation."""
+"""Run reproducible SQL result, retrieval, and safety evaluation suites."""
 
 from __future__ import annotations
 
@@ -13,15 +13,14 @@ from time import perf_counter
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import select
-
 from api.settings import Settings, get_settings
-from harness.runtime import run_postgres_query
+from harness.runtime import run_query
 from persistence.database import SessionLocal
 from persistence.models import Datasource, Embedding, Entity, QueryRun, Relationship
 from semantic.provider import LLMProvider, StructuredGenerationRequest
 from services.datasources import build_embedding_provider, build_semantic_provider
 from skills.registry import get_skill
+from sqlalchemy import select
 
 DEFAULT_FIXTURE = Path("/app/evals/postgres/cases.json")
 DEFAULT_REPORT = Path("/app/evals/reports/postgres-latest.json")
@@ -36,7 +35,9 @@ class CountingProvider:
         self.generation_calls = 0
         self.embedding_calls = 0
 
-    def generate_structured(self, request: StructuredGenerationRequest) -> dict[str, Any]:
+    def generate_structured(
+        self, request: StructuredGenerationRequest
+    ) -> dict[str, Any]:
         self.generation_calls += 1
         return self.provider.generate_structured(request)
 
@@ -128,6 +129,7 @@ def _result_matches(run: QueryRun, expected: dict[str, Any]) -> tuple[bool, str 
     actual = [canonical(row) for row in rows]
     wanted = [canonical(row) for row in expected_rows]
     if actual and wanted and len(actual[0]) > len(wanted[0]):
+
         def contains(actual_row: tuple[str, ...], wanted_row: tuple[str, ...]) -> bool:
             position = 0
             for value in actual_row:
@@ -183,7 +185,8 @@ def _retrieval_evidence(
     retrieved_relationships = {
         _edge(entity_names[item.source_entity_id], entity_names[item.target_entity_id])
         for item in relationships
-        if item.source_entity_id in entity_names and item.target_entity_id in entity_names
+        if item.source_entity_id in entity_names
+        and item.target_entity_id in entity_names
     }
     entity_matches = expected_entities & retrieved_entities
     relationship_matches = expected_relationships & retrieved_relationships
@@ -197,7 +200,8 @@ def _retrieval_evidence(
         "retrieved_entities": sorted(retrieved_entities),
         "missing_entities": sorted(expected_entities - retrieved_entities),
         "missing_relationships": [
-            list(item) for item in sorted(expected_relationships - retrieved_relationships)
+            list(item)
+            for item in sorted(expected_relationships - retrieved_relationships)
         ],
     }
 
@@ -216,7 +220,7 @@ def _case_result(
     fallback_before = generation.fallback_generation_calls
     started = perf_counter()
     try:
-        run = run_postgres_query(
+        run = run_query(
             session,
             datasource.id,
             str(case["question"]),
@@ -256,9 +260,7 @@ def _case_result(
         for item in case.get("expected_relationships", [])
     }
     retrieval = (
-        _retrieval_evidence(
-            session, run, expected_entities, expected_relationships
-        )
+        _retrieval_evidence(session, run, expected_entities, expected_relationships)
         if expected_entities
         else None
     )
@@ -285,7 +287,8 @@ def _case_result(
         "latency_ms": latency_ms,
         "generation_calls": generation.generation_calls - generation_before,
         "embedding_calls": embedding.embedding_calls - embedding_before,
-        "fallback_generation_calls": generation.fallback_generation_calls - fallback_before,
+        "fallback_generation_calls": generation.fallback_generation_calls
+        - fallback_before,
         "retrieval": retrieval,
         "retrieval_scores": trace_details,
     }
@@ -349,7 +352,9 @@ def _summarize(strategy: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
             else None
         ),
         "join_path_accuracy": _ratio(
-            sum(bool(item["retrieval"]["join_path_success"]) for item in retrieval_cases),
+            sum(
+                bool(item["retrieval"]["join_path_success"]) for item in retrieval_cases
+            ),
             len(retrieval_cases),
         ),
         "repair_success": _ratio(
@@ -365,7 +370,9 @@ def _summarize(strategy: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
             len(out_of_scope),
         ),
         "ambiguity_detection": _ratio(
-            sum(item["actual_status"] == "clarification_required" for item in ambiguous),
+            sum(
+                item["actual_status"] == "clarification_required" for item in ambiguous
+            ),
             len(ambiguous),
         ),
         "false_block_rate": _ratio(
@@ -445,7 +452,9 @@ def _comparison(reports: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
         "result_accuracy_non_regression": result_non_regression,
         "safety_non_regression": safety_non_regression,
         "retrieval_precision_improved": precision_improved,
-        "gate_passed": result_non_regression and safety_non_regression and precision_improved,
+        "gate_passed": result_non_regression
+        and safety_non_regression
+        and precision_improved,
         "vector_result_accuracy": vector["result_accuracy"],
         "hybrid_result_accuracy": hybrid["result_accuracy"],
         "vector_mean_entity_precision": vector["mean_entity_precision"],
@@ -453,10 +462,20 @@ def _comparison(reports: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
     }
 
 
-def main() -> int:
+def main(
+    *,
+    default_fixture: Path = DEFAULT_FIXTURE,
+    default_report: Path = DEFAULT_REPORT,
+    default_source_type: str = "postgresql",
+) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
-    parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
+    parser.add_argument("--fixture", type=Path, default=default_fixture)
+    parser.add_argument("--report", type=Path, default=default_report)
+    parser.add_argument(
+        "--datasource-type",
+        choices=("postgresql", "mysql"),
+        default=default_source_type,
+    )
     parser.add_argument("--datasource-name")
     parser.add_argument(
         "--strategy", choices=("vector", "hybrid", "both"), default="both"
@@ -469,7 +488,7 @@ def main() -> int:
     )
     with SessionLocal() as session:
         datasource_query = select(Datasource).where(
-            Datasource.source_type == "postgresql",
+            Datasource.source_type == args.datasource_type,
             Datasource.status == "ready",
             Datasource.semantic_status.in_(["ready", "stale"]),
             Datasource.metadata_hash.is_not(None),
@@ -488,7 +507,9 @@ def main() -> int:
             )
         )
         if datasource is None:
-            parser.error("No ready PostgreSQL datasource matched the request")
+            parser.error(
+                f"No ready {args.datasource_type} datasource matched the request"
+            )
         strategy_reports: dict[str, dict[str, Any]] = {}
         for strategy in strategies:
             strategy_reports[strategy] = _run_strategy(
@@ -526,15 +547,21 @@ def main() -> int:
                 ),
                 "query_max_repair_attempts": settings.query_max_repair_attempts,
                 "skill_versions": {
-                    "query-generation": get_skill("query-generation").version,
-                    "query-repair": get_skill("query-repair").version,
+                    name: get_skill(name).version
+                    for name in (
+                        ("mysql-query-generation", "mysql-query-repair")
+                        if args.datasource_type == "mysql"
+                        else ("query-generation", "query-repair")
+                    )
                 },
             },
             "strategies": strategy_reports,
             "comparison": _comparison(strategy_reports),
         }
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    args.report.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     print(json.dumps(report, indent=2, ensure_ascii=False))
     comparison = report["comparison"]
     if comparison is not None and not comparison["gate_passed"]:

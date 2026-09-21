@@ -2,12 +2,11 @@ import os
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import delete, func, select, update
-
 from api.main import app
+from fastapi.testclient import TestClient
 from persistence.database import SessionLocal
 from persistence.models import Datasource, DatasourceCredential
+from sqlalchemy import delete, func, select, update
 
 
 def demo_payload(name: str) -> dict[str, object]:
@@ -24,10 +23,26 @@ def demo_payload(name: str) -> dict[str, object]:
     }
 
 
+def mysql_demo_payload(name: str) -> dict[str, object]:
+    return {
+        "name": name,
+        "source_type": "mysql",
+        "host": "demo-mysql",
+        "port": 3306,
+        "database": "insightmesh_demo",
+        "username": "demo_reader",
+        "password": os.environ["DEMO_READER_PASSWORD"],
+        "ssl_mode": "disable",
+        "allowed_schemas": ["insightmesh_demo"],
+    }
+
+
 def test_datasource_onboarding_lifecycle_and_secret_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("services.datasources.build_semantic_provider", lambda settings: None)
+    monkeypatch.setattr(
+        "services.datasources.build_semantic_provider", lambda settings: None
+    )
     client = TestClient(app)
     name = f"phase-four-{uuid4()}"
     payload = demo_payload(name)
@@ -42,7 +57,9 @@ def test_datasource_onboarding_lifecycle_and_secret_boundary(
     assert test_response.status_code == 200
     assert test_response.json()["read_only_transaction"] is True
     with SessionLocal() as session:
-        assert session.scalar(select(func.count()).select_from(Datasource)) == count_before
+        assert (
+            session.scalar(select(func.count()).select_from(Datasource)) == count_before
+        )
 
     create_response = client.post("/api/v1/datasources", json=payload)
     assert create_response.status_code == 201, create_response.text
@@ -65,7 +82,9 @@ def test_datasource_onboarding_lifecycle_and_secret_boundary(
 
     detail_response = client.get(f"/api/v1/datasources/{datasource_id}")
     assert detail_response.status_code == 200
-    assert any(entity["name"] == "orders" for entity in detail_response.json()["entities"])
+    assert any(
+        entity["name"] == "orders" for entity in detail_response.json()["entities"]
+    )
 
     status_response = client.get(
         f"/api/v1/datasources/{datasource_id}/onboarding-status"
@@ -93,4 +112,33 @@ def test_datasource_onboarding_lifecycle_and_secret_boundary(
                 .where(Datasource.id.in_(active_before))
                 .values(is_active=True)
             )
+        session.commit()
+
+
+def test_mysql_datasource_uses_the_same_safe_onboarding_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "services.datasources.build_semantic_provider", lambda settings: None
+    )
+    client = TestClient(app)
+    payload = mysql_demo_payload(f"phase-twelve-{uuid4()}")
+
+    test_response = client.post("/api/v1/datasources/test", json=payload)
+    assert test_response.status_code == 200, test_response.text
+    assert test_response.json()["read_only_transaction"] is True
+
+    create_response = client.post("/api/v1/datasources", json=payload)
+    assert create_response.status_code == 201, create_response.text
+    created = create_response.json()
+    assert created["source_type"] == "mysql"
+    assert created["status"] == "ready"
+    assert created["entity_count"] >= 6
+    assert created["relationship_count"] >= 4
+    assert created["profile_count"] > 0
+    assert "password" not in create_response.text
+    assert str(payload["password"]) not in create_response.text
+
+    with SessionLocal() as session:
+        session.execute(delete(Datasource).where(Datasource.id == UUID(created["id"])))
         session.commit()

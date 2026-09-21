@@ -62,6 +62,7 @@ class QueryRunResponse(BaseModel):
     datasource_id: UUID
     question: str
     status: str
+    query_type: str
     generated_query: dict[str, Any] | None
     validation: dict[str, Any]
     result: dict[str, Any] | None
@@ -83,15 +84,14 @@ class QueryTraceResponse(BaseModel):
 def query_run_response(run: QueryRun) -> QueryRunResponse:
     raw_suggestions = run.validation_result.get("clarification_suggestions", [])
     suggestions = (
-        [str(item) for item in raw_suggestions]
-        if isinstance(raw_suggestions, list)
-        else []
+        [str(item) for item in raw_suggestions] if isinstance(raw_suggestions, list) else []
     )
     return QueryRunResponse(
         run_id=run.id,
         datasource_id=run.datasource_id,
         question=run.question,
         status=run.status,
+        query_type=run.query_type,
         generated_query=run.generated_query or None,
         validation=run.validation_result,
         result=run.result_json,

@@ -45,6 +45,7 @@ export interface QueryRun {
   datasource_id: string;
   question: string;
   status: QueryRunStatus;
+  query_type?: "postgresql" | "mysql";
   generated_query: GeneratedQuery | null;
   validation: Record<string, unknown>;
   result: QueryResult | null;

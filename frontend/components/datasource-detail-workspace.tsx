@@ -107,7 +107,7 @@ export function DatasourceDetailWorkspace({ id }: { id: string }) {
   return (
     <div className="space-y-6">
       <Link href="/sources" className="inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-primary hover:text-primary-hover"><ArrowLeftIcon size={18} aria-hidden /> Back to sources</Link>
-      <PageHeader eyebrow="PostgreSQL datasource" title={source.name} description={`${source.safe_host}:${source.port} / ${source.database_name}`} action={<div className="flex flex-wrap gap-2"><SourceStatus status={source.status} />{source.is_active ? <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-on-primary">Active</span> : null}</div>} />
+      <PageHeader eyebrow={`${source.source_type === "mysql" ? "MySQL" : "PostgreSQL"} datasource`} title={source.name} description={`${source.safe_host}:${source.port} / ${source.database_name}`} action={<div className="flex flex-wrap gap-2"><SourceStatus status={source.status} />{source.is_active ? <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-on-primary">Active</span> : null}</div>} />
       {error ? <ApiErrorNotice title="Datasource action failed" message={error.message} requestId={error.requestId} /> : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="p-5"><DatabaseIcon size={20} className="text-primary" aria-hidden /><p className="mt-3 text-2xl font-semibold text-text">{source.profile_count}</p><p className="text-sm text-muted-foreground">Fields profiled locally</p></Card>
@@ -122,7 +122,7 @@ export function DatasourceDetailWorkspace({ id }: { id: string }) {
           <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
             <div><dt className="text-muted-foreground">Database</dt><dd className="mt-1 font-medium">{source.database_name}</dd></div>
             <div><dt className="text-muted-foreground">SSL mode</dt><dd className="mt-1 font-medium">{source.ssl_mode}</dd></div>
-            <div><dt className="text-muted-foreground">Allowed schemas</dt><dd className="mt-1 font-mono text-xs">{source.allowed_schemas.join(", ")}</dd></div>
+            <div><dt className="text-muted-foreground">{source.source_type === "mysql" ? "Allowed databases" : "Allowed schemas"}</dt><dd className="mt-1 font-mono text-xs">{source.allowed_schemas.join(", ")}</dd></div>
             <div><dt className="text-muted-foreground">Last metadata refresh</dt><dd className="mt-1 font-medium">{source.last_refreshed_at ? new Date(source.last_refreshed_at).toLocaleString() : "Not completed"}</dd></div>
           </dl>
         </Card>

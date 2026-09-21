@@ -5,10 +5,6 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import delete
-from sqlalchemy.orm import Session
-
 from api.main import app
 from api.settings import Settings, get_settings
 from connectors.base import (
@@ -23,7 +19,8 @@ from connectors.base import (
     RawDataSourceMetadata,
     ValidatedNativeQuery,
 )
-from harness.runtime import run_postgres_query
+from fastapi.testclient import TestClient
+from harness.runtime import run_postgres_query, run_query
 from harness.state import RuntimeStatus
 from harness.transitions import transition
 from persistence.credentials import CredentialCipher
@@ -36,7 +33,13 @@ from persistence.models import (
     Field,
     QueryRun,
 )
-from semantic.provider import FallbackProvider, ProviderError, StructuredGenerationRequest
+from semantic.provider import (
+    FallbackProvider,
+    ProviderError,
+    StructuredGenerationRequest,
+)
+from sqlalchemy import delete
+from sqlalchemy.orm import Session
 
 
 class RuntimeProvider:
@@ -45,8 +48,12 @@ class RuntimeProvider:
         self.generation_calls = 0
         self.embedding_calls = 0
 
-    def generate_structured(self, request: StructuredGenerationRequest) -> dict[str, Any]:
+    def generate_structured(
+        self, request: StructuredGenerationRequest
+    ) -> dict[str, Any]:
         assert request.schema_name in {
+            "mysql_query_generation",
+            "mysql_query_repair",
             "postgresql_query_generation",
             "postgresql_query_repair",
         }
@@ -56,15 +63,21 @@ class RuntimeProvider:
     def embed(self, inputs: list[str]) -> list[list[float]]:
         assert len(inputs) == 1
         self.embedding_calls += 1
-        return [[0.0, 1.0, 0.0]] if "weather" in inputs[0].lower() else [[1.0, 0.0, 0.0]]
+        return (
+            [[0.0, 1.0, 0.0]] if "weather" in inputs[0].lower() else [[1.0, 0.0, 0.0]]
+        )
 
     def close(self) -> None:
         return None
 
 
 class TimeoutGenerationProvider:
-    def generate_structured(self, request: StructuredGenerationRequest) -> dict[str, Any]:
-        raise ProviderError("provider_timeout", "Primary provider timed out", retryable=True)
+    def generate_structured(
+        self, request: StructuredGenerationRequest
+    ) -> dict[str, Any]:
+        raise ProviderError(
+            "provider_timeout", "Primary provider timed out", retryable=True
+        )
 
     def embed(self, inputs: list[str]) -> list[list[float]]:
         return [[1.0, 0.0, 0.0]]
@@ -88,7 +101,9 @@ class RepairingExecutionConnector:
     ) -> ProfileResult:
         raise AssertionError("Not used by the runtime")
 
-    def explain(self, query: ValidatedNativeQuery, limits: QueryLimits) -> ExplainResult:
+    def explain(
+        self, query: ValidatedNativeQuery, limits: QueryLimits
+    ) -> ExplainResult:
         return ExplainResult(plan=("safe plan",))
 
     def execute_readonly(
@@ -96,7 +111,9 @@ class RepairingExecutionConnector:
     ) -> QueryResult:
         self.execution_calls += 1
         if self.execution_calls == 1:
-            raise ConnectorError("query_invalid", "PostgreSQL could not execute the query")
+            raise ConnectorError(
+                "query_invalid", "PostgreSQL could not execute the query"
+            )
         return QueryResult(
             columns=("status", "order_count"),
             rows=(("completed", 5),),
@@ -108,17 +125,21 @@ class RepairingExecutionConnector:
 
 
 @contextmanager
-def runtime_datasource() -> Iterator[tuple[Session, Datasource]]:
+def runtime_datasource(
+    source_type: str = "postgresql",
+) -> Iterator[tuple[Session, Datasource]]:
     settings = get_settings()
     with SessionLocal() as session:
         datasource = Datasource(
             name=f"runtime-{uuid4()}",
-            source_type="postgresql",
+            source_type=source_type,
             database_name="insightmesh_demo",
-            safe_host="demo-postgres",
-            port=5432,
+            safe_host="demo-mysql" if source_type == "mysql" else "demo-postgres",
+            port=3306 if source_type == "mysql" else 5432,
             ssl_mode="disable",
-            allowed_schemas=["public"],
+            allowed_schemas=[
+                "insightmesh_demo" if source_type == "mysql" else "public"
+            ],
             status="ready",
             semantic_status="ready",
         )
@@ -141,7 +162,7 @@ def runtime_datasource() -> Iterator[tuple[Session, Datasource]]:
         )
         orders = Entity(
             datasource_id=datasource.id,
-            schema_name="public",
+            schema_name="insightmesh_demo" if source_type == "mysql" else "public",
             name="orders",
             entity_type="table",
             description="Customer orders",
@@ -183,6 +204,16 @@ def _correct_query() -> dict[str, Any]:
         "sql": (
             "SELECT status, COUNT(*) AS order_count FROM public.orders "
             "GROUP BY status ORDER BY status"
+        ),
+        "expected_columns": ["status", "order_count"],
+    }
+
+
+def _correct_mysql_query() -> dict[str, Any]:
+    return {
+        "sql": (
+            "SELECT status, COUNT(*) AS order_count "
+            "FROM insightmesh_demo.orders GROUP BY status ORDER BY status"
         ),
         "expected_columns": ["status", "order_count"],
     }
@@ -238,6 +269,24 @@ def test_runtime_executes_verified_read_only_query_and_exposes_trace_api() -> No
         assert generation_evidence["provider"] == "gemini"
         assert generation_evidence["model"] == "gemini-2.5-flash"
         assert generation_evidence["fallback_used"] is False
+
+
+def test_runtime_selects_mysql_generation_validation_and_execution() -> None:
+    provider = RuntimeProvider([_correct_mysql_query()])
+    with runtime_datasource("mysql") as (session, datasource):
+        run = run_query(
+            session,
+            datasource.id,
+            "Order count by status",
+            generation_provider=provider,
+            retrieval_provider=provider,
+        )
+
+        assert run.status == "completed"
+        assert run.query_type == "mysql"
+        assert run.row_count == 4
+        assert run.generated_query["sql"].startswith("SELECT status")
+        assert run.validation_result["ast_valid"] is True
         assert run.trace_json[3]["details"]["validation_category"] == "valid"
 
         response = TestClient(app).get(f"/api/v1/query-runs/{run.id}/trace")
@@ -361,7 +410,9 @@ def test_query_run_history_is_paginated_filterable_and_summary_only() -> None:
             },
         )
         assert next_response.status_code == 200
-        assert next_response.json()["items"][0]["run_id"] != payload["items"][0]["run_id"]
+        assert (
+            next_response.json()["items"][0]["run_id"] != payload["items"][0]["run_id"]
+        )
 
         invalid_cursor = client.get(
             "/api/v1/query-runs",
@@ -419,8 +470,7 @@ def test_runtime_repairs_after_safe_database_execution_error() -> None:
         assert run.repair_count == 1
         assert connector.execution_calls == 2
         assert any(
-            event["state"] == "execute_query"
-            and event["outcome"] == "repairable"
+            event["state"] == "execute_query" and event["outcome"] == "repairable"
             for event in run.trace_json
         )
 

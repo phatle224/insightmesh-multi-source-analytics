@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 SCHEMA_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]{0,62}$")
 
 
-class PostgreSQLConnectionInput(BaseModel):
-    source_type: Literal["postgresql"] = "postgresql"
+class SQLConnectionInput(BaseModel):
+    source_type: Literal["postgresql", "mysql"] = "postgresql"
     host: str = Field(min_length=1, max_length=255)
     port: int = Field(default=5432, ge=1, le=65535)
     database: str = Field(min_length=1, max_length=255)
@@ -33,11 +33,11 @@ class PostgreSQLConnectionInput(BaseModel):
     def validate_schemas(cls, value: list[str]) -> list[str]:
         normalized = list(dict.fromkeys(item.strip() for item in value))
         if not normalized or any(not SCHEMA_NAME.fullmatch(item) for item in normalized):
-            raise ValueError("Allowed schemas must be valid PostgreSQL identifiers")
+            raise ValueError("Allowed schemas/databases must be valid SQL identifiers")
         return normalized
 
 
-class DatasourceCreate(PostgreSQLConnectionInput):
+class DatasourceCreate(SQLConnectionInput):
     name: str = Field(min_length=1, max_length=120)
 
     @field_validator("name")
@@ -47,6 +47,9 @@ class DatasourceCreate(PostgreSQLConnectionInput):
         if not stripped:
             raise ValueError("Connection name must not be blank")
         return stripped
+
+
+PostgreSQLConnectionInput = SQLConnectionInput
 
 
 class ConnectionTestResponse(BaseModel):

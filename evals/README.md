@@ -23,3 +23,14 @@ precision, join-path accuracy, repair success, safety/out-of-scope/ambiguity rat
 false-block rate, logical provider calls, p50/p95 latency, per-category results, and
 the configuration/hash metadata required to reproduce the run. It stores no API keys,
 credentials, prompts, hidden reasoning, or non-demo datasource rows.
+
+Phase 12 adds an independent MySQL 8 fixture and report. Start the profiled demo,
+onboard it through Sources, then run:
+
+```powershell
+docker compose --profile mysql up -d demo-mysql
+docker compose exec backend python -m evals.run_mysql_evaluation --strategy hybrid
+```
+
+The runner writes `evals/reports/mysql-latest.json`; PostgreSQL and MySQL metrics
+remain separate so a strong result on one engine cannot hide regressions on the other.

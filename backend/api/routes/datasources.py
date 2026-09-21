@@ -10,8 +10,8 @@ from api.schemas.datasources import (
     DatasourceDetail,
     DatasourceSummary,
     OnboardingStatusResponse,
-    PostgreSQLConnectionInput,
     SemanticManifestResponse,
+    SQLConnectionInput,
 )
 from persistence.database import get_session
 from services import datasources as service
@@ -27,7 +27,7 @@ def list_datasources(session: SessionDependency) -> list[DatasourceSummary]:
 
 
 @router.post("/test", response_model=ConnectionTestResponse)
-def test_connection(payload: PostgreSQLConnectionInput) -> ConnectionTestResponse:
+def test_connection(payload: SQLConnectionInput) -> ConnectionTestResponse:
     return service.test_connection(payload)
 
 

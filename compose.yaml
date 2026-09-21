@@ -74,6 +74,24 @@ services:
       retries: 20
       start_period: 10s
 
+  demo-mysql:
+    image: mysql:8.4
+    profiles: [mysql]
+    environment:
+      MYSQL_DATABASE: insightmesh_demo
+      MYSQL_ROOT_PASSWORD: ${DEMO_MYSQL_ADMIN_PASSWORD:-local-mysql-admin-only}
+      DEMO_READER_PASSWORD: ${DEMO_READER_PASSWORD:-local-demo-reader-only}
+    volumes:
+      - demo-mysql-data:/var/lib/mysql
+      - ./demo/mysql/init.sh:/docker-entrypoint-initdb.d/001-demo.sh:ro
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
   migrate:
     <<: *backend
     command: [uv, run, --frozen, alembic, upgrade, head]
@@ -162,4 +180,5 @@ networks:
 volumes:
   metadata-data:
   demo-data:
+  demo-mysql-data:
   e2e-node-modules:

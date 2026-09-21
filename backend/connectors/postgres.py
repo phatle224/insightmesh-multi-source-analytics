@@ -14,6 +14,7 @@ from psycopg.errors import InsufficientPrivilege, QueryCanceled, ReadOnlySqlTran
 from connectors.base import (
     ConnectionConfig,
     ConnectionTestResult,
+    ConnectorCapabilities,
     ConnectorError,
     ExplainResult,
     FieldProfile,
@@ -54,6 +55,14 @@ def _normalized_type(native_type: str) -> str:
 
 
 class PostgresConnector:
+    capabilities = ConnectorCapabilities(
+        dialect="postgresql",
+        supports_schemas=True,
+        supports_explain=True,
+        supports_read_only_transactions=True,
+        supports_local_profiling=True,
+    )
+
     def __init__(
         self,
         config: ConnectionConfig,
@@ -241,9 +250,7 @@ class PostgresConnector:
         )
         return RawDataSourceMetadata(entities=entities, relationships=relationships)
 
-    def profile(
-        self, metadata: RawDataSourceMetadata, policy: ProfilingPolicy
-    ) -> ProfileResult:
+    def profile(self, metadata: RawDataSourceMetadata, policy: ProfilingPolicy) -> ProfileResult:
         profiles: list[FieldProfile] = []
         try:
             with self._connection() as connection, connection.transaction():

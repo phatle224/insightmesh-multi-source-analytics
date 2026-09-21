@@ -69,7 +69,7 @@ def _safe_profile(statistic: ProfileStatistic | None) -> dict[str, object] | Non
     return {key: raw[key] for key in sorted(_PROFILE_KEYS) if key in raw}
 
 
-def _configuration(settings: Settings) -> dict[str, Any]:
+def _configuration(settings: Settings, datasource_type: str) -> dict[str, Any]:
     generation_model = (
         settings.gemini_model if settings.llm_provider == "gemini" else settings.llm_model
     )
@@ -85,7 +85,12 @@ def _configuration(settings: Settings) -> dict[str, Any]:
         "relationship_inferred_min_confidence": settings.relationship_inferred_min_confidence,
         "privacy_policy_version": "v1-local-profile",
         "skill_versions": {
-            name: get_skill(name).version for name in ("query-generation", "query-repair")
+            name: get_skill(name).version
+            for name in (
+                ("mysql-query-generation", "mysql-query-repair")
+                if datasource_type == "mysql"
+                else ("query-generation", "query-repair")
+            )
         },
     }
 
@@ -282,7 +287,7 @@ def create_semantic_manifest_snapshot(
             status_code=409,
         )
     app_settings = settings or get_settings()
-    configuration = _configuration(app_settings)
+    configuration = _configuration(app_settings, datasource.source_type)
     artifacts = _build_artifacts(session, datasource, app_settings)
     manifest_hash = _hash_json(
         {

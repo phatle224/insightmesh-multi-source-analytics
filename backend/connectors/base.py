@@ -11,6 +11,15 @@ class ConnectorError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class ConnectorCapabilities:
+    dialect: str
+    supports_schemas: bool
+    supports_explain: bool
+    supports_read_only_transactions: bool
+    supports_local_profiling: bool
+
+
+@dataclass(frozen=True)
 class ConnectionConfig:
     host: str
     port: int

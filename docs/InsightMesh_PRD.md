@@ -1842,7 +1842,7 @@ PostgresConnector
 PostgreSQL test connection, introspection, and read-only execution
 ```
 
-The MySQL connector implementation is deferred until the PostgreSQL vertical slice validates the connector contract and runtime flow.
+The MySQL connector was implemented after the PostgreSQL vertical slice validated the shared connector contract and runtime flow.
 
 **Definition of Done:** the PostgreSQL connector can test a connection, introspect metadata, and execute read-only queries through the common connector interface.
 
