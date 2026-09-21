@@ -188,6 +188,13 @@ export function createDatasource(payload: DatasourceCreateInput) {
 
 export const getDatasource = (id: string) =>
   apiRequest<DatasourceDetail>(`/api/v1/datasources/${id}`);
+export const renameDatasource = (id: string, name: string) =>
+  apiRequest<DatasourceDetail>(`/api/v1/datasources/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+export const deleteDatasource = (id: string) =>
+  apiRequest<void>(`/api/v1/datasources/${id}`, { method: "DELETE" });
 export const activateDatasource = (id: string) =>
   apiRequest<DatasourceDetail>(`/api/v1/datasources/${id}/activate`, { method: "POST" });
 export const refreshDatasource = (id: string) =>

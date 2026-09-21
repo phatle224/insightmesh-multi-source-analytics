@@ -49,6 +49,18 @@ class DatasourceCreate(SQLConnectionInput):
         return stripped
 
 
+class DatasourceRename(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Connection name must not be blank")
+        return stripped
+
+
 PostgreSQLConnectionInput = SQLConnectionInput
 
 

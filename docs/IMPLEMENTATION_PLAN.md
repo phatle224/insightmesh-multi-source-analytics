@@ -72,6 +72,7 @@ Overall implementation status: **Phase 12 is complete and Phase 13 is in progres
 - [x] Add a separate MySQL benchmark fixture, runner entrypoint, and report destination.
 - [x] Expand the combined PostgreSQL/MySQL release benchmark to 37 cases.
 - [x] Generate live per-datasource, per-difficulty, and overall evaluation metrics.
+- [x] Bound discovered-entity detail to a keyboard-focusable scroll region and add datasource rename/delete controls with safe dashboard-usage protection.
 
 ### Next Recommended Task
 
@@ -490,6 +491,7 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-21 | Phase 12 | MySQL expansion: profiled Docker seed, capability contract, connector, dialect runtime, UI, safety, dashboard refresh, and separate evaluation path | `docker compose --profile mysql up -d demo-mysql`; backend pytest/mypy/Ruff; frontend lint/unit/build | Pass; 46 backend tests and 29 frontend tests passed, MySQL integration ran against the real container, and the production frontend build passed |
 | 2026-09-21 | Phase 13 | Combined PostgreSQL/MySQL release benchmark and measured reporting | `docker compose exec backend python -m evals.run_combined_evaluation --strategy hybrid`; targeted evaluator Ruff/tests | Pass; 37 live cases (25 PostgreSQL, 12 MySQL), 100% status/execution/result accuracy, 100% entity recall and join-path accuracy, 66.98% mean entity precision; easy/medium/hard result accuracy all 100%; reports include per-datasource, per-difficulty, and overall metrics |
 | 2026-09-21 | Phase 13 | Backend lint cleanup across source and tests | `docker compose run --rm --no-deps backend uv run --frozen ruff check .`; `pytest`; `mypy .`; `git diff --check` | Pass; Ruff clean, 47 tests passed, 73 files type-checked, and no whitespace errors |
+| 2026-09-21 | Phase 13 | Datasource detail usability and source management | Backend onboarding regression test; frontend Vitest, ESLint, and TypeScript checks; `git diff --check` | Pass; discovered entities are vertically bounded with keyboard-accessible scrolling; rename uses `PATCH`; deletion requires exact-name confirmation and returns a clear 409 when dashboard widgets still reference the source |
 
 Current limitations: development images only; MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The release fixture now contains 37 cases and both PostgreSQL/MySQL reports have a live Phase 13 provider run; portfolio claims remain limited to the measured report until the remaining evidence gates pass. No live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Retrieval-context caching is deferred pending measured repeat-hit and cost evidence. Base image tags are not digest-pinned. No existing user files were reset or committed.
 

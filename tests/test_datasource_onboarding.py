@@ -101,11 +101,24 @@ def test_datasource_onboarding_lifecycle_and_secret_boundary(
     assert refresh_response.status_code == 200
     assert refresh_response.json()["status"] == "ready"
 
+    renamed_name = f"renamed-{uuid4()}"
+    rename_response = client.patch(
+        f"/api/v1/datasources/{datasource_id}", json={"name": renamed_name}
+    )
+    assert rename_response.status_code == 200, rename_response.text
+    assert rename_response.json()["name"] == renamed_name
+
     persisted_id = UUID(datasource_id)
     with SessionLocal() as session:
         credential = session.get(DatasourceCredential, persisted_id)
         assert credential is not None
         assert str(payload["password"]).encode() not in credential.encrypted_payload
+
+    delete_response = client.delete(f"/api/v1/datasources/{datasource_id}")
+    assert delete_response.status_code == 204, delete_response.text
+    assert client.get(f"/api/v1/datasources/{datasource_id}").status_code == 404
+
+    with SessionLocal() as session:
         session.execute(delete(Datasource).where(Datasource.id == persisted_id))
         if active_before:
             session.execute(

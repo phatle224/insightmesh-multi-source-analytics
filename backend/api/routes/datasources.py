@@ -8,6 +8,7 @@ from api.schemas.datasources import (
     ConnectionTestResponse,
     DatasourceCreate,
     DatasourceDetail,
+    DatasourceRename,
     DatasourceSummary,
     OnboardingStatusResponse,
     SemanticManifestResponse,
@@ -34,6 +35,18 @@ def test_connection(payload: SQLConnectionInput) -> ConnectionTestResponse:
 @router.post("", response_model=DatasourceDetail, status_code=status.HTTP_201_CREATED)
 def create_datasource(payload: DatasourceCreate, session: SessionDependency) -> DatasourceDetail:
     return service.create_datasource(session, payload)
+
+
+@router.patch("/{datasource_id}", response_model=DatasourceDetail)
+def rename_datasource(
+    datasource_id: UUID, payload: DatasourceRename, session: SessionDependency
+) -> DatasourceDetail:
+    return service.rename_datasource(session, datasource_id, payload)
+
+
+@router.delete("/{datasource_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_datasource(datasource_id: UUID, session: SessionDependency) -> None:
+    service.delete_datasource(session, datasource_id)
 
 
 @router.get("/{datasource_id}", response_model=DatasourceDetail)

@@ -14,6 +14,7 @@ from api.schemas.datasources import (
     ConnectionTestResponse,
     DatasourceCreate,
     DatasourceDetail,
+    DatasourceRename,
     DatasourceSummary,
     EntitySummary,
     FieldSummary,
@@ -34,6 +35,7 @@ from connectors.mysql import MySQLConnector
 from connectors.postgres import PostgresConnector
 from persistence.credentials import CredentialCipher, CredentialDecryptionError
 from persistence.models import (
+    DashboardWidget,
     Datasource,
     DatasourceCredential,
     Embedding,
@@ -650,6 +652,48 @@ def create_datasource(
             status_code=409,
         ) from None
     return refresh_datasource(session, datasource, app_settings)
+
+
+def rename_datasource(
+    session: Session, datasource_id: UUID, payload: DatasourceRename
+) -> DatasourceDetail:
+    datasource = _get_datasource(session, datasource_id)
+    datasource.name = payload.name
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise AppError(
+            "datasource_name_conflict",
+            "A datasource with this name already exists",
+            status_code=409,
+        ) from None
+    return get_datasource_detail(session, datasource_id)
+
+
+def delete_datasource(session: Session, datasource_id: UUID) -> None:
+    datasource = _get_datasource(session, datasource_id)
+    widget_count = session.scalar(
+        select(func.count())
+        .select_from(DashboardWidget)
+        .where(DashboardWidget.datasource_id == datasource_id)
+    )
+    if widget_count:
+        raise AppError(
+            "datasource_in_use",
+            "Remove dashboard widgets that use this datasource before deleting it",
+            status_code=409,
+        )
+    session.delete(datasource)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise AppError(
+            "datasource_in_use",
+            "This datasource is still used by another resource and cannot be deleted",
+            status_code=409,
+        ) from None
 
 
 def _get_datasource(session: Session, datasource_id: UUID) -> Datasource:

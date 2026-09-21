@@ -7,10 +7,14 @@ import {
   CircleNotchIcon,
   DatabaseIcon,
   KeyIcon,
+  PencilSimpleIcon,
   ShieldCheckIcon,
   SparkleIcon,
+  TrashIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { ApiErrorNotice } from "@/components/api-error-notice";
@@ -24,7 +28,9 @@ import { Card } from "@/components/ui/card";
 import { ApiClientError } from "@/lib/api-client";
 import {
   activateDatasource,
+  deleteDatasource,
   getDatasource,
+  renameDatasource,
   refreshDatasource,
   type DatasourceDetail,
 } from "@/lib/datasources";
@@ -60,11 +66,16 @@ const semanticStatusCopy: Record<DatasourceDetail["semantic_status"], string> = 
 };
 
 export function DatasourceDetailWorkspace({ id }: { id: string }) {
+  const router = useRouter();
   const { refresh: refreshList } = useDatasources();
   const [source, setSource] = useState<DatasourceDetail | null>(null);
   const [error, setError] = useState<ApiClientError | null>(null);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<"activate" | "refresh" | null>(null);
+  const [action, setAction] = useState<"activate" | "refresh" | "rename" | "delete" | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -96,6 +107,44 @@ export function DatasourceDetailWorkspace({ id }: { id: string }) {
       const updated = await (nextAction === "activate" ? activateDatasource(id) : refreshDatasource(id));
       setSource(updated);
       await refreshList();
+    } catch (reason) { setError(displayError(reason)); }
+    finally { setAction(null); }
+  }
+
+  function startEditing() {
+    setDraftName(source?.name ?? "");
+    setConfirmDelete(false);
+    setDeleteConfirmation("");
+    setEditing(true);
+    setError(null);
+  }
+
+  function cancelEditing() {
+    setEditing(false);
+    setConfirmDelete(false);
+    setDeleteConfirmation("");
+  }
+
+  async function saveName() {
+    const name = draftName.trim();
+    if (!source || !name || name === source.name) return;
+    setAction("rename"); setError(null);
+    try {
+      const updated = await renameDatasource(id, name);
+      setSource(updated);
+      await refreshList();
+      setEditing(false);
+    } catch (reason) { setError(displayError(reason)); }
+    finally { setAction(null); }
+  }
+
+  async function removeSource() {
+    if (!source || deleteConfirmation.trim() !== source.name) return;
+    setAction("delete"); setError(null);
+    try {
+      await deleteDatasource(id);
+      await refreshList();
+      router.push("/sources");
     } catch (reason) { setError(displayError(reason)); }
     finally { setAction(null); }
   }
@@ -132,13 +181,52 @@ export function DatasourceDetailWorkspace({ id }: { id: string }) {
           <div className="mt-5 flex flex-col gap-2">
             {!source.is_active && source.status === "ready" ? <Button onClick={() => void runAction("activate")} disabled={action !== null}>{action === "activate" ? <CircleNotchIcon className="animate-spin" size={18} aria-hidden /> : <CheckIcon size={18} aria-hidden />} Activate source</Button> : null}
             <Button variant="secondary" onClick={() => void runAction("refresh")} disabled={action !== null}>{action === "refresh" ? <CircleNotchIcon className="animate-spin" size={18} aria-hidden /> : <ArrowClockwiseIcon size={18} aria-hidden />} Refresh metadata</Button>
+            <Button variant="ghost" onClick={startEditing} disabled={action !== null}><PencilSimpleIcon size={18} aria-hidden /> Edit source</Button>
           </div>
         </Card>
       </div>
+      {editing ? (
+        <Card className="border-primary/30 p-5" role="region" aria-labelledby="edit-source-heading">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="edit-source-heading" className="font-semibold text-text">Edit source</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Update the display name or remove this connection.</p>
+            </div>
+            <Button size="icon" variant="ghost" aria-label="Close edit source panel" onClick={cancelEditing} disabled={action !== null}><XIcon size={18} aria-hidden /></Button>
+          </div>
+          <form className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={(event) => { event.preventDefault(); void saveName(); }}>
+            <div className="min-w-0 flex-1">
+              <label htmlFor="datasource-name" className="text-sm font-medium text-text">Source name</label>
+              <input id="datasource-name" name="name" value={draftName} onChange={(event) => setDraftName(event.target.value)} maxLength={120} required autoFocus className="mt-2 min-h-11 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-text shadow-sm placeholder:text-muted-foreground" />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={cancelEditing} disabled={action !== null}>Cancel</Button>
+              <Button type="submit" disabled={action !== null || !draftName.trim() || draftName.trim() === source.name}>{action === "rename" ? <CircleNotchIcon className="animate-spin" size={18} aria-hidden /> : <CheckIcon size={18} aria-hidden />} Save name</Button>
+            </div>
+          </form>
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="font-semibold text-destructive">Delete source</h3>
+            <p className="mt-1 text-sm text-muted-foreground">This removes the stored connection and discovered metadata. Dashboard widgets using it must be removed first.</p>
+            {!confirmDelete ? (
+              <Button variant="ghost" className="mt-3 text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => setConfirmDelete(true)} disabled={action !== null}><TrashIcon size={18} aria-hidden /> Delete source</Button>
+            ) : (
+              <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-4" role="alert">
+                <p className="text-sm text-destructive">To confirm, type <strong>{source.name}</strong> exactly.</p>
+                <label htmlFor="delete-source-confirmation" className="sr-only">Type the source name to confirm deletion</label>
+                <input id="delete-source-confirmation" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} className="mt-3 min-h-11 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-text shadow-sm" autoComplete="off" />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button type="button" variant="ghost" onClick={() => { setConfirmDelete(false); setDeleteConfirmation(""); }} disabled={action !== null}>Keep source</Button>
+                  <Button type="button" variant="primary" className="bg-destructive text-on-destructive hover:bg-destructive/90" onClick={() => void removeSource()} disabled={action !== null || deleteConfirmation.trim() !== source.name}>{action === "delete" ? <CircleNotchIcon className="animate-spin" size={18} aria-hidden /> : <TrashIcon size={18} aria-hidden />} Delete permanently</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      ) : null}
       <div>
         <Card className="overflow-hidden">
           <div className="border-b border-border px-5 py-4"><h2 className="font-semibold text-text">Discovered entities</h2><p className="mt-1 text-sm text-muted-foreground">{source.entity_count} entities found through read-only introspection.</p></div>
-          <div className="divide-y divide-border">
+          <div className="max-h-[65vh] overflow-y-auto overscroll-contain divide-y divide-border focus-visible:outline-primary" tabIndex={0} aria-label="Discovered entities list">
             {source.entities.map((entity) => <details key={entity.id} className="group px-5 py-3"><summary className="flex min-h-11 items-center justify-between gap-3 font-semibold text-text"><span>{entity.schema_name}.{entity.name}</span><span className="text-xs font-normal text-muted-foreground">{entity.fields.length} fields</span></summary>{entity.description ? <p className="mb-2 text-sm text-muted-foreground">{entity.description}</p> : null}{entity.business_terms.length || entity.metrics.length ? <div className="mb-3 flex flex-wrap gap-2">{entity.business_terms.map((term) => <span key={term} className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">{term}</span>)}{entity.metrics.map((metric) => <span key={metric} className="rounded-full border border-border px-2 py-1 text-xs text-text">Metric: {metric}</span>)}</div> : null}<div className="overflow-x-auto pb-3"><table className="w-full min-w-[48rem] text-left text-sm"><thead className="text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="py-2 pr-4">Field</th><th className="py-2 pr-4">Type</th><th className="py-2 pr-4">Constraints</th><th className="py-2">Safe profile</th></tr></thead><tbody>{entity.fields.map((field) => <tr key={field.id} className="border-t border-border align-top"><td className="py-2 pr-4"><p className="font-mono text-xs">{field.name}</p>{field.description ? <p className="mt-1 max-w-xs text-xs text-muted-foreground">{field.description}</p> : null}</td><td className="py-2 pr-4">{field.native_type}</td><td className="py-2 pr-4">{field.primary_key ? <span className="inline-flex items-center gap-1"><KeyIcon size={14} aria-hidden />Primary key</span> : field.unique ? "Unique" : field.nullable ? "Nullable" : "Required"}</td><td className="max-w-sm py-2 text-xs text-muted-foreground"><span className={field.profile_excluded ? "font-medium text-accent" : ""}>{profileSummary(field.profile)}</span>{field.profile_sample_size !== null && !field.profile_excluded ? <span className="mt-1 block">Sample: up to {field.profile_sample_size} rows</span> : null}</td></tr>)}</tbody></table></div></details>)}
           </div>
         </Card>

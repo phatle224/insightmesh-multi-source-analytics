@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createDatasource,
+  deleteDatasource,
   getSemanticManifest,
+  renameDatasource,
   testDatasourceConnection,
   type DatasourceConnectionInput,
   type DatasourceCreateInput,
@@ -84,6 +86,36 @@ describe("datasource API", () => {
     expect(fetcher).toHaveBeenCalledWith(
       "/api/v1/datasources/source-1/semantic-manifest",
       expect.any(Object),
+    );
+  });
+
+  it("renames a datasource through the datasource boundary", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ id: "source-1", name: "Renamed source" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(renameDatasource("source-1", "Renamed source")).resolves.toMatchObject({
+      name: "Renamed source",
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/v1/datasources/source-1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetcher.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({ name: "Renamed source" }));
+  });
+
+  it("deletes a datasource without requiring a response body", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(deleteDatasource("source-1")).resolves.toBeNull();
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/v1/datasources/source-1",
+      expect.objectContaining({ method: "DELETE" }),
     );
   });
 });
