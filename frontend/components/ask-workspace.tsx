@@ -14,6 +14,7 @@ import Link from "next/link";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { ApiErrorNotice } from "@/components/api-error-notice";
+import { DatasourceContextPanel } from "@/components/datasource-context-panel";
 import { useDatasources } from "@/components/datasource-provider";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -334,6 +335,8 @@ export function AskWorkspace() {
         </div>
         <StatusPill>{canRun ? "Ready to query" : "Query unavailable"}</StatusPill>
       </Card>
+
+      <DatasourceContextPanel source={activeSource} />
 
       {!canRun ? (
         <ApiErrorNotice

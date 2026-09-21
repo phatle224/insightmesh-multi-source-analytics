@@ -96,6 +96,16 @@ export interface DatasourceDetail extends DatasourceSummary {
   relationships: DatasourceRelationship[];
 }
 
+export interface DatasourcePreview {
+  datasource_id: string;
+  entity_id: string;
+  schema_name: string;
+  entity_name: string;
+  columns: string[];
+  rows: unknown[][];
+  truncated: boolean;
+}
+
 export interface SemanticManifestTerm {
   id: string;
   term: string;
@@ -188,6 +198,10 @@ export function createDatasource(payload: DatasourceCreateInput) {
 
 export const getDatasource = (id: string) =>
   apiRequest<DatasourceDetail>(`/api/v1/datasources/${id}`);
+export const getDatasourcePreview = (datasourceId: string, entityId: string) =>
+  apiRequest<DatasourcePreview>(
+    `/api/v1/datasources/${datasourceId}/preview/${entityId}`,
+  );
 export const renameDatasource = (id: string, name: string) =>
   apiRequest<DatasourceDetail>(`/api/v1/datasources/${id}`, {
     method: "PATCH",

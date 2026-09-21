@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createDatasource,
   deleteDatasource,
+  getDatasourcePreview,
   getSemanticManifest,
   renameDatasource,
   testDatasourceConnection,
@@ -106,6 +107,25 @@ describe("datasource API", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
     expect(fetcher.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({ name: "Renamed source" }));
+  });
+
+  it("loads a bounded datasource row preview", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ entity_name: "orders", columns: ["id"], rows: [[1]] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(getDatasourcePreview("source-1", "entity-1")).resolves.toMatchObject({
+      entity_name: "orders",
+      rows: [[1]],
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/v1/datasources/source-1/preview/entity-1",
+      expect.any(Object),
+    );
   });
 
   it("deletes a datasource without requiring a response body", async () => {

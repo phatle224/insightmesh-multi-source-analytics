@@ -8,6 +8,7 @@ from api.schemas.datasources import (
     ConnectionTestResponse,
     DatasourceCreate,
     DatasourceDetail,
+    DatasourcePreviewResponse,
     DatasourceRename,
     DatasourceSummary,
     OnboardingStatusResponse,
@@ -52,6 +53,15 @@ def delete_datasource(datasource_id: UUID, session: SessionDependency) -> None:
 @router.get("/{datasource_id}", response_model=DatasourceDetail)
 def get_datasource(datasource_id: UUID, session: SessionDependency) -> DatasourceDetail:
     return service.get_datasource_detail(session, datasource_id)
+
+
+@router.get(
+    "/{datasource_id}/preview/{entity_id}", response_model=DatasourcePreviewResponse
+)
+def preview_datasource_entity(
+    datasource_id: UUID, entity_id: UUID, session: SessionDependency
+) -> DatasourcePreviewResponse:
+    return service.preview_datasource_entity(session, datasource_id, entity_id)
 
 
 @router.post("/{datasource_id}/activate", response_model=DatasourceDetail)

@@ -83,9 +83,15 @@ def test_datasource_onboarding_lifecycle_and_secret_boundary(
 
     detail_response = client.get(f"/api/v1/datasources/{datasource_id}")
     assert detail_response.status_code == 200
-    assert any(
-        entity["name"] == "orders" for entity in detail_response.json()["entities"]
+    detail = detail_response.json()
+    assert any(entity["name"] == "orders" for entity in detail["entities"])
+
+    preview_response = client.get(
+        f"/api/v1/datasources/{datasource_id}/preview/{detail['entities'][0]['id']}"
     )
+    assert preview_response.status_code == 200, preview_response.text
+    assert preview_response.json()["columns"]
+    assert len(preview_response.json()["rows"]) <= 10
 
     status_response = client.get(
         f"/api/v1/datasources/{datasource_id}/onboarding-status"

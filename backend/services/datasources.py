@@ -14,6 +14,7 @@ from api.schemas.datasources import (
     ConnectionTestResponse,
     DatasourceCreate,
     DatasourceDetail,
+    DatasourcePreviewResponse,
     DatasourceRename,
     DatasourceSummary,
     EntitySummary,
@@ -29,7 +30,9 @@ from connectors.base import (
     DataSourceConnector,
     ProfileResult,
     ProfilingPolicy,
+    QueryLimits,
     RawDataSourceMetadata,
+    ValidatedNativeQuery,
 )
 from connectors.mysql import MySQLConnector
 from connectors.postgres import PostgresConnector
@@ -911,6 +914,51 @@ def get_datasource_detail(session: Session, datasource_id: UUID) -> DatasourceDe
         **summary.model_dump(),
         entities=entity_responses,
         relationships=relationship_responses,
+    )
+
+
+def preview_datasource_entity(
+    session: Session, datasource_id: UUID, entity_id: UUID
+) -> DatasourcePreviewResponse:
+    datasource = _get_datasource(session, datasource_id)
+    entity = session.scalar(
+        select(Entity).where(Entity.id == entity_id, Entity.datasource_id == datasource_id)
+    )
+    if entity is None:
+        raise AppError("entity_not_found", "Datasource entity was not found", status_code=404)
+
+    def quote_identifier(value: str) -> str:
+        if datasource.source_type == "mysql":
+            return f"`{value.replace('`', '``')}`"
+        return f'"{value.replace(chr(34), chr(34) * 2)}"'
+
+    query = ValidatedNativeQuery(
+        text=(
+            "SELECT * FROM "
+            f"{quote_identifier(entity.schema_name)}.{quote_identifier(entity.name)} LIMIT 10"
+        ),
+        dialect=datasource.source_type,
+        referenced_schemas=frozenset({entity.schema_name}),
+    )
+    settings = get_settings()
+    connector = build_datasource_connector(session, datasource, settings)
+    try:
+        result = connector.execute_readonly(
+            query,
+            QueryLimits(timeout_ms=settings.datasource_statement_timeout_ms, max_rows=10),
+        )
+    except ConnectorError as exc:
+        raise _connector_error(exc) from None
+    finally:
+        connector.close()
+    return DatasourcePreviewResponse(
+        datasource_id=datasource.id,
+        entity_id=entity.id,
+        schema_name=entity.schema_name,
+        entity_name=entity.name,
+        columns=list(result.columns),
+        rows=[list(row) for row in result.rows],
+        truncated=result.truncated,
     )
 
 

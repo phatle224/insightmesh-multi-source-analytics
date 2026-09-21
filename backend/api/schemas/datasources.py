@@ -142,6 +142,16 @@ class DatasourceDetail(DatasourceSummary):
     relationships: list[RelationshipSummary]
 
 
+class DatasourcePreviewResponse(BaseModel):
+    datasource_id: UUID
+    entity_id: UUID
+    schema_name: str
+    entity_name: str
+    columns: list[str]
+    rows: list[list[object]]
+    truncated: bool
+
+
 class OnboardingStatusResponse(BaseModel):
     datasource_id: UUID
     status: str
