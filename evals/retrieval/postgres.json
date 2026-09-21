@@ -1,5 +1,6 @@
 {
   "suite": "postgres_semantic_retrieval_v1",
+  "datasource_name": "Docker demo store",
   "description": "Schema-selection and join-path cases for the Docker demo PostgreSQL datasource.",
   "cases": [
     {

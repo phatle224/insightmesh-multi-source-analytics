@@ -476,7 +476,7 @@ steps can reproduce which artifacts were used.
 
 ```text
 POST /query-runs
-GET  /query-runs?datasource_id=&status=&created_before=&limit=&cursor=
+GET  /query-runs?datasource_id=&status=&created_before=&search=&limit=&cursor=
 GET  /query-runs/{run_id}
 GET  /query-runs/{run_id}/trace
 ```
@@ -490,7 +490,7 @@ GET  /query-runs/{run_id}/trace
 The response contains `run_id`, terminal/current status, generated query when available, validation summary, verified result, visualization config, clarification suggestions, warnings, and a safe user-facing error. The transport may begin synchronously and move to background execution if measured latency requires it; the response shape must remain stable.
 
 The collection endpoint returns reverse-chronological, cursor-paginated summaries and
-supports optional datasource, status, and creation-time filters. Selecting `rerun`
+supports optional datasource, status, creation-time, and question-text filters. Selecting `rerun`
 client-side submits the stored complete question to `POST /query-runs` and always
 creates a new `run_id`; history never supplies conversational context.
 

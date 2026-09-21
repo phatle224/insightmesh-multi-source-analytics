@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createQueryRun, getQueryTrace } from "@/lib/query-runs";
+import { createQueryRun, getQueryTrace, listQueryRuns } from "@/lib/query-runs";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -40,5 +40,28 @@ describe("query run API", () => {
     await getQueryTrace("run-1");
 
     expect(fetcher).toHaveBeenCalledWith("/api/v1/query-runs/run-1/trace", expect.any(Object));
+  });
+
+  it("serializes query history filters and pagination", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ items: [], limit: 20, total: 0, next_cursor: null, has_more: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await listQueryRuns({
+      cursor: "cursor-2",
+      status: "completed",
+      datasourceId: "source-1",
+      createdBefore: "2026-09-21T00:00:00.000Z",
+      search: "  revenue  ",
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/v1/query-runs?limit=20&cursor=cursor-2&status=completed&datasource_id=source-1&created_before=2026-09-21T00%3A00%3A00.000Z&search=revenue",
+      expect.any(Object),
+    );
   });
 });

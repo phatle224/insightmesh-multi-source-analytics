@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import select
 
 from persistence.database import SessionLocal
-from persistence.models import Datasource
+from persistence.models import Datasource, Embedding
 from services.retrieval import retrieve_context
 
 DEFAULT_FIXTURE = Path("/app/evals/retrieval/postgres.json")
@@ -42,11 +42,22 @@ def main() -> int:
     with SessionLocal() as session:
         datasource_query = select(Datasource).where(
             Datasource.source_type == "postgresql",
+            Datasource.status == "ready",
             Datasource.semantic_status.in_(["ready", "stale"]),
+            Datasource.metadata_hash.is_not(None),
+            Datasource.profile_hash.is_not(None),
+            select(Embedding.id)
+            .where(Embedding.datasource_id == Datasource.id)
+            .exists(),
         )
-        if args.datasource_name:
-            datasource_query = datasource_query.where(Datasource.name == args.datasource_name)
-        datasource = session.scalar(datasource_query.order_by(Datasource.created_at.desc()))
+        datasource_name = args.datasource_name or suite.get("datasource_name")
+        if datasource_name:
+            datasource_query = datasource_query.where(Datasource.name == datasource_name)
+        datasource = session.scalar(
+            datasource_query.order_by(
+                Datasource.is_active.desc(), Datasource.created_at.desc()
+            )
+        )
         if datasource is None:
             parser.error("No ready PostgreSQL semantic index matched the requested datasource")
 

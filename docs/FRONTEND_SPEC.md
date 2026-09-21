@@ -321,7 +321,7 @@ Refresh revalidates and executes the stored query. Show the last refresh time an
 ## 8. Query History
 
 `/history` lists query-run summaries in reverse chronological order with cursor-based
-pagination and filters for datasource, terminal status, and creation time. Each row
+pagination and filters for question text, datasource, terminal status, and creation time. Each row
 shows question, datasource, status, created time, duration, repair count, result row
 count, and visualization type without exposing raw driver errors or hidden reasoning.
 

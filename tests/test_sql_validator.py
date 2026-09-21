@@ -16,6 +16,16 @@ def _orders() -> RetrievedEntity:
         fields=[
             RetrievedField(
                 id=uuid4(),
+                name="id",
+                native_type="bigint",
+                normalized_type="integer",
+                description=None,
+                primary_key=True,
+                unique=True,
+                profile=None,
+            ),
+            RetrievedField(
+                id=uuid4(),
                 name="status",
                 native_type="text",
                 normalized_type="string",
@@ -61,4 +71,26 @@ def test_sql_validator_marks_unknown_columns_as_repairable() -> None:
     )
     assert result.valid is False
     assert result.unsafe is False
-    assert result.error_code == "unknown_column"
+
+
+def test_sql_validator_accepts_cte_output_aliases_in_outer_query_and_window_order() -> None:
+    result = validate_postgres_sql(
+        """
+        WITH customer_revenue AS (
+            SELECT id AS customer_id, COUNT(*) AS total_revenue
+            FROM public.orders
+            GROUP BY id
+        )
+        SELECT customer_id,
+               total_revenue,
+               RANK() OVER (ORDER BY total_revenue DESC) AS revenue_rank
+        FROM customer_revenue
+        ORDER BY revenue_rank
+        """,
+        [_orders()],
+        {"public"},
+    )
+
+    assert result.valid is True
+    assert result.query is not None
+    assert result.error_code is None

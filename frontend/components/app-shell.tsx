@@ -2,6 +2,7 @@
 
 import {
   ChartBarIcon,
+  ClockCounterClockwiseIcon,
   DatabaseIcon,
   GearSixIcon,
   GraphIcon,
@@ -25,6 +26,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { href: "/sources", label: "Sources", icon: DatabaseIcon },
   { href: "/ask", label: "Ask", icon: MagnifyingGlassIcon },
+  { href: "/history", label: "History", icon: ClockCounterClockwiseIcon },
   { href: "/dashboards", label: "Dashboards", icon: ChartBarIcon },
   { href: "/settings", label: "Settings", icon: GearSixIcon },
 ];

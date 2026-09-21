@@ -108,15 +108,25 @@ def validate_postgres_sql(
     entities_by_name: dict[str, list[RetrievedEntity]] = {}
     for entity in entities:
         entities_by_name.setdefault(entity.name.lower(), []).append(entity)
-    cte_names = {cte.alias_or_name.lower() for cte in statement.find_all(exp.CTE)}
+    cte_fields = {
+        cte.alias_or_name.lower(): {
+            item.alias_or_name.lower()
+            for item in cte.this.selects
+            if item.alias_or_name
+        }
+        for cte in statement.find_all(exp.CTE)
+    }
+    cte_names = set(cte_fields)
     real_tables: list[tuple[exp.Table, RetrievedEntity]] = []
     referenced_schemas: set[str] = set()
     aliases_for_ctes: set[str] = set()
+    alias_fields_for_ctes: dict[str, set[str]] = {}
     for table in statement.find_all(exp.Table):
         table_name = table.name.lower()
         alias = table.alias_or_name.lower()
         if table_name in cte_names:
             aliases_for_ctes.add(alias)
+            alias_fields_for_ctes[alias] = cte_fields[table_name]
             continue
         schema_name = table.db.lower() if table.db else ""
         if table.catalog:
@@ -152,7 +162,7 @@ def validate_postgres_sql(
         table.alias_or_name.lower(): {field.name.lower() for field in entity.fields}
         for table, entity in real_tables
     }
-    available_fields = set().union(*alias_fields.values())
+    available_fields = set().union(*alias_fields.values(), *alias_fields_for_ctes.values())
     projection_aliases = {
         item.alias.lower()
         for item in statement.selects
@@ -164,10 +174,18 @@ def validate_postgres_sql(
             continue
         qualifier = column.table.lower() if column.table else ""
         if qualifier in aliases_for_ctes or qualifier in cte_names:
+            cte_available_fields = alias_fields_for_ctes.get(
+                qualifier, cte_fields.get(qualifier, set())
+            )
+            if name not in cte_available_fields:
+                return _invalid(
+                    "unknown_column",
+                    f"SQL references an unavailable CTE column: {column.sql(dialect='postgres')}",
+                )
             continue
         if qualifier:
-            fields = alias_fields.get(qualifier)
-            if fields is None or name not in fields:
+            qualified_fields = alias_fields.get(qualifier)
+            if qualified_fields is None or name not in qualified_fields:
                 return _invalid(
                     "unknown_column",
                     f"SQL references an unavailable column: {column.sql(dialect='postgres')}",

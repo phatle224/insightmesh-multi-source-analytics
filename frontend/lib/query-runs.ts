@@ -73,6 +73,37 @@ export interface QueryTrace {
   trace: TraceEvent[];
 }
 
+export interface QueryRunSummary {
+  run_id: string;
+  datasource_id: string;
+  datasource_name: string;
+  question: string;
+  status: QueryRunStatus;
+  row_count: number | null;
+  duration_ms: number | null;
+  repair_count: number;
+  visualization_type: string | null;
+  error_code: string | null;
+  created_at: string;
+}
+
+export interface QueryRunPage {
+  items: QueryRunSummary[];
+  limit: number;
+  total: number;
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+export interface QueryRunFilters {
+  limit?: number;
+  cursor?: string;
+  status?: QueryRunStatus | "";
+  datasourceId?: string;
+  createdBefore?: string;
+  search?: string;
+}
+
 export function createQueryRun(datasourceId: string, question: string) {
   return apiRequest<QueryRun>("/api/v1/query-runs", {
     method: "POST",
@@ -85,3 +116,14 @@ export const getQueryRun = (runId: string) =>
 
 export const getQueryTrace = (runId: string) =>
   apiRequest<QueryTrace>(`/api/v1/query-runs/${runId}/trace`);
+
+export function listQueryRuns(filters: QueryRunFilters = {}) {
+  const params = new URLSearchParams();
+  params.set("limit", String(filters.limit ?? 20));
+  if (filters.cursor) params.set("cursor", filters.cursor);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.datasourceId) params.set("datasource_id", filters.datasourceId);
+  if (filters.createdBefore) params.set("created_before", filters.createdBefore);
+  if (filters.search?.trim()) params.set("search", filters.search.trim());
+  return apiRequest<QueryRunPage>(`/api/v1/query-runs?${params.toString()}`);
+}

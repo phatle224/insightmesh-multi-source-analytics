@@ -28,7 +28,14 @@ from harness.state import RuntimeStatus
 from harness.transitions import transition
 from persistence.credentials import CredentialCipher
 from persistence.database import SessionLocal
-from persistence.models import Datasource, DatasourceCredential, Embedding, Entity, Field
+from persistence.models import (
+    Datasource,
+    DatasourceCredential,
+    Embedding,
+    Entity,
+    Field,
+    QueryRun,
+)
 from semantic.provider import StructuredGenerationRequest
 
 
@@ -215,6 +222,95 @@ def test_runtime_executes_verified_read_only_query_and_exposes_trace_api() -> No
         assert response.status_code == 200
         assert response.json()["status"] == "completed"
         assert len(response.json()["trace"]) == 7
+
+
+def test_query_run_history_is_paginated_filterable_and_summary_only() -> None:
+    client = TestClient(app)
+    with runtime_datasource() as (session, datasource):
+        session.add_all(
+            [
+                QueryRun(
+                    datasource_id=datasource.id,
+                    question="Order count by status",
+                    generated_query={},
+                    query_type="postgresql",
+                    validation_result={},
+                    status="completed",
+                    row_count=4,
+                    duration_ms=18,
+                    repair_count=0,
+                    result_json={"rows": [["completed", 5]]},
+                    trace_json=[],
+                    warnings=[],
+                ),
+                QueryRun(
+                    datasource_id=datasource.id,
+                    question="Order revenue by month",
+                    generated_query={},
+                    query_type="postgresql",
+                    validation_result={},
+                    status="completed",
+                    row_count=12,
+                    duration_ms=24,
+                    repair_count=1,
+                    result_json={"rows": [["2025-01", 100]]},
+                    trace_json=[],
+                    warnings=[],
+                ),
+                QueryRun(
+                    datasource_id=datasource.id,
+                    question="Who are our best customers?",
+                    generated_query={},
+                    query_type="postgresql",
+                    validation_result={},
+                    status="clarification_required",
+                    repair_count=0,
+                    trace_json=[],
+                    warnings=[],
+                ),
+            ]
+        )
+        session.commit()
+
+        response = client.get(
+            "/api/v1/query-runs",
+            params={
+                "datasource_id": str(datasource.id),
+                "status": "completed",
+                "search": "order",
+                "limit": 1,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == 2
+        assert payload["has_more"] is True
+        assert payload["next_cursor"]
+        assert len(payload["items"]) == 1
+        assert payload["items"][0]["datasource_name"] == datasource.name
+        assert "result" not in payload["items"][0]
+        assert "generated_query" not in payload["items"][0]
+
+        next_response = client.get(
+            "/api/v1/query-runs",
+            params={
+                "datasource_id": str(datasource.id),
+                "status": "completed",
+                "search": "order",
+                "limit": 1,
+                "cursor": payload["next_cursor"],
+            },
+        )
+        assert next_response.status_code == 200
+        assert next_response.json()["items"][0]["run_id"] != payload["items"][0]["run_id"]
+
+        invalid_cursor = client.get(
+            "/api/v1/query-runs",
+            params={"datasource_id": str(datasource.id), "cursor": "not-a-cursor"},
+        )
+        assert invalid_cursor.status_code == 422
+        assert invalid_cursor.json()["error"]["code"] == "invalid_query_run_cursor"
 
 
 def test_runtime_repairs_invalid_column_once_then_completes() -> None:

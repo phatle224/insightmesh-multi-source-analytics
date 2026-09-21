@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -15,6 +15,45 @@ class QueryRunCreate(BaseModel):
 class QueryRunError(BaseModel):
     code: str
     message: str
+
+
+QueryRunStatus = Literal[
+    "received",
+    "retrieve_context",
+    "generate_query",
+    "validate_query",
+    "execute_query",
+    "repair_query",
+    "verify_result",
+    "select_visualization",
+    "completed",
+    "clarification_required",
+    "out_of_scope",
+    "blocked",
+    "failed",
+]
+
+
+class QueryRunSummary(BaseModel):
+    run_id: UUID
+    datasource_id: UUID
+    datasource_name: str
+    question: str
+    status: QueryRunStatus
+    row_count: int | None
+    duration_ms: int | None
+    repair_count: int
+    visualization_type: str | None
+    error_code: str | None
+    created_at: datetime
+
+
+class QueryRunPage(BaseModel):
+    items: list[QueryRunSummary]
+    limit: int
+    total: int
+    next_cursor: str | None
+    has_more: bool
 
 
 class QueryRunResponse(BaseModel):
