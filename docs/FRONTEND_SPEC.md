@@ -15,7 +15,7 @@ Fixed rules:
 - Do not show fake query results or optimistic success before the backend confirms execution.
 - Do not expose hidden chain-of-thought. Execution trace shows named actions, states, durations, and safe summaries only.
 - Always show the active datasource on analytical and dashboard surfaces.
-- Generated SQL or MongoDB pipeline remains inspectable.
+- Generated PostgreSQL/MySQL SQL remains inspectable.
 - Unsafe requests have no Execute/Continue action.
 - Dashboard refresh never requests query regeneration.
 
@@ -123,20 +123,12 @@ Password
 SSL
 ```
 
-MongoDB fields:
-
-```text
-Connection Name
-Connection URI
-Database
-```
-
 Form behavior:
 
 1. Test Connection validates transport/authentication without saving.
 2. Save Connection is enabled only after a successful test for the unchanged form values.
 3. Saving starts onboarding and navigates to the datasource detail/status page.
-4. Password and URI values are never redisplayed after save.
+4. Password values are never redisplayed after save.
 
 Errors distinguish connection refused, authentication failure, permission failure, timeout, and unsupported configuration without exposing driver secrets.
 
@@ -237,7 +229,6 @@ question independently.
 
 - Collapsed by default for business users; user preference may keep it open.
 - SQL uses dialect-aware syntax highlighting.
-- MongoDB uses formatted JSON pipeline/query representation, not executable JavaScript.
 - Provide Copy Query.
 - Show query type, validation status, repair count, execution duration, and truncation warning.
 - Do not offer an editable-and-execute query editor in V1.
@@ -384,7 +375,7 @@ Approved visual direction:
 
 - use a restrained data-dense B2B analytics shell with left navigation and a wide content area;
 - use the approved blue/navy palette with amber accent tokens from `MASTER.md`;
-- use Fira Sans for product UI and Fira Code only for SQL, MongoDB pipelines, identifiers, and tabular numeric values;
+- use Fira Sans for product UI and Fira Code only for SQL, identifiers, and tabular numeric values;
 - prioritize data density, table readability, query readability, and clear state feedback;
 - avoid decorative gradients, excessive motion, glass effects, and marketing-page styling in product screens;
 - use the shared 4/8px spacing rhythm and semantic design tokens rather than raw per-component values;
@@ -398,7 +389,7 @@ Page-specific overrides may be added under `design-system/insightmesh/pages/`; t
 1. With no active datasource, `/ask` blocks submission and links to Sources.
 2. A ready datasource can be activated and remains visible in the global shell and Ask workspace.
 3. PostgreSQL question progress maps to runtime states and ends with inspectable SQL, table, and compatible chart.
-4. MongoDB results display formatted structured JSON for the generated pipeline.
+4. MySQL question progress maps to the same runtime states and ends with inspectable MySQL-compatible SQL.
 5. An unsafe request ends in a blocked state with no execution action.
 6. An ambiguous request shows complete alternatives; selection starts a new independent run.
 7. Empty results render successfully with a clear empty state.
@@ -415,7 +406,8 @@ Page-specific overrides may be added under `design-system/insightmesh/pages/`; t
 
 - multi-turn chat UI;
 - natural-language follow-up context;
-- editable SQL/MongoDB execution console;
+- editable SQL execution console;
+- MongoDB and other non-SQL datasource onboarding, query viewers, and execution states;
 - drag-and-drop BI report builder beyond widget reorder;
 - cross-datasource selection for one question;
 - scheduled reports or alerts;

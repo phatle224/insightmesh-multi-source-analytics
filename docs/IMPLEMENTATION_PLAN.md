@@ -114,6 +114,7 @@ These defaults prevent repeated decisions during implementation. Change them her
 | Application database | PostgreSQL with pgvector |
 | Migrations | Alembic |
 | First demo datasource | Separate PostgreSQL container |
+| V1 datasource scope | PostgreSQL and MySQL only; MongoDB is explicitly out of scope |
 | Orchestration | Custom deterministic Lightweight Harness Runtime |
 | Tests | Pytest for backend; frontend unit/component runner selected during Phase 3; Playwright for critical flows |
 
@@ -134,7 +135,6 @@ Added only after the PostgreSQL quality gate:
 
 ```text
 demo-mysql
-demo-mongodb
 ```
 
 ### 5.2 Required Docker Behavior
@@ -148,7 +148,7 @@ demo-mongodb
 - `.env` is ignored; `.env.example` contains placeholders and safe local defaults only.
 - Containers run as non-root where practical.
 - Service logs never contain passwords, connection URIs, raw PII, or raw profiling samples.
-- MySQL and MongoDB services use Compose profiles or an override so they do not slow the initial PostgreSQL workflow.
+- The MySQL service uses a Compose profile or override so it does not slow the initial PostgreSQL workflow.
 
 ### 5.3 Standard Commands
 
@@ -386,26 +386,11 @@ docker compose ps
 
 **Definition of Done:** MySQL acceptance scenarios pass without PostgreSQL regressions, and evaluation reports MySQL separately.
 
-### Phase 13 — MongoDB Expansion
+### Phase 13 — Full Evaluation and Portfolio Readiness
 
 **Status:** Not started
 
-- [ ] Add `demo-mongodb` Compose profile and reproducible seed data.
-- [ ] Run the same connector capability/conformance contract for MongoDB-supported operations.
-- [ ] Implement MongoDB collection/schema inference and bounded local profiling.
-- [ ] Implement structured `find` and aggregation generation.
-- [ ] Validate operations, nested stages, and expressions.
-- [ ] Block `$out`, `$merge`, `$function`, `$where`, server-side JavaScript, and all write paths.
-- [ ] Implement read-only execution and JSON-safe value serialization.
-- [ ] Add MongoDB pipeline viewer and benchmark cases.
-
-**Definition of Done:** MongoDB acceptance scenarios pass, unsafe nested pipelines are blocked, and evaluation reports MongoDB separately.
-
-### Phase 14 — Full Evaluation and Portfolio Readiness
-
-**Status:** Not started
-
-- [ ] Complete approximately 40–60 benchmark questions across all datasources.
+- [ ] Complete approximately 30–50 benchmark questions across PostgreSQL and MySQL.
 - [ ] Generate per-datasource, per-difficulty, and overall metrics.
 - [ ] Run privacy/security regression tests.
 - [ ] Run responsive and accessibility review using `ui-ux-pro-max`.
@@ -424,7 +409,7 @@ Apply these gates whenever relevant:
 
 - [ ] No committed secrets or real credentials.
 - [ ] No credentials, raw PII, raw rows, or raw profiling samples in LLM prompts, logs, traces, fixtures, or API errors.
-- [ ] SQL and MongoDB safety tests pass before execution tests.
+- [ ] PostgreSQL and MySQL SQL safety tests pass before execution tests.
 - [ ] Datasource users are read-only.
 - [ ] Timeout, row limit, allowed-schema/database, and retry limit are enforced in code.
 
@@ -496,8 +481,9 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-21 | 10 | Hybrid retrieval, normalized/obfuscated safety precheck, CTE/alias-aware SQL validation, and evaluation regression tests | Docker Compose Pytest plus targeted Ruff and strict Mypy | Pass; 37 tests; changed-file quality checks clean |
 | 2026-09-21 | 11 | Cursor-paginated/filterable query history API, safe retained-run details, and independent rerun | Docker Compose backend Pytest plus changed-file Ruff/strict Mypy and Alembic check; frontend ESLint/TypeScript/Vitest/build; full Playwright suite | Pass; 38 backend tests, 23 frontend tests, production `/history` route, 4 browser flows, and responsive 375/1440 px history checks |
 | 2026-09-21 | 11 | Immutable versioned semantic-manifest persistence/API, privacy-safe artifact contract, datasource-detail summary, and JSON export | Docker Compose migration/Alembic check, 38 backend tests, changed-file Ruff and strict Mypy; frontend ESLint/TypeScript, 26 Vitest tests, production build; live API probe; Playwright run sequentially | Pass; unchanged refreshes deduplicate by stable content hash, semantic changes create a new immutable version, excluded PII and embedding vectors/content stay out of the manifest; live Docker demo returns v1 with 6 entities/4 relationships and Gemini 2.5 Flash configuration; all 4 browser flows pass including versioned export and responsive source detail |
+| 2026-09-21 | Scope | V1 datasource scope reduced to PostgreSQL and MySQL only | Cross-document search across PRD, technical design, frontend spec, implementation tracker, README, demo notes, and design system | Pass; MongoDB implementation phase, connector/query/safety/UI requirements, demo dataset, acceptance scenario, evaluation column, and portfolio claims removed; explicit non-goal retained to prevent scope drift |
 
-Current limitations: development images only; MySQL/MongoDB are not implemented. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 40–60-case cross-datasource suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. The relationship graph and expanded relationship/trace explainability remain in Phase 11. Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; MySQL is not implemented yet, and MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 30–50-case PostgreSQL/MySQL suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. The relationship graph and expanded relationship/trace explainability remain in Phase 11. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

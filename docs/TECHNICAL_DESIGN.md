@@ -20,7 +20,9 @@ When a required decision is absent or contradictory, mark it `TBD` and request a
 
 ## 2. Fixed V1 Boundaries
 
-- Build and validate one PostgreSQL vertical slice before MySQL and MongoDB.
+- Build and validate one PostgreSQL vertical slice before MySQL.
+- Supported V1 datasource types are PostgreSQL and MySQL only. MongoDB and other
+  non-SQL connectors are out of scope and must not be added to the roadmap or runtime.
 - One datasource is active per workspace/session. No cross-datasource joins or federation.
 - Every analytical question is an independent request. V1 has no conversation memory.
 - The orchestration layer is a custom deterministic state machine. Do not add LangGraph, a standalone LLM planner/router, or a multi-agent system.
@@ -48,8 +50,7 @@ FastAPI API
    │
    └── Connector Abstraction
           ├── PostgreSQL — first vertical slice
-          ├── MySQL — after PostgreSQL baseline
-          └── MongoDB — after MySQL
+          └── MySQL — after PostgreSQL baseline
 ```
 
 ## 4. Backend Module Boundaries
@@ -93,10 +94,9 @@ Connector invariants:
 - Timeouts and returned-row limits are enforced at execution time, not only requested in prompts.
 - Credentials are never included in logs, traces, exceptions returned to clients, or query history.
 - PostgreSQL and MySQL use read-only accounts and transactions where supported.
-- MongoDB credentials must permit read operations only.
 
 `ConnectorCapabilities` explicitly reports support for native explain/dry validation,
-relationship introspection, aggregation pipelines, transactions, and schema/database
+relationship introspection, transactions, and schema/database
 namespaces. Shared conformance tests enforce the universal invariants and each
 advertised capability so runtime code does not scatter datasource-type conditionals.
 
@@ -182,7 +182,6 @@ Skills are loaded from known application paths or a static registry. V1 has no p
 - Timestamps cross API boundaries as ISO 8601 UTC strings.
 - Decimal database values serialize as strings plus column type metadata to avoid precision loss.
 - Null remains JSON `null`; it is never converted to an empty string or zero.
-- MongoDB-specific values such as `ObjectId` and dates must be converted to typed, JSON-safe values by the connector.
 
 ### 6.2 Normalized Metadata
 
@@ -202,7 +201,7 @@ Skills are loaded from known application paths or a static registry. V1 has no p
 }
 ```
 
-The normalized model represents SQL tables/views and MongoDB collections without erasing datasource-specific details needed for query generation.
+The normalized model represents PostgreSQL and MySQL tables/views without erasing dialect-specific details needed for query generation.
 
 ### 6.3 Local Profiling
 
@@ -211,7 +210,6 @@ Allowed derived statistics:
 - null ratio;
 - distinct count;
 - numeric/temporal minimum and maximum;
-- MongoDB field presence rate;
 - observed data-type distribution;
 - low-cardinality enum candidates.
 
@@ -336,14 +334,6 @@ It does not prove semantic correctness and is not an agent. Result accuracy is m
 - Enforce allowed schemas, timeout, and maximum returned rows independently of generated SQL.
 - Reject side-effecting SELECT constructs/functions such as `SELECT INTO`, sequence
   mutation, server/file access, advisory locks, and server-side delay functions.
-
-### 8.2 MongoDB
-
-Allowed operations: `find`, `aggregate`, `count`, `distinct`.
-
-Allowed analytical stages include `$match`, `$group`, `$project`, `$sort`, `$limit`, `$skip`, `$lookup`, `$unwind`, and `$count`.
-
-Always reject `$out`, `$merge`, `$function`, `$where`, server-side JavaScript, write operations, and any unrecognized stage or expression not explicitly allowed by policy. Validation walks nested pipelines and expressions, including pipelines inside `$lookup`.
 
 ## 9. Semantic Indexing and Retrieval
 
@@ -590,14 +580,14 @@ Do not commit secrets. `.env.example` contains placeholders only.
 
 Required automated test layers:
 
-- unit tests for state transitions, SQL validator, MongoDB nested-stage validator, result verification, chart selection, and serialization;
+- unit tests for state transitions, PostgreSQL/MySQL SQL validators, result verification, chart selection, and serialization;
 - connector contract tests using reproducible demo databases;
 - integration tests for datasource onboarding and the complete PostgreSQL question flow;
-- security tests for multi-statement SQL, SQL writes, `$out`, `$merge`, `$function`, `$where`, nested unsafe MongoDB stages, timeout, and row limits;
+- security tests for multi-statement SQL, SQL writes, dialect-specific unsafe functions, timeout, and row limits;
 - privacy tests confirming prompts and traces contain no credentials or raw sampled rows;
 - dashboard tests confirming refresh performs no LLM call;
 - adversarial guardrail tests covering prompt injection, SQL fragments, Unicode/whitespace obfuscation, model-meta requests, out-of-scope requests, and valid business wording that resembles write intent;
-- evaluation runner reporting PostgreSQL, MySQL, MongoDB, and overall metrics by Easy, Medium, Hard, Ambiguous, Out-of-scope, and Unsafe groups;
+- evaluation runner reporting PostgreSQL, MySQL, and overall metrics by Easy, Medium, Hard, Ambiguous, Out-of-scope, and Unsafe groups;
 - retrieval comparison tests that freeze the vector-only baseline before hybrid fusion is enabled.
 
 Primary evaluation metric is result accuracy, not query-string equality. Reports also
@@ -618,8 +608,7 @@ metadata/profile hashes, and retrieval configuration.
 8. PostgreSQL evaluation baseline, adversarial guardrails, and measured hybrid retrieval.
 9. Query history, semantic-manifest inspection, relationship graph, and measured cache optimization.
 10. Connector capability contract plus MySQL connector and dialect path.
-11. MongoDB connector, schema model, query generation, and nested pipeline safety.
-12. Full evaluation and remaining release hardening.
+11. Full PostgreSQL/MySQL evaluation and remaining release hardening.
 
 ## 16. Explicit TBDs
 

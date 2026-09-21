@@ -1,3 +1,3 @@
 # Demo datasources
 
-Phase 1 provisions PostgreSQL with a single synthetic connectivity probe and a read-only role. The e-commerce dataset is scheduled for Phase 4. MySQL and MongoDB will be added after the PostgreSQL evaluation gate.
+The current Docker demo provisions PostgreSQL with a synthetic e-commerce dataset and a read-only role. MySQL is the second and final planned V1 datasource and will be added after the PostgreSQL quality gate. MongoDB is intentionally out of scope.

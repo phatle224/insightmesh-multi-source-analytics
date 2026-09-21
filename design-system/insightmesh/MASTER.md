@@ -42,7 +42,7 @@
 
 - **Heading Font:** Fira Sans
 - **Body Font:** Fira Sans
-- **Code/Data Font:** Fira Code (SQL, MongoDB pipelines, identifiers, tabular numeric values)
+- **Code/Data Font:** Fira Code (PostgreSQL/MySQL SQL, identifiers, tabular numeric values)
 - **Mood:** dashboard, data, analytics, code, technical, precise
 - **Google Fonts:** [Fira Code + Fira Sans](https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap)
 

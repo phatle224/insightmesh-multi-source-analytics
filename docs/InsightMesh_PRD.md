@@ -16,25 +16,24 @@
 
 InsightMesh is an AI-powered self-service analytics application that allows Data Analysts and non-technical business users to connect an existing database, ask analytical questions in natural language, receive a generated database query, execute it safely, and visualize the result as a table or dashboard widget.
 
-V1 supports three datasource types:
+V1 supports two datasource types:
 
 - PostgreSQL
 - MySQL
-- MongoDB
 
-Users first connect and activate a datasource. Every question in that session is interpreted against that active datasource only. PostgreSQL and MySQL requests generate dialect-aware SQL, while MongoDB requests generate MongoDB queries or aggregation pipelines.
+Users first connect and activate a datasource. Every question in that session is interpreted against that active datasource only. PostgreSQL and MySQL requests generate dialect-aware SQL.
 
 The central architectural concept is a **Lightweight Harness Runtime** rather than a fixed multi-agent pipeline. This custom, deterministic state machine maintains execution state and orchestrates semantic retrieval, query generation, validation, execution, bounded repair, and final response preparation.
 
-InsightMesh also includes an automatically generated semantic knowledge layer. Instead of requiring an administrator to manually configure business metrics or glossary definitions, the system introspects the connected datasource and uses AI-assisted metadata enrichment to infer table/collection meanings, relationships, business concepts, and candidate metrics. These semantic artifacts are embedded and stored in pgvector for retrieval during question answering.
+InsightMesh also includes an automatically generated semantic knowledge layer. Instead of requiring an administrator to manually configure business metrics or glossary definitions, the system introspects the connected datasource and uses AI-assisted metadata enrichment to infer table meanings, relationships, business concepts, and candidate metrics. These semantic artifacts are embedded and stored in pgvector for retrieval during question answering.
 
-The project intentionally stops short of building a full enterprise BI platform. Its purpose is to demonstrate engineering depth in metadata discovery, multi-datasource abstraction, semantic retrieval, RAG, lightweight runtime design, Text-to-SQL/NL-to-Query, deterministic guardrails, visualization, dashboard persistence, and formal evaluation.
+The project intentionally stops short of building a full enterprise BI platform. Its purpose is to demonstrate engineering depth in metadata discovery, multi-datasource SQL abstraction, semantic retrieval, RAG, lightweight runtime design, Text-to-SQL, deterministic guardrails, visualization, dashboard persistence, and formal evaluation.
 
 ---
 
 ## 2. Product Vision
 
-> **InsightMesh enables users to explore connected business databases using natural language without requiring them to know SQL, MongoDB query syntax, or the physical database schema.**
+> **InsightMesh enables users to explore connected PostgreSQL and MySQL databases using natural language without requiring them to know SQL or the physical database schema.**
 
 Core experience:
 
@@ -47,7 +46,7 @@ Ask a Question
     ↓
 Retrieve Relevant Semantic Context
     ↓
-Generate Database-Native Query
+Generate Dialect-Aware SQL
     ↓
 Validate + Execute Safely
     ↓
@@ -72,9 +71,9 @@ Business users frequently depend on Data Analysts for questions that could techn
 
 The problem is broader than SQL generation. A practical natural-language analytics system must solve:
 
-1. **Schema understanding** — identify relevant tables, fields, collections, and relationships.
+1. **Schema understanding** — identify relevant tables, fields, and relationships.
 2. **Business terminology** — map user language to database concepts.
-3. **Datasource dialect differences** — PostgreSQL, MySQL, and MongoDB require different query strategies.
+3. **Datasource dialect differences** — PostgreSQL and MySQL require different SQL dialect strategies.
 4. **Large schemas** — avoid dumping the entire schema into every prompt.
 5. **Unsafe generated queries** — never trust AI output blindly.
 6. **Ambiguity** — detect underspecified questions instead of guessing.
@@ -101,14 +100,14 @@ The system must distinguish inference from known metadata and should request cla
 
 InsightMesh V1 must:
 
-1. Connect to PostgreSQL, MySQL, and MongoDB.
+1. Connect to PostgreSQL and MySQL.
 2. Allow one datasource to be selected as active for a session/workspace.
 3. Automatically inspect datasource metadata after connection.
 4. Build a normalized semantic representation from datasource metadata.
 5. Embed semantic metadata into pgvector.
 6. Retrieve only relevant schema and semantic context for each question.
 7. Use a Lightweight Harness Runtime with deterministic state transitions to orchestrate retrieval, query generation, validation, execution, and bounded repair.
-8. Generate PostgreSQL SQL, MySQL SQL, or MongoDB queries depending on the active datasource.
+8. Generate PostgreSQL or MySQL SQL depending on the active datasource.
 9. Apply deterministic query validation before execution.
 10. Execute through read-only connections.
 11. Return structured results.
@@ -151,6 +150,7 @@ V1 will not attempt to build a full enterprise BI platform. The following are ou
 - enterprise RBAC;
 - cross-datasource joins;
 - data federation across multiple active databases;
+- MongoDB and other non-SQL datasource connectors, query generation, validation, demo data, and evaluation;
 - machine-learning forecasting or recommendation systems.
 
 ---
@@ -197,7 +197,7 @@ InsightMesh does not attempt to infer which datasource a question should use.
 
 The LLM may receive:
 
-- table/collection names;
+- table names;
 - field names and data types;
 - primary/foreign keys;
 - relationships;
@@ -210,7 +210,7 @@ The LLM must not receive full raw tables, credentials, or raw PII by default.
 
 ### 7.3 Lightweight Harness Runtime
 
-The core AI workflow uses a custom deterministic state machine rather than a fixed multi-agent pipeline, an orchestration framework such as LangGraph, or a standalone LLM planner/router. Code determines the next workflow transition; LLM calls are limited to semantic interpretation, database-native query generation, and bounded query repair.
+The core AI workflow uses a custom deterministic state machine rather than a fixed multi-agent pipeline, an orchestration framework such as LangGraph, or a standalone LLM planner/router. Code determines the next workflow transition; LLM calls are limited to semantic interpretation, dialect-aware SQL generation, and bounded query repair.
 
 The runtime behaves as:
 
@@ -247,7 +247,7 @@ Use deterministic mechanisms for:
 
 ### 8.1 Connect Data Source
 
-The user opens **Data Sources → Add Connection** and chooses PostgreSQL, MySQL, or MongoDB.
+The user opens **Data Sources → Add Connection** and chooses PostgreSQL or MySQL.
 
 PostgreSQL/MySQL fields:
 
@@ -259,14 +259,6 @@ Database
 Username
 Password
 SSL
-```
-
-MongoDB fields:
-
-```text
-Connection Name
-Connection URI
-Database
 ```
 
 Actions:
@@ -327,7 +319,7 @@ Return answer
 
 ### 8.4 View Generated Query
 
-For PostgreSQL/MySQL, show SQL. For MongoDB, show a structured aggregation/query representation. Data Analysts should always be able to inspect the generated query.
+For PostgreSQL/MySQL, show the generated SQL. Data Analysts should always be able to inspect the generated query.
 
 ### 8.5 Visualization
 
@@ -399,11 +391,11 @@ Dashboard refresh must re-run the saved validated query without invoking the LLM
                                    │
                                    ▼
                           Connector Abstraction
-                     ┌─────────────┼─────────────┐
-                     ▼             ▼             ▼
-                PostgreSQL       MySQL        MongoDB
-                     │             │             │
-                     └─────────────┼─────────────┘
+                     ┌─────────────┴─────────────┐
+                     ▼                           ▼
+                PostgreSQL                    MySQL
+                     │                           │
+                     └─────────────┬─────────────┘
                                    ▼
                               Query Result
                                    │
@@ -610,8 +602,6 @@ Responsibilities:
 - apply reasonable row limits;
 - avoid unsupported tables/fields.
 
-For MongoDB, prefer aggregation pipelines for analytical questions and use only known collections/fields.
-
 ### 11.3 Query Repair Skill
 
 Inputs:
@@ -654,14 +644,11 @@ Suggested tool registry:
 get_datasource_metadata()
 search_semantic_context()
 get_table_schema()
-get_collection_schema()
 get_relationships()
 get_metric_candidates()
 validate_sql()
-validate_mongo_query()
 explain_query_plan()
 execute_sql()
-execute_mongo_query()
 save_dashboard_widget()
 ```
 
@@ -687,7 +674,6 @@ Implementations:
 ```text
 PostgresConnector
 MySQLConnector
-MongoConnector
 ```
 
 ### 13.2 PostgreSQL
@@ -709,19 +695,6 @@ Capabilities:
 - EXPLAIN;
 - SELECT / WITH execution;
 - read-only account usage.
-
-### 13.4 MongoDB
-
-Capabilities:
-
-- list collections;
-- infer fields/data types;
-- inspect indexes;
-- infer sample document structure locally;
-- execute find queries;
-- execute aggregation pipelines.
-
-Raw sampled documents used for schema inference should remain inside the application environment. The LLM receives derived metadata, not the sampled documents themselves by default.
 
 ---
 
@@ -751,8 +724,6 @@ Example:
 }
 ```
 
-MongoDB collections should map into the same high-level representation.
-
 ### 14.1 Local Data Profiling
 
 After schema introspection, the application may compute bounded profiling statistics locally before semantic enrichment. Profiling produces derived metadata, never raw rows for the LLM.
@@ -775,7 +746,6 @@ Supported profile statistics include:
 null ratio
 distinct count
 min / max for numeric and temporal fields
-field presence rate for MongoDB documents
 data type distribution
 low-cardinality enum candidates
 ```
@@ -999,32 +969,11 @@ METRIC CANDIDATE
 revenue = SUM(order_items.quantity * order_items.unit_price)
 ```
 
-### 18.2 MongoDB
-
-MongoDB queries should be generated as structured JSON internally whenever possible rather than raw JavaScript only.
-
-Example analytical output:
-
-```json
-[
-  {
-    "$group": {
-      "_id": "$category",
-      "total_sales": {"$sum": "$amount"}
-    }
-  },
-  {"$sort": {"total_sales": -1}},
-  {"$limit": 5}
-]
-```
-
----
-
 ## 19. Query Safety
 
 ### 19.1 Database Permissions
 
-PostgreSQL/MySQL connectors should use read-only accounts. MongoDB access should be limited to read operations.
+PostgreSQL/MySQL connectors must use read-only accounts.
 
 ### 19.2 SQL AST Validation
 
@@ -1055,59 +1004,7 @@ MERGE
 
 Validation should inspect statement type, referenced tables, columns, functions, subqueries, and CTEs.
 
-### 19.3 MongoDB Validation
-
-MongoDB validation must inspect both the operation and every aggregation pipeline stage.
-
-Allowed operations:
-
-```text
-find
-aggregate
-count
-distinct
-```
-
-Disallowed:
-
-```text
-insert
-update
-delete
-drop
-rename
-server-side JavaScript
-$where
-```
-
-Allowed analytical aggregation stages include:
-
-```text
-$match
-$group
-$project
-$sort
-$limit
-$skip
-$lookup
-$unwind
-$count
-```
-
-Disallowed stages and execution features include:
-
-```text
-$out
-$merge
-$function
-$accumulator with server-side JavaScript
-server-side JavaScript expressions
-$where
-```
-
-The validator must reject a pipeline if any stage or expression can write data, execute server-side JavaScript, or bypass the read-only policy.
-
-### 19.4 Runtime Limits
+### 19.3 Runtime Limits
 
 Recommended configurable controls:
 
@@ -1302,7 +1199,6 @@ SQLAlchemy
 SQLGlot
 psycopg
 PyMySQL / mysqlclient
-PyMongo
 pgvector
 ```
 
@@ -1371,14 +1267,12 @@ insightmesh/
 │   │   ├── retrieval.py
 │   │   ├── validation.py
 │   │   ├── sql_tools.py
-│   │   ├── mongo_tools.py
 │   │   └── dashboard.py
 │   │
 │   ├── connectors/
 │   │   ├── base.py
 │   │   ├── postgres.py
-│   │   ├── mysql.py
-│   │   └── mongodb.py
+│   │   └── mysql.py
 │   │
 │   ├── semantic/
 │   │   ├── models.py
@@ -1389,7 +1283,6 @@ insightmesh/
 │   │
 │   ├── query/
 │   │   ├── sql_validator.py
-│   │   ├── mongo_validator.py
 │   │   └── execution.py
 │   │
 │   ├── visualization/
@@ -1411,8 +1304,7 @@ insightmesh/
 │
 ├── demo/
 │   ├── postgres/
-│   ├── mysql/
-│   └── mongodb/
+│   └── mysql/
 │
 ├── tests/
 ├── docker-compose.yml
@@ -1534,7 +1426,7 @@ hidden reasoning, secrets, raw rows, or raw PII.
 
 Evaluation is a core deliverable.
 
-V1 should include approximately **40–60 questions** across PostgreSQL, MySQL, and MongoDB.
+V1 should include approximately **30–50 questions** across PostgreSQL and MySQL.
 
 The evaluation runner must report results both overall and broken down by datasource, difficulty group, and safety/ambiguity category. A single aggregate score is not sufficient to identify dialect-specific weaknesses.
 
@@ -1542,7 +1434,7 @@ Difficulty and behavior groups:
 
 ### Easy
 
-Single table/collection.
+Single table.
 
 > “How many customers are there?”
 
@@ -1635,19 +1527,19 @@ Example evaluation report format:
 ```text
 InsightMesh Evaluation
 ────────────────────────
-                         PostgreSQL   MySQL   MongoDB   Overall
-Questions                    XX         XX       XX        XX
-Execution Rate               XX%        XX%      XX%       XX%
-Result Accuracy              XX%        XX%      XX%       XX%
-Schema Retrieval Accuracy    XX%        XX%      XX%       XX%
-Entity Recall / Precision    XX/XX      XX/XX    XX/XX     XX/XX
-Repair Success               XX%        XX%      XX%       XX%
-Safety Blocking              XX%        XX%      XX%       XX%
-Ambiguity Detection          XX%        XX%      XX%       XX%
-Out-of-Scope Blocking        XX%        XX%      XX%       XX%
-False-Block Rate             XX%        XX%      XX%       XX%
-Join-Path Accuracy           XX%        XX%      XX%       XX%
-Latency p50 / p95            XX/XX      XX/XX    XX/XX     XX/XX
+                         PostgreSQL   MySQL   Overall
+Questions                    XX         XX       XX
+Execution Rate               XX%        XX%      XX%
+Result Accuracy              XX%        XX%      XX%
+Schema Retrieval Accuracy    XX%        XX%      XX%
+Entity Recall / Precision    XX/XX      XX/XX    XX/XX
+Repair Success               XX%        XX%      XX%
+Safety Blocking              XX%        XX%      XX%
+Ambiguity Detection          XX%        XX%      XX%
+Out-of-Scope Blocking        XX%        XX%      XX%
+False-Block Rate             XX%        XX%      XX%
+Join-Path Accuracy           XX%        XX%      XX%
+Latency p50 / p95            XX/XX      XX/XX    XX/XX
 
 Breakdown by difficulty:
 Easy / Medium / Hard / Ambiguous / Out-of-scope / Unsafe
@@ -1658,7 +1550,7 @@ Never use placeholder numbers as portfolio claims.
 ---
 ## 33. Demo Dataset
 
-Ship reproducible demo data using an e-commerce domain because it is intuitive, supports joins/time-series/business metrics, and maps naturally to MongoDB.
+Ship equivalent reproducible PostgreSQL and MySQL demo data using an e-commerce domain because it is intuitive and supports joins, time-series analysis, and business metrics.
 
 ### 33.1 PostgreSQL / MySQL
 
@@ -1685,18 +1577,6 @@ customers
          └── payments
 ```
 
-### 33.2 MongoDB
-
-Suggested collections:
-
-```text
-customers
-orders
-products
-```
-
-Orders may embed line items. The MongoDB schema does not need to be identical to the SQL schema; the goal is to demonstrate adaptation to the active datasource.
-
 ---
 
 ## 34. Security Requirements
@@ -1709,9 +1589,7 @@ Mandatory:
 - database credentials encrypted at rest if persisted;
 - read-only datasource accounts;
 - SQL AST validation;
-- MongoDB operation and pipeline-stage validation, including blocking `$out`, `$merge`, `$function`, and `$where`;
 - no multi-statement SQL;
-- MongoDB write operations disabled;
 - query timeouts;
 - row limits;
 - local profiling uses bounded samples or aggregate queries and excludes obvious PII by default;
@@ -1799,35 +1677,32 @@ V1 is complete when:
 
 1. user can add PostgreSQL connection;
 2. user can add MySQL connection;
-3. user can add MongoDB connection;
-4. user can activate one datasource;
-5. system can introspect the active datasource;
-6. system can generate normalized metadata;
-7. system can compute bounded local profile statistics without sending raw rows to the LLM;
-8. system can generate semantic metadata automatically;
-9. embeddings are stored in pgvector;
-10. user can ask an independent natural-language question;
-11. Lightweight Harness Runtime deterministically retrieves relevant context;
-12. Lightweight Harness Runtime selects the applicable query-generation procedure from current state and datasource type;
-13. PostgreSQL questions generate PostgreSQL SQL;
-14. MySQL questions generate MySQL SQL;
-15. MongoDB questions generate valid MongoDB query/aggregation;
-16. SQL queries pass AST-level validation;
-17. MongoDB queries pass operation and pipeline-stage validation;
-18. database execution uses read-only permissions;
-19. recoverable query failures can be repaired;
-20. results pass deterministic post-execution verification;
-21. results display in a table;
-22. visualization recommendation works;
-23. six visualization types are supported;
-24. successful results can be saved to dashboards;
-25. dashboard widgets refresh without LLM regeneration;
-26. an evaluation suite exists;
-27. an evaluation report can be generated reproducibly by datasource and difficulty;
-28. vector-only and hybrid-retrieval results can be compared using the same fixtures;
-29. user can inspect and rerun independent query-history records;
-30. user can inspect relationship provenance through a graph and accessible list;
-31. a versioned semantic manifest can reproduce the context used by evaluation.
+3. user can activate one datasource;
+4. system can introspect the active datasource;
+5. system can generate normalized metadata;
+6. system can compute bounded local profile statistics without sending raw rows to the LLM;
+7. system can generate semantic metadata automatically;
+8. embeddings are stored in pgvector;
+9. user can ask an independent natural-language question;
+10. Lightweight Harness Runtime deterministically retrieves relevant context;
+11. Lightweight Harness Runtime selects the applicable query-generation procedure from current state and datasource type;
+12. PostgreSQL questions generate PostgreSQL SQL;
+13. MySQL questions generate MySQL SQL;
+14. SQL queries pass AST-level validation;
+15. database execution uses read-only permissions;
+16. recoverable query failures can be repaired;
+17. results pass deterministic post-execution verification;
+18. results display in a table;
+19. visualization recommendation works;
+20. six visualization types are supported;
+21. successful results can be saved to dashboards;
+22. dashboard widgets refresh without LLM regeneration;
+23. an evaluation suite exists;
+24. an evaluation report can be generated reproducibly by datasource and difficulty;
+25. vector-only and hybrid-retrieval results can be compared using the same fixtures;
+26. user can inspect and rerun independent query-history records;
+27. user can inspect relationship provenance through a graph and accessible list;
+28. a versioned semantic manifest can reproduce the context used by evaluation.
 
 ---
 
@@ -1864,22 +1739,7 @@ MySQL-compatible SQL
 → line chart
 ```
 
-### Scenario 3 — MongoDB
-
-User activates MongoDB and asks:
-
-> “Top 5 cities by total order value.”
-
-Expected:
-
-```text
-MongoDB aggregation pipeline
-→ validate
-→ execute safely
-→ bar chart
-```
-
-### Scenario 4 — Unsafe Request
+### Scenario 3 — Unsafe Request
 
 > “Delete all cancelled orders.”
 
@@ -1890,7 +1750,7 @@ blocked
 no database execution
 ```
 
-### Scenario 5 — Ambiguous Question
+### Scenario 4 — Ambiguous Question
 
 > “Who are our best customers?”
 
@@ -1905,7 +1765,7 @@ suggest possible metrics:
 user rewrites or selects a complete new question
 ```
 
-### Scenario 6 — Out-of-Scope Question
+### Scenario 5 — Out-of-Scope Question
 
 > “What is the weather today?”
 
@@ -1923,7 +1783,7 @@ The UI explains that the active datasource only supports analytical questions ab
 its known schema and metrics. This is a terminal response, not a conversational
 follow-up.
 
-### Scenario 7 — Repair
+### Scenario 6 — Repair
 
 A generated query references a wrong column.
 
@@ -1980,7 +1840,7 @@ PostgresConnector
 PostgreSQL test connection, introspection, and read-only execution
 ```
 
-MySQL and MongoDB connector implementations are deferred until the PostgreSQL vertical slice validates the connector contract and runtime flow.
+The MySQL connector implementation is deferred until the PostgreSQL vertical slice validates the connector contract and runtime flow.
 
 **Definition of Done:** the PostgreSQL connector can test a connection, introspect metadata, and execute read-only queries through the common connector interface.
 
@@ -2033,7 +1893,7 @@ Do not introduce a standalone LLM planner/router or unnecessary multi-agent abst
 
 ### Phase 5 — Query Generation
 
-Implement PostgreSQL SQL generation first. Add MySQL SQL and MongoDB query/aggregation generation only after the PostgreSQL baseline is validated; the recommended order is PostgreSQL → MySQL → MongoDB.
+Implement PostgreSQL SQL generation first. Add MySQL SQL generation only after the PostgreSQL baseline is validated; the required order is PostgreSQL → MySQL.
 
 **Definition of Done:** the PostgreSQL baseline benchmark executes with correct dialect, deterministic validation, safe read-only execution, and result verification.
 
@@ -2042,8 +1902,7 @@ Implement PostgreSQL SQL generation first. Add MySQL SQL and MongoDB query/aggre
 Implement:
 
 ```text
-SQLGlot AST validation
-MongoDB operation and pipeline-stage validator
+SQLGlot AST validation for PostgreSQL and MySQL
 read-only enforcement
 timeout
 row limit
@@ -2106,13 +1965,7 @@ reasoning.
 Add connector capability flags, a reusable conformance suite, the MySQL connector and
 dialect path, and MySQL-specific evaluation reporting.
 
-### Phase 11 — MongoDB Expansion
-
-Add the MongoDB connector, collection/schema inference, nested pipeline validation,
-safe execution, and MongoDB-specific evaluation reporting through the same capability
-contract.
-
-### Phase 12 — Full Evaluation and Portfolio Polish
+### Phase 11 — Full Evaluation and Portfolio Polish
 
 Add:
 
@@ -2150,11 +2003,10 @@ Build one vertical slice before all connectors.
 15. Query history and semantic explainability
 16. Connector capability/conformance suite
 17. MySQL connector
-18. MongoDB connector and query generation
-19. Full cross-datasource evaluation
+18. Full PostgreSQL/MySQL evaluation
 ```
 
-This sequence validates the architecture early and avoids building three incomplete datasource paths in parallel.
+This sequence validates the architecture early and avoids building two incomplete datasource paths in parallel.
 
 ---
 
@@ -2241,16 +2093,7 @@ Mitigation:
 - avoid presenting uncertain definitions as facts;
 - ask clarification when confidence is low.
 
-### 44.2 MongoDB Schema Inference Is Hard
-
-Mitigation:
-
-- inspect bounded local samples;
-- infer field frequency;
-- track optional fields;
-- avoid assuming one rigid schema.
-
-### 44.3 Vector Retrieval May Miss Join Paths
+### 44.2 Vector Retrieval May Miss Join Paths
 
 Mitigation:
 
@@ -2262,7 +2105,7 @@ relationship graph expansion
 
 Do not rely on vector similarity alone.
 
-### 44.4 Valid SQL May Still Be Semantically Wrong
+### 44.3 Valid SQL May Still Be Semantically Wrong
 
 Mitigation:
 
@@ -2272,7 +2115,7 @@ Mitigation:
 - ambiguity handling;
 - execution verification.
 
-### 44.5 Harness Over-Complexity
+### 44.4 Harness Over-Complexity
 
 Mitigation:
 
@@ -2288,7 +2131,7 @@ Mitigation:
 
 Recommended description:
 
-> **InsightMesh is a self-service analytics platform that enables users to query PostgreSQL, MySQL, and MongoDB using natural language. A lightweight deterministic runtime orchestrates semantic retrieval, database-native query generation, deterministic guardrails, read-only execution, bounded repair, and reusable dashboard visualizations.**
+> **InsightMesh is a self-service analytics platform that enables users to query PostgreSQL and MySQL using natural language. A lightweight deterministic runtime orchestrates semantic retrieval, dialect-aware SQL generation, deterministic guardrails, read-only execution, bounded repair, and reusable dashboard visualizations.**
 
 Do not describe the project only as a “Text-to-SQL chatbot.” Text-to-SQL is only one component.
 
@@ -2302,20 +2145,20 @@ Use only measured metrics after evaluation.
 
 Potential bullets after implementation:
 
-- Built a self-service analytics application enabling natural-language querying across PostgreSQL, MySQL, and MongoDB through a lightweight deterministic runtime.
+- Built a self-service analytics application enabling natural-language querying across PostgreSQL and MySQL through a lightweight deterministic runtime.
 - Implemented automatic schema introspection and semantic metadata enrichment, with pgvector-based retrieval to ground query generation in relevant entities, relationships, and inferred business concepts.
 - Designed a lightweight Harness Runtime that orchestrates semantic retrieval, query generation, deterministic validation, read-only execution, bounded repair, and result verification.
-- Enforced read-only analytics through AST-level SQL validation, MongoDB operation policies, query timeouts, and restricted database credentials.
+- Enforced read-only analytics through dialect-aware AST-level SQL validation, query timeouts, and restricted database credentials.
 - Added automatic result visualization and dashboard persistence across table, KPI, bar, line, pie/donut, and area charts.
 - Evaluated query execution, result accuracy, schema retrieval, repair behavior, ambiguity handling, and unsafe-request blocking on a reproducible benchmark.
 
-**Tech:** Python · FastAPI · PostgreSQL · MySQL · MongoDB · pgvector · SQLGlot · LLM · Next.js · React · Docker
+**Tech:** Python · FastAPI · PostgreSQL · MySQL · pgvector · SQLGlot · LLM · Next.js · React · Docker
 
 ---
 
 ## 47. Suggested Interview Explanation
 
-> InsightMesh is a self-service analytics platform for users who do not want to write SQL manually. A user connects a PostgreSQL, MySQL, or MongoDB datasource, and the platform automatically inspects the schema and builds semantic metadata. When the user asks a question, a Lightweight Harness Runtime retrieves relevant schema and business context from pgvector, generates a database-native query, validates it deterministically, executes it using read-only access, and returns a table or chart. The runtime uses predefined state transitions and bounded repair based on database feedback, while LLM calls are limited to semantic interpretation, query generation, and repair rather than workflow planning.
+> InsightMesh is a self-service analytics platform for users who do not want to write SQL manually. A user connects a PostgreSQL or MySQL datasource, and the platform automatically inspects the schema and builds semantic metadata. When the user asks a question, a Lightweight Harness Runtime retrieves relevant schema and business context from pgvector, generates dialect-aware SQL, validates it deterministically, executes it using read-only access, and returns a table or chart. The runtime uses predefined state transitions and bounded repair based on database feedback, while LLM calls are limited to semantic interpretation, query generation, and repair rather than workflow planning.
 
 ---
 
@@ -2324,10 +2167,10 @@ Potential bullets after implementation:
 InsightMesh V1 is successful if a new user can:
 
 ```text
-1. Connect PostgreSQL, MySQL, or MongoDB
+1. Connect PostgreSQL or MySQL
 2. Activate one datasource
 3. Ask a natural-language analytical question
-4. Receive a valid database-native query
+4. Receive valid dialect-aware SQL
 5. Execute it safely
 6. Receive the correct result
 7. View an appropriate visualization
@@ -2348,11 +2191,9 @@ while:
 ## 49. Final Recommended V1 Scope
 
 ```text
-PostgreSQL
-MySQL
-MongoDB
-   │
-   ▼
+PostgreSQL                MySQL
+     └──────────┬──────────┘
+                ▼
 Automatic Schema Introspection
    │
    ▼
@@ -2372,7 +2213,7 @@ Skills Tools  State Transitions
 Natural Language Question
    │
    ▼
-Database-Native Query
+Dialect-Aware SQL
    │
    ▼
 Deterministic Guardrails

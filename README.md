@@ -1,6 +1,6 @@
 # InsightMesh
 
-Natural-language analytics for PostgreSQL, MySQL, and MongoDB. **Phases 1–8 are complete:** the Docker foundation, PostgreSQL onboarding, privacy-bounded semantic index/retrieval, deterministic query runtime, and responsive Ask workspace are implemented with SQLGlot safety, read-only execution, bounded repair, datasource relevance guardrails, result verification, generated SQL, and safe traces.
+Natural-language analytics for PostgreSQL and MySQL. PostgreSQL is the implemented vertical slice; MySQL is the planned second and final V1 datasource. MongoDB is intentionally out of scope. The Docker foundation, PostgreSQL onboarding, privacy-bounded semantic index/retrieval, deterministic query runtime, responsive Ask workspace, dashboards, evaluation, query history, and semantic manifests are implemented with SQLGlot safety, read-only execution, bounded repair, datasource relevance guardrails, result verification, generated SQL, and safe traces.
 
 ## Local development
 
