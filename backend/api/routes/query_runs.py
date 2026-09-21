@@ -120,6 +120,7 @@ def list_query_runs(
                 row_count=run.row_count,
                 duration_ms=run.duration_ms,
                 repair_count=run.repair_count,
+                provider_call_count=run.provider_call_count,
                 visualization_type=run.visualization_type,
                 error_code=run.error_code,
                 created_at=run.created_at,

@@ -252,6 +252,12 @@ safe structured summary
 repair attempt number when relevant
 ```
 
+The collapsed trace header shows provider-call, repair, and transition counts. Each
+entry exposes optional **Safe evidence** through a native keyboard-accessible details
+disclosure. Evidence is allowlisted to provider/model identity, fallback usage,
+retrieval counts and scores, validation category, repair count, row/truncation status,
+warnings, and visualization type. Long identifiers wrap rather than widening the page.
+
 Never display prompts, model chain-of-thought, credentials, raw database exceptions containing secrets, or raw profiling samples.
 
 ### 6.6 Result Table

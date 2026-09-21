@@ -1356,7 +1356,7 @@ The operation should:
 4. update changed entities and profile statistics;
 5. regenerate affected semantic metadata;
 6. regenerate affected embeddings;
-7. invalidate stale retrieval cache.
+7. invalidate stale retrieval cache if a later evidence-gated cache is introduced.
 
 ---
 
@@ -1626,9 +1626,11 @@ The application may locally inspect bounded samples or run aggregate profiling q
 
 V1 target behavior:
 
-- retrieval-context caching may be added only after evaluation shows a material latency
-  or provider-cost benefit; cache keys include datasource ID, normalized question
-  fingerprint, metadata hash, profile hash, and retrieval-configuration version;
+- retrieval-context caching is not implemented in V1 because the PostgreSQL evaluation
+  measured independent questions and did not establish repeated-question hit rate or a
+  material embedding-cost saving; if later evidence justifies it, cache keys include
+  datasource ID, normalized question fingerprint, metadata hash, profile hash, and
+  retrieval-configuration version;
 - cache invalidation is hash/version driven rather than global TTL alone;
 - semantic search should return compact Top-K context;
 - simple questions should avoid unnecessary tool calls;

@@ -49,6 +49,7 @@ export interface QueryRun {
   validation: Record<string, unknown>;
   result: QueryResult | null;
   repair_count: number;
+  provider_call_count: number;
   visualization_type: string | null;
   clarification_suggestions: string[];
   warnings: string[];
@@ -82,6 +83,7 @@ export interface QueryRunSummary {
   row_count: number | null;
   duration_ms: number | null;
   repair_count: number;
+  provider_call_count: number;
   visualization_type: string | null;
   error_code: string | null;
   created_at: string;

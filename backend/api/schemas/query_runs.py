@@ -43,6 +43,7 @@ class QueryRunSummary(BaseModel):
     row_count: int | None
     duration_ms: int | None
     repair_count: int
+    provider_call_count: int
     visualization_type: str | None
     error_code: str | None
     created_at: datetime
@@ -65,6 +66,7 @@ class QueryRunResponse(BaseModel):
     validation: dict[str, Any]
     result: dict[str, Any] | None
     repair_count: int
+    provider_call_count: int
     visualization_type: str | None
     clarification_suggestions: list[str]
     warnings: list[str]
@@ -94,6 +96,7 @@ def query_run_response(run: QueryRun) -> QueryRunResponse:
         validation=run.validation_result,
         result=run.result_json,
         repair_count=run.repair_count,
+        provider_call_count=run.provider_call_count,
         visualization_type=run.visualization_type,
         clarification_suggestions=suggestions,
         warnings=run.warnings,

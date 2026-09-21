@@ -557,6 +557,19 @@ row_count, duration_ms, repair_count, visualization_type, result_json,
 provider_call_count, trace_json, warnings, error_code, error_message, created_at
 ```
 
+`provider_call_count` includes the retrieval embedding call plus actual generation
+provider attempts, including a fallback attempt when Gemini times out or is rate
+limited. Trace details use an explicit privacy-safe allowlist; arbitrary provider
+payloads, prompts, raw rows, credentials, embedding vectors, and hidden reasoning are
+never copied into trace storage or returned by the trace API.
+
+V1 intentionally does not cache retrieval context. The Phase 10 benchmark contains
+independent questions and no measured repeated-question hit rate or material
+embedding-cost saving, so it does not justify cache invalidation complexity. If later
+evidence crosses that gate, cache identity must include datasource ID, metadata hash,
+profile hash, retrieval-config version, and a normalized-question hash; TTL alone is
+not a valid invalidation policy.
+
 ## 13. Configuration
 
 Environment-backed settings must include:

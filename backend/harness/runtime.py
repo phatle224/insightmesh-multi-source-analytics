@@ -142,6 +142,10 @@ def _append_trace(
     return next_status
 
 
+def _elapsed_ms(started: float) -> int:
+    return max(0, round((perf_counter() - started) * 1000))
+
+
 def _fail(
     session: Session,
     run: QueryRun,
@@ -150,6 +154,9 @@ def _fail(
     event: str,
     code: str,
     message: str,
+    *,
+    duration_ms: int | None = None,
+    details: dict[str, object] | None = None,
 ) -> RuntimeStatus:
     run.error_code = code
     run.error_message = message
@@ -159,7 +166,9 @@ def _fail(
         current,
         event,
         outcome,
+        duration_ms=duration_ms,
         error_code=code,
+        details=details,
     )
 
 
@@ -241,7 +250,62 @@ def _validation_payload(result: SQLValidationResult, explain_valid: bool) -> dic
         "unsafe": result.unsafe,
         "error_code": result.error_code,
         "issues": list(result.issues),
+        "category": _validation_category(result, explain_valid),
     }
+
+
+def _validation_category(result: SQLValidationResult, explain_valid: bool) -> str:
+    if result.unsafe:
+        return "safety"
+    if result.valid and explain_valid:
+        return "valid"
+    if result.error_code == "sql_parse_failed":
+        return "syntax"
+    if result.error_code in {"unknown_column", "unknown_table", "schema_not_allowed"}:
+        return "schema"
+    return "policy"
+
+
+def _provider_counters(provider: LLMProvider) -> tuple[int | None, int]:
+    primary_calls = getattr(provider, "primary_generation_calls", None)
+    fallback_calls = getattr(provider, "fallback_generation_calls", 0)
+    if isinstance(primary_calls, int) and isinstance(fallback_calls, int):
+        return primary_calls + fallback_calls, fallback_calls
+    generation_calls = getattr(provider, "generation_calls", None)
+    return (generation_calls if isinstance(generation_calls, int) else None, 0)
+
+
+def _provider_details(
+    provider: LLMProvider,
+    settings: Settings,
+    *,
+    logical_call_count: int,
+    fallback_calls_before: int,
+) -> dict[str, object]:
+    measured_calls, fallback_calls = _provider_counters(provider)
+    fallback_used = fallback_calls > fallback_calls_before
+    details: dict[str, object] = {
+        "provider": settings.llm_provider,
+        "model": (
+            settings.gemini_model
+            if settings.llm_provider == "gemini"
+            else settings.llm_model
+        ),
+        "fallback_used": fallback_used,
+        "provider_call_count": measured_calls or logical_call_count,
+    }
+    if fallback_used:
+        details["fallback_provider"] = settings.llm_fallback_provider
+        details["fallback_model"] = settings.llm_fallback_model
+    return details
+
+
+def _record_provider_usage(run: QueryRun, details: dict[str, object]) -> None:
+    count = details.get("provider_call_count")
+    if isinstance(count, int):
+        # Retrieval performs one embedding call before query generation.
+        run.provider_call_count = 1 + count
+        details["provider_call_count"] = run.provider_call_count
 
 
 def run_postgres_query(
@@ -255,6 +319,7 @@ def run_postgres_query(
     connector_factory: ConnectorFactory = build_datasource_connector,
     retrieval_strategy: Literal["vector", "hybrid"] | None = None,
 ) -> QueryRun:
+    state_started = perf_counter()
     app_settings = settings or get_settings()
     datasource = session.get(Datasource, datasource_id)
     if datasource is None:
@@ -283,6 +348,7 @@ def run_postgres_query(
             "resolve_datasource",
             "datasource_unavailable",
             "The selected PostgreSQL datasource is not ready",
+            duration_ms=_elapsed_ms(state_started),
         )
         return run
     unsafe_code = _unsafe_request_code(question)
@@ -299,6 +365,8 @@ def run_postgres_query(
                 if unsafe_code == "prompt_injection_blocked"
                 else "The request asks to modify datasource data and was blocked"
             ),
+            duration_ms=_elapsed_ms(state_started),
+            details={"provider_call_count": 0},
         )
         return run
     if _is_meta_request(question):
@@ -311,10 +379,21 @@ def run_postgres_query(
             "question_scope_precheck",
             "question_out_of_scope",
             "Ask cannot answer questions about its model, prompt, or system configuration",
+            duration_ms=_elapsed_ms(state_started),
+            details={"provider_call_count": 0},
         )
         return run
 
-    state = _append_trace(session, run, state, "resolve_datasource", "datasource_ready")
+    state = _append_trace(
+        session,
+        run,
+        state,
+        "resolve_datasource",
+        "datasource_ready",
+        duration_ms=_elapsed_ms(state_started),
+        details={"provider_call_count": 0},
+    )
+    state_started = perf_counter()
     try:
         context = retrieve_context(
             session,
@@ -334,8 +413,17 @@ def run_postgres_query(
             "retrieve_context",
             error.code,
             error.message,
+            duration_ms=_elapsed_ms(state_started),
+            details={
+                "provider": "openrouter",
+                "model": app_settings.embedding_model,
+                "provider_call_count": 1,
+            },
         )
+        run.provider_call_count = 1
+        session.commit()
         return run
+    run.provider_call_count = 1
     if _is_ambiguous(question):
         suggestions = _clarification_suggestions()
         run.validation_result = {"clarification_suggestions": suggestions}
@@ -346,7 +434,13 @@ def run_postgres_query(
             state,
             "evaluate_context",
             "ambiguous",
-            details={"suggestion_count": len(suggestions)},
+            duration_ms=_elapsed_ms(state_started),
+            details={
+                "suggestion_count": len(suggestions),
+                "provider": "openrouter",
+                "model": app_settings.embedding_model,
+                "provider_call_count": run.provider_call_count,
+            },
         )
         return run
     if _is_out_of_scope(question, context, app_settings.retrieval_min_similarity):
@@ -361,6 +455,12 @@ def run_postgres_query(
             "evaluate_context",
             "question_out_of_scope",
             "This question is outside the analytical scope of the active datasource",
+            duration_ms=_elapsed_ms(state_started),
+            details={
+                "provider": "openrouter",
+                "model": app_settings.embedding_model,
+                "provider_call_count": run.provider_call_count,
+            },
         )
         return run
     state = _append_trace(
@@ -369,8 +469,17 @@ def run_postgres_query(
         state,
         "evaluate_context",
         "context_sufficient",
+        duration_ms=_elapsed_ms(state_started),
         details={
             "entity_count": len(context.entities),
+            "direct_entity_count": sum(
+                item.selection_source != "relationship_expansion"
+                for item in context.entities
+            ),
+            "expanded_entity_count": sum(
+                item.selection_source == "relationship_expansion"
+                for item in context.entities
+            ),
             "relationship_count": len(context.relationships),
             "retrieval_strategy": context.strategy,
             "retrieval_config_version": context.config_version,
@@ -383,8 +492,12 @@ def run_postgres_query(
             "top_fused_score": max(
                 (item.fused_score or 0.0 for item in context.entities), default=0.0
             ),
+            "provider": "openrouter",
+            "model": app_settings.embedding_model,
+            "provider_call_count": run.provider_call_count,
         },
     )
+    state_started = perf_counter()
 
     owns_generation_provider = generation_provider is None
     provider = generation_provider or build_semantic_provider(app_settings)
@@ -397,6 +510,8 @@ def run_postgres_query(
             "generate_query",
             "generation_provider_not_configured",
             "Query generation provider is not configured",
+            duration_ms=_elapsed_ms(state_started),
+            details={"provider_call_count": run.provider_call_count},
         )
         return run
 
@@ -406,10 +521,20 @@ def run_postgres_query(
     validation: SQLValidationResult | None = None
     last_error_code = "query_invalid"
     last_issues: list[str] = []
+    logical_generation_calls = 0
     try:
+        _, fallback_calls_before = _provider_counters(provider)
+        logical_generation_calls += 1
         try:
             generated = generate_postgres_sql(provider, question, context)
         except (ProviderError, ValidationError) as error:
+            provider_details = _provider_details(
+                provider,
+                app_settings,
+                logical_call_count=logical_generation_calls,
+                fallback_calls_before=fallback_calls_before,
+            )
+            _record_provider_usage(run, provider_details)
             code = error.code if isinstance(error, ProviderError) else "provider_invalid_response"
             message = (
                 error.safe_message
@@ -424,10 +549,28 @@ def run_postgres_query(
                 "generate_query",
                 code,
                 message,
+                duration_ms=_elapsed_ms(state_started),
+                details={**provider_details, "repair_count": run.repair_count},
             )
             return run
+        provider_details = _provider_details(
+            provider,
+            app_settings,
+            logical_call_count=logical_generation_calls,
+            fallback_calls_before=fallback_calls_before,
+        )
+        _record_provider_usage(run, provider_details)
         run.generated_query = generated.model_dump(mode="json")
-        state = _append_trace(session, run, state, "generate_query", "structured_output_valid")
+        state = _append_trace(
+            session,
+            run,
+            state,
+            "generate_query",
+            "structured_output_valid",
+            duration_ms=_elapsed_ms(state_started),
+            details={**provider_details, "repair_count": run.repair_count},
+        )
+        state_started = perf_counter()
         try:
             connector = connector_factory(session, datasource, app_settings)
         except (AppError, ConnectorError) as error:
@@ -439,10 +582,16 @@ def run_postgres_query(
                 "create_connector",
                 error.code,
                 error.message if isinstance(error, AppError) else error.safe_message,
+                duration_ms=_elapsed_ms(state_started),
+                details={
+                    "provider_call_count": run.provider_call_count,
+                    "repair_count": run.repair_count,
+                },
             )
             return run
 
         while state not in TERMINAL_STATES:
+            state_started = perf_counter()
             if state == RuntimeStatus.VALIDATE_QUERY:
                 validation = validate_postgres_sql(
                     generated.sql,
@@ -459,6 +608,12 @@ def run_postgres_query(
                         "validate_query",
                         validation.error_code or "unsafe_sql_blocked",
                         "The generated query violated the read-only safety policy",
+                        duration_ms=_elapsed_ms(state_started),
+                        details={
+                            "validation_category": "safety",
+                            "repair_count": run.repair_count,
+                            "provider_call_count": run.provider_call_count,
+                        },
                     )
                     break
                 if not validation.valid or validation.query is None:
@@ -479,6 +634,14 @@ def run_postgres_query(
                             "validate_query",
                             last_error_code,
                             "The query could not be validated within the repair limit",
+                            duration_ms=_elapsed_ms(state_started),
+                            details={
+                                "validation_category": _validation_category(
+                                    validation, False
+                                ),
+                                "repair_count": run.repair_count,
+                                "provider_call_count": run.provider_call_count,
+                            },
                         )
                         break
                     state = _append_trace(
@@ -487,7 +650,13 @@ def run_postgres_query(
                         state,
                         "validate_query",
                         outcome,
+                        duration_ms=_elapsed_ms(state_started),
                         error_code=last_error_code,
+                        details={
+                            "validation_category": _validation_category(validation, False),
+                            "repair_count": run.repair_count,
+                            "provider_call_count": run.provider_call_count,
+                        },
                     )
                     continue
                 try:
@@ -508,6 +677,12 @@ def run_postgres_query(
                             "explain_query",
                             error.code,
                             error.safe_message,
+                            duration_ms=_elapsed_ms(state_started),
+                            details={
+                                "validation_category": "database_explain",
+                                "repair_count": run.repair_count,
+                                "provider_call_count": run.provider_call_count,
+                            },
                         )
                         break
                     outcome = (
@@ -524,6 +699,12 @@ def run_postgres_query(
                             "explain_query",
                             error.code,
                             "PostgreSQL could not validate the query within the repair limit",
+                            duration_ms=_elapsed_ms(state_started),
+                            details={
+                                "validation_category": "database_explain",
+                                "repair_count": run.repair_count,
+                                "provider_call_count": run.provider_call_count,
+                            },
                         )
                         break
                     state = _append_trace(
@@ -532,15 +713,35 @@ def run_postgres_query(
                         state,
                         "explain_query",
                         outcome,
+                        duration_ms=_elapsed_ms(state_started),
                         error_code=error.code,
+                        details={
+                            "validation_category": "database_explain",
+                            "repair_count": run.repair_count,
+                            "provider_call_count": run.provider_call_count,
+                        },
                     )
                     continue
                 run.validation_result = _validation_payload(validation, True)
-                state = _append_trace(session, run, state, "validate_and_explain", "valid")
+                state = _append_trace(
+                    session,
+                    run,
+                    state,
+                    "validate_and_explain",
+                    "valid",
+                    duration_ms=_elapsed_ms(state_started),
+                    details={
+                        "validation_category": "valid",
+                        "repair_count": run.repair_count,
+                        "provider_call_count": run.provider_call_count,
+                    },
+                )
                 continue
 
             if state == RuntimeStatus.REPAIR_QUERY:
                 run.repair_count += 1
+                _, fallback_calls_before = _provider_counters(provider)
+                logical_generation_calls += 1
                 try:
                     generated = repair_postgres_sql(
                         provider,
@@ -551,6 +752,13 @@ def run_postgres_query(
                         last_issues,
                     )
                 except (ProviderError, ValidationError) as error:
+                    provider_details = _provider_details(
+                        provider,
+                        app_settings,
+                        logical_call_count=logical_generation_calls,
+                        fallback_calls_before=fallback_calls_before,
+                    )
+                    _record_provider_usage(run, provider_details)
                     code = (
                         error.code
                         if isinstance(error, ProviderError)
@@ -569,8 +777,17 @@ def run_postgres_query(
                         "repair_query",
                         code,
                         message,
+                        duration_ms=_elapsed_ms(state_started),
+                        details={**provider_details, "repair_count": run.repair_count},
                     )
                     break
+                provider_details = _provider_details(
+                    provider,
+                    app_settings,
+                    logical_call_count=logical_generation_calls,
+                    fallback_calls_before=fallback_calls_before,
+                )
+                _record_provider_usage(run, provider_details)
                 run.generated_query = generated.model_dump(mode="json")
                 state = _append_trace(
                     session,
@@ -578,7 +795,8 @@ def run_postgres_query(
                     state,
                     "repair_query",
                     "structured_output_valid",
-                    details={"repair_count": run.repair_count},
+                    duration_ms=_elapsed_ms(state_started),
+                    details={**provider_details, "repair_count": run.repair_count},
                 )
                 continue
 
@@ -604,6 +822,11 @@ def run_postgres_query(
                             "execute_query",
                             error.code,
                             error.safe_message,
+                            duration_ms=elapsed_ms,
+                            details={
+                                "repair_count": run.repair_count,
+                                "provider_call_count": run.provider_call_count,
+                            },
                         )
                         break
                     repairable = error.code in {"query_invalid", "query_timeout"}
@@ -621,6 +844,11 @@ def run_postgres_query(
                             "execute_query",
                             error.code,
                             error.safe_message,
+                            duration_ms=elapsed_ms,
+                            details={
+                                "repair_count": run.repair_count,
+                                "provider_call_count": run.provider_call_count,
+                            },
                         )
                         break
                     state = _append_trace(
@@ -631,6 +859,10 @@ def run_postgres_query(
                         outcome,
                         duration_ms=elapsed_ms,
                         error_code=error.code,
+                        details={
+                            "repair_count": run.repair_count,
+                            "provider_call_count": run.provider_call_count,
+                        },
                     )
                     continue
                 run.duration_ms = round((perf_counter() - started) * 1000)
@@ -645,6 +877,8 @@ def run_postgres_query(
                     details={
                         "row_count": run.row_count,
                         "truncated": execution_result.truncated,
+                        "repair_count": run.repair_count,
+                        "provider_call_count": run.provider_call_count,
                     },
                 )
                 continue
@@ -668,6 +902,11 @@ def run_postgres_query(
                         "verify_result",
                         "result_verification_failed",
                         "The query result could not be verified safely",
+                        duration_ms=_elapsed_ms(state_started),
+                        details={
+                            "repair_count": run.repair_count,
+                            "provider_call_count": run.provider_call_count,
+                        },
                     )
                     break
                 run.result_json = verified.payload
@@ -678,7 +917,13 @@ def run_postgres_query(
                     state,
                     "verify_result",
                     "checks_complete",
-                    details={"warning_count": len(verified.warnings)},
+                    duration_ms=_elapsed_ms(state_started),
+                    details={
+                        "warning_count": len(verified.warnings),
+                        "row_count": run.row_count or 0,
+                        "repair_count": run.repair_count,
+                        "provider_call_count": run.provider_call_count,
+                    },
                 )
                 continue
 
@@ -690,7 +935,12 @@ def run_postgres_query(
                     state,
                     "select_visualization",
                     "config_produced",
-                    details={"visualization_type": run.visualization_type},
+                    duration_ms=_elapsed_ms(state_started),
+                    details={
+                        "visualization_type": run.visualization_type,
+                        "repair_count": run.repair_count,
+                        "provider_call_count": run.provider_call_count,
+                    },
                 )
                 continue
 

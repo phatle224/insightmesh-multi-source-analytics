@@ -69,6 +69,7 @@ const completedRun: QueryRun = {
     warnings: [],
   },
   repair_count: 0,
+  provider_call_count: 2,
   visualization_type: "table",
   clarification_suggestions: [],
   warnings: [],
@@ -86,6 +87,23 @@ const completedTrace: QueryTrace = {
       state: "received",
       event: "resolve_datasource",
       outcome: "datasource_ready",
+      duration_ms: 2,
+      details: { provider_call_count: 0 },
+    },
+    {
+      sequence: 2,
+      timestamp: "2026-09-20T00:00:01Z",
+      state: "generate_query",
+      event: "generate_query",
+      outcome: "structured_output_valid",
+      duration_ms: 120,
+      details: {
+        provider: "gemini",
+        model: "gemini-2.5-flash",
+        fallback_used: false,
+        provider_call_count: 2,
+        repair_count: 0,
+      },
     },
   ],
 };
@@ -138,6 +156,10 @@ describe("Ask workspace", () => {
     expect(await screen.findByRole("heading", { name: "Query completed" })).toBeVisible();
     expect(screen.getByText("Generated PostgreSQL")).toBeVisible();
     expect(screen.getByText("Execution trace")).toBeVisible();
+    fireEvent.click(screen.getByText("Execution trace"));
+    expect(screen.getByText("2 provider calls")).toBeVisible();
+    fireEvent.click(screen.getByText("Safe evidence (5)"));
+    expect(screen.getByText("gemini-2.5-flash")).toBeVisible();
     expect(screen.getByRole("table")).toHaveTextContent("completed");
     expect(mocks.createQueryRun).toHaveBeenCalledWith("source-1", "Order count by status");
     expect(mocks.getQueryTrace).toHaveBeenCalledWith("run-completed");

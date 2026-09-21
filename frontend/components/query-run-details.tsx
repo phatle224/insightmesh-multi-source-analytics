@@ -42,6 +42,46 @@ function readable(value: string) {
   return value.replaceAll("_", " ");
 }
 
+const TRACE_DETAIL_LABELS: Record<string, string> = {
+  provider: "Provider",
+  model: "Model",
+  fallback_used: "Fallback used",
+  fallback_provider: "Fallback provider",
+  fallback_model: "Fallback model",
+  provider_call_count: "Provider calls",
+  entity_count: "Retrieved entities",
+  direct_entity_count: "Direct matches",
+  expanded_entity_count: "Graph-expanded entities",
+  relationship_count: "Join relationships",
+  retrieval_strategy: "Retrieval strategy",
+  retrieval_config_version: "Retrieval config",
+  top_lexical_score: "Top lexical score",
+  top_semantic_score: "Top semantic score",
+  top_fused_score: "Top fused score",
+  validation_category: "Validation category",
+  repair_count: "Repairs",
+  row_count: "Rows",
+  truncated: "Truncated",
+  warning_count: "Warnings",
+  visualization_type: "Visualization",
+  suggestion_count: "Suggestions",
+};
+
+function detailValue(value: unknown) {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toFixed(3);
+  }
+  return String(value);
+}
+
+function traceDetails(details?: Record<string, unknown>) {
+  if (!details) return [];
+  return Object.entries(details).filter(
+    ([key, value]) => key in TRACE_DETAIL_LABELS && ["string", "number", "boolean"].includes(typeof value),
+  );
+}
+
 export function QueryRunDetails({ run, trace }: { run: QueryRun; trace: QueryTrace | null }) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
@@ -103,8 +143,16 @@ export function QueryRunDetails({ run, trace }: { run: QueryRun; trace: QueryTra
           </summary>
           <div className="border-t border-border p-4">
             {trace && trace.trace.length > 0 ? (
-              <ol className="space-y-3">
-                {trace.trace.map((event) => (
+              <>
+                <div className="mb-4 flex flex-wrap gap-2" aria-label="Execution evidence summary">
+                  <StatusPill>{run.provider_call_count} provider call{run.provider_call_count === 1 ? "" : "s"}</StatusPill>
+                  <StatusPill>{run.repair_count} repair{run.repair_count === 1 ? "" : "s"}</StatusPill>
+                  <StatusPill>{trace.trace.length} state transition{trace.trace.length === 1 ? "" : "s"}</StatusPill>
+                </div>
+                <ol className="space-y-3">
+                  {trace.trace.map((event) => {
+                    const evidence = traceDetails(event.details);
+                    return (
                   <li key={event.sequence} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 text-sm">
                     <span className="grid size-7 place-items-center rounded-full bg-muted font-mono text-xs font-semibold text-primary">
                       {event.sequence}
@@ -126,10 +174,27 @@ export function QueryRunDetails({ run, trace }: { run: QueryRun; trace: QueryTra
                           {event.error_code}
                         </p>
                       ) : null}
+                      {evidence.length ? (
+                        <details className="mt-2 rounded-md border border-border bg-muted/35 px-3 py-2">
+                          <summary className="min-h-6 cursor-pointer text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
+                            Safe evidence ({evidence.length})
+                          </summary>
+                          <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                            {evidence.map(([key, value]) => (
+                              <div key={key} className="min-w-0">
+                                <dt className="text-xs text-muted-foreground">{TRACE_DETAIL_LABELS[key]}</dt>
+                                <dd className="[overflow-wrap:anywhere] font-mono text-xs text-text">{detailValue(value)}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </details>
+                      ) : null}
                     </div>
                   </li>
-                ))}
-              </ol>
+                    );
+                  })}
+                </ol>
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">Trace details are unavailable.</p>
             )}

@@ -249,6 +249,7 @@ class QueryRun(Base):
     row_count: Mapped[int | None] = mapped_column(BigInteger)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     repair_count: Mapped[int] = mapped_column(Integer, default=0)
+    provider_call_count: Mapped[int] = mapped_column(Integer, default=0)
     visualization_type: Mapped[str | None] = mapped_column(String(40))
     error_code: Mapped[str | None] = mapped_column(String(80))
     error_message: Mapped[str | None] = mapped_column(Text)
@@ -259,6 +260,7 @@ class QueryRun(Base):
 
     __table_args__ = (
         CheckConstraint("repair_count >= 0 AND repair_count <= 2", name="repair_count"),
+        CheckConstraint("provider_call_count >= 0", name="provider_call_count"),
     )
 
 

@@ -78,6 +78,7 @@ test("runs independent Ask requests and remains responsive", async ({ page }, te
                 warnings: [],
               },
         repair_count: repaired ? 1 : 0,
+        provider_call_count: repaired ? 3 : 2,
         visualization_type: blocked || ambiguous || failed || outOfScope ? null : "table",
         clarification_suggestions: ambiguous ? ["Top customers by revenue"] : [],
         warnings: [],

@@ -36,7 +36,7 @@ from persistence.models import (
     Field,
     QueryRun,
 )
-from semantic.provider import StructuredGenerationRequest
+from semantic.provider import FallbackProvider, ProviderError, StructuredGenerationRequest
 
 
 class RuntimeProvider:
@@ -57,6 +57,17 @@ class RuntimeProvider:
         assert len(inputs) == 1
         self.embedding_calls += 1
         return [[0.0, 1.0, 0.0]] if "weather" in inputs[0].lower() else [[1.0, 0.0, 0.0]]
+
+    def close(self) -> None:
+        return None
+
+
+class TimeoutGenerationProvider:
+    def generate_structured(self, request: StructuredGenerationRequest) -> dict[str, Any]:
+        raise ProviderError("provider_timeout", "Primary provider timed out", retryable=True)
+
+    def embed(self, inputs: list[str]) -> list[list[float]]:
+        return [[1.0, 0.0, 0.0]]
 
     def close(self) -> None:
         return None
@@ -207,6 +218,7 @@ def test_runtime_executes_verified_read_only_query_and_exposes_trace_api() -> No
         assert run.result_json is not None
         assert run.result_json["columns"][1]["name"] == "order_count"
         assert run.visualization_type == "bar"
+        assert run.provider_call_count == 2
         assert [event["state"] for event in run.trace_json] == [
             "received",
             "retrieve_context",
@@ -217,11 +229,57 @@ def test_runtime_executes_verified_read_only_query_and_exposes_trace_api() -> No
             "select_visualization",
         ]
         assert "rows" not in str(run.trace_json).lower()
+        assert all("duration_ms" in event for event in run.trace_json)
+        context_evidence = run.trace_json[1]["details"]
+        assert context_evidence["direct_entity_count"] == 1
+        assert context_evidence["retrieval_strategy"] == "hybrid"
+        assert context_evidence["provider"] == "openrouter"
+        generation_evidence = run.trace_json[2]["details"]
+        assert generation_evidence["provider"] == "gemini"
+        assert generation_evidence["model"] == "gemini-2.5-flash"
+        assert generation_evidence["fallback_used"] is False
+        assert run.trace_json[3]["details"]["validation_category"] == "valid"
 
         response = TestClient(app).get(f"/api/v1/query-runs/{run.id}/trace")
         assert response.status_code == 200
         assert response.json()["status"] == "completed"
         assert len(response.json()["trace"]) == 7
+
+        run_response = TestClient(app).get(f"/api/v1/query-runs/{run.id}")
+        assert run_response.status_code == 200
+        assert run_response.json()["provider_call_count"] == 2
+
+
+def test_runtime_records_fallback_provider_usage_without_prompts_or_rows() -> None:
+    fallback = RuntimeProvider([_correct_query()])
+    provider = FallbackProvider(TimeoutGenerationProvider(), fallback)
+    with runtime_datasource() as (session, datasource):
+        run = run_postgres_query(
+            session,
+            datasource.id,
+            "Order count by status",
+            generation_provider=provider,
+            retrieval_provider=provider,
+        )
+
+        assert run.status == "completed"
+        assert run.provider_call_count == 3
+        generation_event = next(
+            event for event in run.trace_json if event["event"] == "generate_query"
+        )
+        assert generation_event["details"] == {
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "fallback_used": True,
+            "provider_call_count": 3,
+            "fallback_provider": "openrouter",
+            "fallback_model": "openai/gpt-4o-mini",
+            "repair_count": 0,
+        }
+        serialized = str(run.trace_json).lower()
+        assert "system_prompt" not in serialized
+        assert "user_payload" not in serialized
+        assert "rows" not in serialized
 
 
 def test_query_run_history_is_paginated_filterable_and_summary_only() -> None:
