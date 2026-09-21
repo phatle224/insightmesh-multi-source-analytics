@@ -11,10 +11,16 @@ from services.dashboards import add_widget, create_dashboard, refresh_widget
 from visualization.selection import compatible_chart_types, select_visualization
 
 
-def result_payload(columns: list[tuple[str, str]], rows: list[list[object]]) -> dict[str, object]:
+def result_payload(
+    columns: list[tuple[str, str]], rows: list[list[object]]
+) -> dict[str, object]:
     return {
         "columns": [
-            {"name": name, "type": type_name, "semantic_type": "metric" if type_name == "number" else "dimension"}
+            {
+                "name": name,
+                "type": type_name,
+                "semantic_type": "metric" if type_name == "number" else "dimension",
+            }
             for name, type_name in columns
         ],
         "rows": rows,
@@ -27,8 +33,13 @@ def result_payload(columns: list[tuple[str, str]], rows: list[list[object]]) -> 
 
 def test_visualization_selection_is_deterministic_for_supported_shapes() -> None:
     kpi = result_payload([("revenue", "number")], [[120]])
-    categories = result_payload([("status", "string"), ("orders", "number")], [["paid", 8], ["new", 3]])
-    temporal = result_payload([("month", "temporal"), ("revenue", "number")], [["2026-01-01", 10], ["2026-02-01", 12]])
+    categories = result_payload(
+        [("status", "string"), ("orders", "number")], [["paid", 8], ["new", 3]]
+    )
+    temporal = result_payload(
+        [("month", "temporal"), ("revenue", "number")],
+        [["2026-01-01", 10], ["2026-02-01", 12]],
+    )
 
     assert compatible_chart_types(kpi) == ["table", "kpi"]
     assert select_visualization(kpi) == "kpi"
@@ -46,12 +57,18 @@ class RefreshConnector:
 
     def explain(self, query, limits):  # type: ignore[no-untyped-def]
         if self.fail:
-            raise ConnectorError("query_timeout", "The stored query timed out", retryable=True)
+            raise ConnectorError(
+                "query_timeout", "The stored query timed out", retryable=True
+            )
         return ExplainResult(plan=("safe",))
 
     def execute_readonly(self, query, limits):  # type: ignore[no-untyped-def]
         self.execution_calls += 1
-        return QueryResult(columns=("status", "orders"), rows=(("paid", 11), ("new", 4)), truncated=False)
+        return QueryResult(
+            columns=("status", "orders"),
+            rows=(("paid", 11), ("new", 4)),
+            truncated=False,
+        )
 
     def close(self) -> None:
         self.closed = True
@@ -80,16 +97,39 @@ def test_dashboard_refresh_reuses_stored_query_and_preserves_last_good_result() 
         )
         session.add(entity)
         session.flush()
-        session.add_all([
-            Field(entity_id=entity.id, name="status", native_type="text", normalized_type="string", nullable=False, ordinal=1, metadata_json={}),
-            Field(entity_id=entity.id, name="id", native_type="integer", normalized_type="number", nullable=False, ordinal=2, metadata_json={}),
-        ])
-        initial = result_payload([("status", "string"), ("orders", "number")], [["paid", 8], ["new", 3]])
+        session.add_all(
+            [
+                Field(
+                    entity_id=entity.id,
+                    name="status",
+                    native_type="text",
+                    normalized_type="string",
+                    nullable=False,
+                    ordinal=1,
+                    metadata_json={},
+                ),
+                Field(
+                    entity_id=entity.id,
+                    name="id",
+                    native_type="integer",
+                    normalized_type="number",
+                    nullable=False,
+                    ordinal=2,
+                    metadata_json={},
+                ),
+            ]
+        )
+        initial = result_payload(
+            [("status", "string"), ("orders", "number")], [["paid", 8], ["new", 3]]
+        )
         run = QueryRun(
             datasource_id=datasource.id,
             question="Orders by status",
             retrieved_context_ids=[],
-            generated_query={"sql": "SELECT status, COUNT(id) AS orders FROM public.orders GROUP BY status", "expected_columns": ["status", "orders"]},
+            generated_query={
+                "sql": "SELECT status, COUNT(id) AS orders FROM public.orders GROUP BY status",
+                "expected_columns": ["status", "orders"],
+            },
             query_type="sql",
             validation_result={"valid": True},
             status="completed",
@@ -104,7 +144,11 @@ def test_dashboard_refresh_reuses_stored_query_and_preserves_last_good_result() 
         session.add(run)
         session.commit()
         dashboard = create_dashboard(session, DashboardCreate(name="Operations"))
-        widget = add_widget(session, dashboard.id, DashboardWidgetCreate(query_run_id=run.id, title="Orders", chart_type="bar"))
+        widget = add_widget(
+            session,
+            dashboard.id,
+            DashboardWidgetCreate(query_run_id=run.id, title="Orders", chart_type="bar"),
+        )
 
         successful_connector = RefreshConnector()
         refreshed = refresh_widget(

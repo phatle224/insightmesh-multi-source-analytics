@@ -2,11 +2,12 @@ import os
 from uuid import UUID, uuid4
 
 import pytest
-from api.main import app
 from fastapi.testclient import TestClient
+from sqlalchemy import delete, func, select, update
+
+from api.main import app
 from persistence.database import SessionLocal
 from persistence.models import Datasource, DatasourceCredential
-from sqlalchemy import delete, func, select, update
 
 
 def demo_payload(name: str) -> dict[str, object]:

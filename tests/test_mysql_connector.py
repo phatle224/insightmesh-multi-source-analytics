@@ -1,6 +1,7 @@
 import os
 
 import pytest
+
 from connectors.base import (
     ConnectionConfig,
     ConnectorError,

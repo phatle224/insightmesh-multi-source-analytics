@@ -5,6 +5,10 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import delete
+from sqlalchemy.orm import Session
+
 from api.main import app
 from api.settings import Settings, get_settings
 from connectors.base import (
@@ -19,7 +23,6 @@ from connectors.base import (
     RawDataSourceMetadata,
     ValidatedNativeQuery,
 )
-from fastapi.testclient import TestClient
 from harness.runtime import run_postgres_query, run_query
 from harness.state import RuntimeStatus
 from harness.transitions import transition
@@ -38,8 +41,6 @@ from semantic.provider import (
     ProviderError,
     StructuredGenerationRequest,
 )
-from sqlalchemy import delete
-from sqlalchemy.orm import Session
 
 
 class RuntimeProvider:
