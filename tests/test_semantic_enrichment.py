@@ -207,6 +207,15 @@ def test_refresh_builds_semantic_index_without_pii_values(monkeypatch: Any) -> N
     assert detail["embedding_count"] == detail["entity_count"]
     assert detail["semantic_term_count"] > 0
     assert detail["metric_count"] > 0
+    assert detail["relationships"]
+    assert all(
+        relationship["provenance"] == "declared"
+        and relationship["confidence"] == 1.0
+        and relationship["generation_eligible"] is True
+        and relationship["source_field"]
+        and relationship["target_field"]
+        for relationship in detail["relationships"]
+    )
     customer_payload = next(
         request.user_payload
         for request in provider.requests

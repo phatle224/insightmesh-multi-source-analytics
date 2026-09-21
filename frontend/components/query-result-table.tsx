@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretLeftIcon, CaretRightIcon, TableIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -33,10 +33,12 @@ function formatValue(value: unknown, column: QueryResultColumn) {
 export function QueryResultTable({ result }: { result: QueryResult }) {
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [previousResult, setPreviousResult] = useState(result);
 
-  useEffect(() => {
+  if (previousResult !== result) {
+    setPreviousResult(result);
     setCurrentPage(1);
-  }, [result, pageSize]);
+  }
 
   const notices = [
     ...(result.truncated
@@ -175,7 +177,10 @@ export function QueryResultTable({ result }: { result: QueryResult }) {
             <select
               id="result-rows-per-page"
               value={pageSize}
-              onChange={(event) => setPageSize(Number(event.target.value))}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value));
+                setCurrentPage(1);
+              }}
               className="h-8 rounded-md border border-border bg-card px-2 text-xs text-text transition-colors duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               {PAGE_SIZE_OPTIONS.map((option) => (

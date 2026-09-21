@@ -740,8 +740,10 @@ def get_datasource_detail(session: Session, datasource_id: UUID) -> DatasourceDe
         .order_by(Field.entity_id, Field.ordinal)
     ).all()
     fields_by_entity: dict[UUID, list[Field]] = {}
+    field_by_id: dict[UUID, Field] = {}
     for field in fields:
         fields_by_entity.setdefault(field.entity_id, []).append(field)
+        field_by_id[field.id] = field
     profiles = {
         item.field_id: item
         for item in session.scalars(
@@ -805,16 +807,47 @@ def get_datasource_detail(session: Session, datasource_id: UUID) -> DatasourceDe
         select(Relationship).where(Relationship.datasource_id == datasource_id)
     ).all()
     relationship_responses: list[RelationshipSummary] = []
+    relationship_threshold = get_settings().relationship_inferred_min_confidence
     for relationship in relationships:
         source_entity = entity_by_id.get(relationship.source_entity_id)
         target_entity = entity_by_id.get(relationship.target_entity_id)
         if source_entity and target_entity:
+            source_field = (
+                field_by_id.get(relationship.source_field_id)
+                if relationship.source_field_id is not None
+                else None
+            )
+            target_field = (
+                field_by_id.get(relationship.target_field_id)
+                if relationship.target_field_id is not None
+                else None
+            )
+            source_name = f"{source_entity.schema_name}.{source_entity.name}"
+            target_name = f"{target_entity.schema_name}.{target_entity.name}"
+            declared = relationship.source == "introspection"
+            evidence = (
+                [
+                    "database foreign key: "
+                    f"{source_name}.{source_field.name if source_field else '?'} -> "
+                    f"{target_name}.{target_field.name if target_field else '?'}"
+                ]
+                if declared
+                else [f"privacy-safe relationship signal: source={relationship.source}"]
+            )
             relationship_responses.append(
                 RelationshipSummary(
                     id=relationship.id,
-                    name="foreign_key",
-                    source=f"{source_entity.schema_name}.{source_entity.name}",
-                    target=f"{target_entity.schema_name}.{target_entity.name}",
+                    name=relationship.relationship_type,
+                    source=source_name,
+                    target=target_name,
+                    source_field=source_field.name if source_field else None,
+                    target_field=target_field.name if target_field else None,
+                    relationship_type=relationship.relationship_type,
+                    provenance="declared" if declared else "inferred",
+                    confidence=relationship.confidence,
+                    evidence=evidence,
+                    generation_eligible=declared
+                    or relationship.confidence >= relationship_threshold,
                 )
             )
     return DatasourceDetail(

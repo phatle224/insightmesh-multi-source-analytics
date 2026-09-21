@@ -82,6 +82,13 @@ export interface DatasourceRelationship {
   name: string;
   source: string;
   target: string;
+  source_field: string | null;
+  target_field: string | null;
+  relationship_type: string;
+  provenance: "declared" | "inferred";
+  confidence: number;
+  evidence: string[];
+  generation_eligible: boolean;
 }
 
 export interface DatasourceDetail extends DatasourceSummary {

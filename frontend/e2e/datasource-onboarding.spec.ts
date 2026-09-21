@@ -23,7 +23,8 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
   const detailUrl = page.url();
   await expect(page.getByRole("heading", { name: "Docker demo store" })).toBeVisible();
   await expect(page.getByText("public.orders", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("4 foreign-key relationships.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Relationship map" })).toBeVisible();
+  await expect(page.getByText("4 relationships across 6 entities.", { exact: false })).toBeVisible();
   const refresh = page.getByRole("button", { name: "Refresh metadata" });
   await refresh.click();
   await expect(refresh).toBeEnabled();
@@ -37,6 +38,11 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
   expect(download.suggestedFilename()).toMatch(/semantic-manifest-v\d+\.json$/);
   await page.locator("summary").filter({ hasText: "public.customers" }).click();
   await expect(page.getByText("Excluded by privacy policy")).toBeVisible();
+  await page.getByLabel("From entity").selectOption("public.orders");
+  await page.getByLabel("To entity").selectOption("public.categories");
+  await expect(page.getByRole("status")).toContainText("public.orders → public.order_items → public.products → public.categories");
+  await page.getByRole("button", { name: "Accessible list" }).click();
+  await expect(page.getByRole("table", { name: /datasource relationships/i })).toContainText("Declared");
 
   const activate = page.getByRole("button", { name: "Activate source" });
   if (await activate.isVisible()) await activate.click();
@@ -58,7 +64,7 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(detailUrl);
-  await expect(page.getByText("4 foreign-key relationships.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Relationship map" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("source-detail-desktop.png"), fullPage: true });
 
   await page.setViewportSize({ width: 375, height: 900 });

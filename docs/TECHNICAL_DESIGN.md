@@ -433,6 +433,11 @@ metric, and embedding counts plus `semantic_status` and a safe
 `semantic_error_code`. Field detail exposes only derived profile statistics and an
 exclusion flag; raw sampled rows and credentials are never returned.
 
+Relationship detail includes source/target fields, relationship type, `declared` or
+`inferred` provenance, confidence, privacy-safe evidence, and a deterministic
+`generation_eligible` flag. Database-declared foreign keys are always eligible;
+inferred edges are eligible only at or above the versioned configured threshold.
+
 The semantic-manifest endpoint returns the latest immutable, versioned manifest and
 its metadata/profile/configuration hashes. Relationship entries distinguish
 `declared` from `inferred`; inferred entries include confidence and privacy-safe

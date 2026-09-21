@@ -163,6 +163,13 @@ keyboard entity selection and join-path highlighting and always has an equivalen
 table/list representation. Low-confidence inferred relationships remain inspectable
 but are visibly marked as excluded from query-generation context.
 
+Implementation note: datasource detail uses two labeled native entity selectors to
+highlight the shortest generation-eligible join path. The SVG is a summarized visual,
+not the sole interaction surface; a keyboard-accessible table exposes the same edges,
+field endpoints, provenance, confidence, evidence, generation eligibility, and path
+membership. Declared, inferred, and selected edges differ by text and stroke treatment,
+not color alone.
+
 ## 6. Ask Workspace
 
 ### 6.1 Layout

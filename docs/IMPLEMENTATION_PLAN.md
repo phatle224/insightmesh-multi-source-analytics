@@ -54,7 +54,7 @@ Implemented artifacts currently present:
 - [~] Phase 11 query history and semantic explainability
 - [x] Immutable privacy-safe semantic manifests with deterministic versioning and JSON export
 
-Overall implementation status: **Phase 11 is in progress. Cursor-paginated query history and privacy-safe versioned semantic manifests are Docker-verified; the accessible relationship graph and expanded relationship/trace explainability are next. Phase 10 remains complete with 100% result/status/execution/safety/scope/ambiguity accuracy on 20 PostgreSQL cases and hybrid retrieval precision of 65.38% versus 46.92% vector-only**.
+Overall implementation status: **Phase 11 is in progress. Query history, privacy-safe versioned semantic manifests, and the accessible relationship graph with provenance/confidence are implemented; expanded safe trace evidence is next. Phase 10 remains complete with 100% result/status/execution/safety/scope/ambiguity accuracy on 20 PostgreSQL cases and hybrid retrieval precision of 65.38% versus 46.92% vector-only**.
 
 ## 3. Current Focus
 
@@ -66,13 +66,14 @@ Overall implementation status: **Phase 11 is in progress. Cursor-paginated query
 
 - [x] Add paginated/filterable query-run history API and `/history` UI; rerun always creates a new independent request.
 - [x] Expose a versioned semantic manifest without raw rows, credentials, embedding vectors, or raw PII, with client-side JSON export.
-- [ ] Add an accessible datasource relationship graph with table/list fallback and join-path highlighting.
-- [ ] Add relationship provenance/confidence and expanded safe trace evidence.
+- [x] Add an accessible datasource relationship graph with table/list fallback and generation-eligible join-path highlighting.
+- [x] Add relationship provenance/confidence, privacy-safe evidence, and threshold-based generation eligibility.
+- [ ] Extend safe traces with per-state/provider/retrieval/validation evidence.
 - [ ] Implement retrieval-context caching only if the Phase 10 latency/provider evidence justifies it.
 
 ### Next Recommended Task
 
-Continue **Phase 11 — Query History and Semantic Explainability** with the accessible datasource relationship graph, table/list fallback, and join-path highlighting.
+Continue **Phase 11 — Query History and Semantic Explainability** by extending safe traces with per-state duration, provider/model and fallback usage, provider-call count, retrieval counts/scores, repair count, and validation category.
 
 ### Current Design-System Proposal
 
@@ -367,8 +368,8 @@ docker compose ps
 
 - [x] Add paginated/filterable query-run history API and `/history` UI; rerun always creates a new independent request.
 - [x] Expose a versioned semantic manifest containing normalized entities, fields, relationships, privacy-filtered profile summaries, terms, metrics, artifact IDs, hashes, and configuration versions without raw rows, embedding vectors, PII, or secrets.
-- [ ] Add an accessible datasource relationship graph with a table/list fallback and join-path highlighting.
-- [ ] Mark relationships as database-declared or inferred; inferred edges include confidence and evidence and are excluded from generation below the configured threshold.
+- [x] Add an accessible datasource relationship graph with a table/list fallback and generation-eligible join-path highlighting.
+- [x] Mark relationships as database-declared or inferred; inferred edges include confidence and evidence and are excluded from generation below the configured threshold.
 - [ ] Extend safe traces with per-state duration, provider/model identity, fallback usage, provider-call count, retrieval counts/scores, repair count, and validation category.
 - [ ] Add a datasource/hash-scoped retrieval-context cache only after benchmark evidence shows a material latency or provider-cost benefit; invalidate by metadata hash, profile hash, and retrieval-config version rather than TTL alone.
 
@@ -481,9 +482,10 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-21 | 10 | Hybrid retrieval, normalized/obfuscated safety precheck, CTE/alias-aware SQL validation, and evaluation regression tests | Docker Compose Pytest plus targeted Ruff and strict Mypy | Pass; 37 tests; changed-file quality checks clean |
 | 2026-09-21 | 11 | Cursor-paginated/filterable query history API, safe retained-run details, and independent rerun | Docker Compose backend Pytest plus changed-file Ruff/strict Mypy and Alembic check; frontend ESLint/TypeScript/Vitest/build; full Playwright suite | Pass; 38 backend tests, 23 frontend tests, production `/history` route, 4 browser flows, and responsive 375/1440 px history checks |
 | 2026-09-21 | 11 | Immutable versioned semantic-manifest persistence/API, privacy-safe artifact contract, datasource-detail summary, and JSON export | Docker Compose migration/Alembic check, 38 backend tests, changed-file Ruff and strict Mypy; frontend ESLint/TypeScript, 26 Vitest tests, production build; live API probe; Playwright run sequentially | Pass; unchanged refreshes deduplicate by stable content hash, semantic changes create a new immutable version, excluded PII and embedding vectors/content stay out of the manifest; live Docker demo returns v1 with 6 entities/4 relationships and Gemini 2.5 Flash configuration; all 4 browser flows pass including versioned export and responsive source detail |
+| 2026-09-21 | 11 | Accessible relationship map, deterministic shortest generation-eligible join path, provenance/confidence/evidence contract, and query-result pagination regression | Docker Compose rebuild/health check; 38 backend tests; changed-file Ruff, strict Mypy, and Alembic check; frontend ESLint, TypeScript, 29 Vitest tests, and production build; live datasource-detail API probe; `docker compose --profile test run --rm e2e npx playwright test --workers=1` | Pass; Docker services healthy and migration exited 0; 21 backend files type-checked and no migration drift detected; declared edge returned confidence 1.0, privacy-safe FK evidence, and generation eligibility; all 4 browser flows pass, including relationship path/list fallback and responsive overflow checks; pagination tests remain green |
 | 2026-09-21 | Scope | V1 datasource scope reduced to PostgreSQL and MySQL only | Cross-document search across PRD, technical design, frontend spec, implementation tracker, README, demo notes, and design system | Pass; MongoDB implementation phase, connector/query/safety/UI requirements, demo dataset, acceptance scenario, evaluation column, and portfolio claims removed; explicit non-goal retained to prevent scope drift |
 
-Current limitations: development images only; MySQL is not implemented yet, and MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 30–50-case PostgreSQL/MySQL suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. The relationship graph and expanded relationship/trace explainability remain in Phase 11. Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; MySQL is not implemented yet, and MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 30–50-case PostgreSQL/MySQL suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Expanded safe-trace evidence remains in Phase 11. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

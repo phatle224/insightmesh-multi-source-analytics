@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiErrorNotice } from "@/components/api-error-notice";
 import { useDatasources } from "@/components/datasource-provider";
 import { PageHeader } from "@/components/page-header";
+import { RelationshipExplorer } from "@/components/relationship-explorer";
 import { SemanticManifestPanel } from "@/components/semantic-manifest-panel";
 import { SourceStatus } from "@/components/source-status";
 import { Button } from "@/components/ui/button";
@@ -134,19 +135,15 @@ export function DatasourceDetailWorkspace({ id }: { id: string }) {
           </div>
         </Card>
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+      <div>
         <Card className="overflow-hidden">
           <div className="border-b border-border px-5 py-4"><h2 className="font-semibold text-text">Discovered entities</h2><p className="mt-1 text-sm text-muted-foreground">{source.entity_count} entities found through read-only introspection.</p></div>
           <div className="divide-y divide-border">
             {source.entities.map((entity) => <details key={entity.id} className="group px-5 py-3"><summary className="flex min-h-11 items-center justify-between gap-3 font-semibold text-text"><span>{entity.schema_name}.{entity.name}</span><span className="text-xs font-normal text-muted-foreground">{entity.fields.length} fields</span></summary>{entity.description ? <p className="mb-2 text-sm text-muted-foreground">{entity.description}</p> : null}{entity.business_terms.length || entity.metrics.length ? <div className="mb-3 flex flex-wrap gap-2">{entity.business_terms.map((term) => <span key={term} className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">{term}</span>)}{entity.metrics.map((metric) => <span key={metric} className="rounded-full border border-border px-2 py-1 text-xs text-text">Metric: {metric}</span>)}</div> : null}<div className="overflow-x-auto pb-3"><table className="w-full min-w-[48rem] text-left text-sm"><thead className="text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="py-2 pr-4">Field</th><th className="py-2 pr-4">Type</th><th className="py-2 pr-4">Constraints</th><th className="py-2">Safe profile</th></tr></thead><tbody>{entity.fields.map((field) => <tr key={field.id} className="border-t border-border align-top"><td className="py-2 pr-4"><p className="font-mono text-xs">{field.name}</p>{field.description ? <p className="mt-1 max-w-xs text-xs text-muted-foreground">{field.description}</p> : null}</td><td className="py-2 pr-4">{field.native_type}</td><td className="py-2 pr-4">{field.primary_key ? <span className="inline-flex items-center gap-1"><KeyIcon size={14} aria-hidden />Primary key</span> : field.unique ? "Unique" : field.nullable ? "Nullable" : "Required"}</td><td className="max-w-sm py-2 text-xs text-muted-foreground"><span className={field.profile_excluded ? "font-medium text-accent" : ""}>{profileSummary(field.profile)}</span>{field.profile_sample_size !== null && !field.profile_excluded ? <span className="mt-1 block">Sample: up to {field.profile_sample_size} rows</span> : null}</td></tr>)}</tbody></table></div></details>)}
           </div>
         </Card>
-        <Card className="p-5">
-          <h2 className="font-semibold text-text">Relationships</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{source.relationship_count} foreign-key relationships.</p>
-          {source.relationships.length ? <ul className="mt-4 space-y-3">{source.relationships.map((relationship) => <li key={relationship.id} className="rounded-md border border-border bg-background p-3 text-sm"><p className="font-mono text-xs text-primary">{relationship.source}</p><p className="my-1 text-muted-foreground">references</p><p className="font-mono text-xs text-text">{relationship.target}</p></li>)}</ul> : <p className="mt-4 text-sm text-muted-foreground">No foreign keys were discovered.</p>}
-        </Card>
       </div>
+      <RelationshipExplorer entities={source.entities} relationships={source.relationships} />
       <SemanticManifestPanel key={source.updated_at} datasourceId={source.id} />
     </div>
   );

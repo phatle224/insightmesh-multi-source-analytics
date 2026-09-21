@@ -113,6 +113,13 @@ class RelationshipSummary(BaseModel):
     name: str
     source: str
     target: str
+    source_field: str | None
+    target_field: str | None
+    relationship_type: str
+    provenance: Literal["declared", "inferred"]
+    confidence: float
+    evidence: list[str]
+    generation_eligible: bool
 
 
 class DatasourceDetail(DatasourceSummary):
