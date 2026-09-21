@@ -44,6 +44,7 @@ Primary routes:
 /sources/new             add/test/save connection
 /sources/[id]            metadata, onboarding state, refresh
 /ask                     independent analytical question workspace
+/history                 query-run history and reproducibility details
 /dashboards              dashboard list
 /dashboards/[id]         dashboard canvas and widgets
 /settings                non-secret user-visible preferences
@@ -55,6 +56,7 @@ Primary navigation:
 InsightMesh
 ├── Sources
 ├── Ask
+├── History
 ├── Dashboards
 └── Settings
 ```
@@ -69,11 +71,15 @@ The frontend maintains:
 active datasource summary
 datasource list and onboarding statuses
 current independent query run
+query-history filters and cursor
 dashboard list/current dashboard
 display preferences
 ```
 
-The frontend does not maintain prior-question context for query generation. Query history may be displayed later as read-only records, but selecting an old run creates a new complete request rather than a follow-up turn.
+The frontend does not maintain prior-question context for query generation. Query
+history is a read-only record of independent runs; selecting **Run again** submits the
+stored complete question as a new request with a new `run_id`, never as a follow-up
+turn.
 
 ## 5. Sources Experience
 
@@ -143,6 +149,8 @@ Show:
 - discovered entities and relationships;
 - profile-statistics summary, never raw samples;
 - semantic-index status;
+- versioned semantic-manifest summary and export action;
+- relationship provenance (`declared` or `inferred`) and confidence where applicable;
 - last successful refresh and latest failure;
 - Activate and Refresh Metadata actions.
 
@@ -151,6 +159,11 @@ through progressive disclosure. Semantic status uses text and iconography, not c
 alone: `API key required`, `Indexing`, `Searchable`, `Stale index retained`, or
 `Index unavailable`. A missing provider key must not hide successfully completed
 local profiling or make the datasource appear unusable.
+
+The detail page provides Table and Relationship Graph views. The graph supports
+keyboard entity selection and join-path highlighting and always has an equivalent
+table/list representation. Low-confidence inferred relationships remain inspectable
+but are visibly marked as excluded from query-generation context.
 
 ## 6. Ask Workspace
 
@@ -305,17 +318,29 @@ failed
 
 Refresh revalidates and executes the stored query. Show the last refresh time and safe error without discarding the last successful rendering. No LLM progress state should appear during refresh.
 
-## 8. Settings
+## 8. Query History
+
+`/history` lists query-run summaries in reverse chronological order with cursor-based
+pagination and filters for datasource, terminal status, and creation time. Each row
+shows question, datasource, status, created time, duration, repair count, result row
+count, and visualization type without exposing raw driver errors or hidden reasoning.
+
+Selecting a run opens its generated query, verified result when retained, safe trace,
+retrieval evidence, and reproducibility metadata. Available actions are **Copy query**,
+**Run again**, and **Save to dashboard** for eligible completed runs. Run again always
+calls the normal create-run endpoint and does not mutate the historical record.
+
+## 9. Settings
 
 V1 settings may expose only non-secret, user-actionable preferences supported by the backend, such as default table page size or query-panel visibility. Do not create provider-key forms or controls for server-enforced safety limits unless the backend explicitly supports them.
 
-## 9. Typed API Expectations
+## 10. Typed API Expectations
 
 The frontend client covers:
 
 ```text
-datasources: list, test, create, detail, activate, refresh, onboarding status
-query runs: create, detail/status, trace
+datasources: list, test, create, detail, semantic manifest, activate, refresh, onboarding status
+query runs: create, paginated/filterable history, detail/status, trace
 dashboards: list, create
 widgets: create, update, reorder, delete, refresh
 ```
@@ -324,7 +349,7 @@ Every request handles the canonical error envelope from `TECHNICAL_DESIGN.md`. C
 
 Run-status polling, server-sent events, or another transport is an implementation choice until measured latency requires one. UI behavior must remain identical across transports.
 
-## 10. Loading, Empty, and Error States
+## 11. Loading, Empty, and Error States
 
 Every data surface must define:
 
@@ -337,7 +362,7 @@ Every data surface must define:
 
 Do not use generic “Something went wrong” when the backend supplies a safe actionable category. Never display stack traces or raw driver errors.
 
-## 11. Accessibility and Responsive Behavior
+## 12. Accessibility and Responsive Behavior
 
 - All forms have labels, descriptions, and field-level errors.
 - Keyboard navigation covers primary actions, tabs, dialogs, tables, and chart alternatives.
@@ -347,7 +372,7 @@ Do not use generic “Something went wrong” when the backend supplies a safe a
 - Charts include an accessible text summary and the equivalent result table.
 - Desktop is the primary analytics layout; tablet/mobile must remain usable with stacked panels.
 
-## 12. Visual Design Constraints
+## 13. Visual Design Constraints
 
 Approved visual direction:
 
@@ -362,7 +387,7 @@ Approved visual direction:
 
 Page-specific overrides may be added under `design-system/insightmesh/pages/`; they override `MASTER.md` only for the named page and must not change the functional contracts above.
 
-## 13. Frontend Acceptance Scenarios
+## 14. Frontend Acceptance Scenarios
 
 1. With no active datasource, `/ask` blocks submission and links to Sources.
 2. A ready datasource can be activated and remains visible in the global shell and Ask workspace.
@@ -376,8 +401,11 @@ Page-specific overrides may be added under `design-system/insightmesh/pages/`; t
 10. Widget refresh shows ordinary execution progress, retains the last good result on failure, and performs no LLM call.
 11. Execution trace contains structured actions but no prompts, hidden reasoning, secrets, or raw PII.
 12. All charts have the same data available in an accessible table.
+13. History filters and pagination remain keyboard accessible; rerunning a historical question creates a new independent run.
+14. Datasource relationships are available as both an interactive graph and an equivalent accessible list, with inferred relationships clearly labeled.
+15. Semantic-manifest and retrieval evidence never display credentials, raw rows, raw PII, prompts, or hidden reasoning.
 
-## 14. Explicit Non-Goals
+## 15. Explicit Non-Goals
 
 - multi-turn chat UI;
 - natural-language follow-up context;

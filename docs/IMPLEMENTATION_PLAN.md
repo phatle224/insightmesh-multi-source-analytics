@@ -50,26 +50,27 @@ Implemented artifacts currently present:
 - [x] Deterministic datasource relevance guard with terminal `out_of_scope` state
 - [x] Phase 8 Ask workspace with complete-question runs, explicit runtime states, safe trace, and verified result table
 - [x] Phase 9 deterministic visualizations, dashboard persistence, and provider-free widget refresh
-- [ ] Phase 10 result-accuracy and safety evaluation runner
+- [x] Phase 10 PostgreSQL evaluation, adversarial guardrails, and hybrid-retrieval quality gate
 
-Overall implementation status: **Phase 9 is complete and Docker-verified. Completed PostgreSQL results receive deterministic chart compatibility, remain available through an exact-value table, can be saved and managed as dashboard widgets, and refresh from their stored validated query without any LLM call**.
+Overall implementation status: **Phase 10 is complete and Docker-verified. The reproducible PostgreSQL evaluation reports 100% result/status/execution/safety/scope/ambiguity accuracy on 20 cases, while measured hybrid retrieval raises mean entity precision from 46.92% to 70.51% without reducing 100% entity recall or join-path accuracy**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 10 — PostgreSQL Evaluation Gate (next; not started)**
+**Phase 11 — Query History and Semantic Explainability (next; not started)**
 
 ### Current Tasks
 
-- [ ] Create PostgreSQL Easy, Medium, Hard, Ambiguous, and Unsafe cases.
-- [ ] Store expected result fixtures independent of SQL string formatting.
-- [ ] Implement the reproducible evaluation runner and datasource-level report.
-- [ ] Measure result accuracy, retrieval, execution, repair, safety, and ambiguity metrics.
+- [ ] Add paginated/filterable query-run history API and `/history` UI; rerun always creates a new independent request.
+- [ ] Expose a versioned semantic manifest without raw rows, credentials, or raw PII.
+- [ ] Add an accessible datasource relationship graph with table/list fallback and join-path highlighting.
+- [ ] Add relationship provenance/confidence and expanded safe trace evidence.
+- [ ] Implement retrieval-context caching only if the Phase 10 latency/provider evidence justifies it.
 
 ### Next Recommended Task
 
-Begin **Phase 10 — PostgreSQL Evaluation Gate** by defining result-based fixtures and report dimensions before implementing the runner.
+Begin **Phase 11 — Query History and Semantic Explainability** with the paginated/filterable query-run history API and typed frontend client before building `/history`.
 
 ### Current Design-System Proposal
 
@@ -342,35 +343,53 @@ docker compose ps
 
 **Definition of Done:** a completed PostgreSQL result can be visualized, saved, reordered, refreshed without LLM usage, and read through an accessible table fallback.
 
-### Phase 10 — PostgreSQL Evaluation Gate
+### Phase 10 — PostgreSQL Evaluation and Retrieval Quality Gate
+
+**Status:** Complete
+
+- [x] Create PostgreSQL Easy, Medium, Hard, Ambiguous, Out-of-scope, and Unsafe cases.
+- [x] Store expected result fixtures independent of SQL string formatting.
+- [x] Add adversarial guardrail cases for prompt injection, SQL fragments, Unicode/whitespace obfuscation, model-meta questions, and false-positive business wording.
+- [x] Implement the evaluation runner and freeze a vector-only baseline before retrieval tuning.
+- [x] Measure execution rate, result accuracy, entity recall/precision, join-path accuracy, repair success, safety/out-of-scope/ambiguity detection, false-block rate, provider calls, and p50/p95 latency.
+- [x] Persist reproducibility metadata: datasource seed version, model/provider configuration, skill versions, metadata/profile hashes, and retrieval configuration.
+- [x] Add exact identifier and lexical/business-term retrieval sourced from persisted datasource metadata, then fuse it deterministically with vector similarity before relationship expansion.
+- [x] Record lexical, semantic, and fused score evidence without prompts or hidden reasoning.
+- [x] Compare hybrid retrieval against the frozen baseline and fix critical safety/correctness regressions before adding connectors.
+
+**Definition of Done:** one Docker command generates reproducible baseline and optimized PostgreSQL reports; hybrid retrieval improves measured precision without reducing result accuracy or safety, and all claims use non-placeholder results.
+
+### Phase 11 — Query History and Semantic Explainability
 
 **Status:** Not started
 
-- [ ] Create PostgreSQL Easy, Medium, Hard, Ambiguous, and Unsafe cases.
-- [ ] Store expected result fixtures independent of SQL string formatting.
-- [ ] Implement evaluation runner and report output.
-- [ ] Measure execution rate, result accuracy, schema retrieval accuracy, repair success, safety blocking, ambiguity detection, and retrieval precision.
-- [ ] Fix critical safety and correctness failures before adding connectors.
+- [ ] Add paginated/filterable query-run history API and `/history` UI; rerun always creates a new independent request.
+- [ ] Expose a versioned semantic manifest containing normalized entities, fields, relationships, profile summaries, terms, metrics, hashes, and configuration versions without raw rows or secrets.
+- [ ] Add an accessible datasource relationship graph with a table/list fallback and join-path highlighting.
+- [ ] Mark relationships as database-declared or inferred; inferred edges include confidence and evidence and are excluded from generation below the configured threshold.
+- [ ] Extend safe traces with per-state duration, provider/model identity, fallback usage, provider-call count, retrieval counts/scores, repair count, and validation category.
+- [ ] Add a datasource/hash-scoped retrieval-context cache only after benchmark evidence shows a material latency or provider-cost benefit; invalidate by metadata hash, profile hash, and retrieval-config version rather than TTL alone.
 
-**Definition of Done:** one Docker command generates a reproducible PostgreSQL evaluation report with measured, non-placeholder results.
+**Definition of Done:** a user can inspect and rerun prior requests, inspect the versioned semantic context and relationship graph, and reproduce retrieval evidence without exposing secrets, raw rows, PII, or hidden reasoning.
 
-### Phase 11 — MySQL Expansion
+### Phase 12 — MySQL Expansion
 
 **Status:** Not started
 
 - [ ] Add `demo-mysql` Compose profile and reproducible seed data.
-- [ ] Implement MySQL connector contract.
+- [ ] Define connector capability flags and a reusable connector conformance suite, then implement the MySQL connector contract.
 - [ ] Implement MySQL introspection, profiling, dialect generation, `EXPLAIN`, validation, and read-only execution.
 - [ ] Reuse runtime, normalized metadata, UI, chart, and dashboard contracts.
 - [ ] Add MySQL benchmark cases and report breakdown.
 
 **Definition of Done:** MySQL acceptance scenarios pass without PostgreSQL regressions, and evaluation reports MySQL separately.
 
-### Phase 12 — MongoDB Expansion
+### Phase 13 — MongoDB Expansion
 
 **Status:** Not started
 
 - [ ] Add `demo-mongodb` Compose profile and reproducible seed data.
+- [ ] Run the same connector capability/conformance contract for MongoDB-supported operations.
 - [ ] Implement MongoDB collection/schema inference and bounded local profiling.
 - [ ] Implement structured `find` and aggregation generation.
 - [ ] Validate operations, nested stages, and expressions.
@@ -380,7 +399,7 @@ docker compose ps
 
 **Definition of Done:** MongoDB acceptance scenarios pass, unsafe nested pipelines are blocked, and evaluation reports MongoDB separately.
 
-### Phase 13 — Full Evaluation and Portfolio Readiness
+### Phase 14 — Full Evaluation and Portfolio Readiness
 
 **Status:** Not started
 
@@ -470,8 +489,10 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-20 | 9 | Deterministic chart selection, stored-query widget refresh, and stale snapshot preservation | Docker Compose Pytest, Ruff, strict Mypy, Alembic check | Pass; 30 backend tests, revision `b8d2e41c730a`, no pending migration operations |
 | 2026-09-20 | 9 | Recharts adapter, six result views, dashboard CRUD interactions, and exact table fallback | Docker Compose frontend lint, strict type-check, Vitest, and production build | Pass; 19 frontend tests and all dashboard routes built |
 | 2026-09-20 | 9 | Dashboard browser flow and responsive review | `docker compose --profile test run --rm e2e` | Pass; 3 browser flows, including create/reorder/refresh and 375/1440 px overflow checks |
+| 2026-09-20 | 10 | Result-based PostgreSQL evaluation, adversarial guardrails, and vector/hybrid comparison | `docker compose exec backend python -m evals.run_postgres_evaluation --strategy both --datasource-name "Docker demo store"` | Pass; 20 cases, 100% result/status/execution/safety/out-of-scope/ambiguity accuracy, 0% false blocks, 100% entity recall and join-path accuracy; hybrid precision 70.51% vs vector 46.92% |
+| 2026-09-20 | 10 | Hybrid retrieval, normalized/obfuscated safety precheck, and evaluation regression tests | Docker Compose Pytest plus targeted Ruff and strict Mypy | Pass; 36 tests, changed-file lint clean, 9 changed source files type-checked |
 
-Current limitations: development images only; MySQL/MongoDB and the Phase 10 result/safety evaluation runner are not implemented. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. Retrieval currently favors recall (100% on the five-case benchmark) over precision (60%). Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; MySQL/MongoDB are not implemented. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The 20-case PostgreSQL report is a focused V1 gate rather than the final 40–60-case cross-datasource suite; no live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Query History, semantic-manifest inspection, and the relationship graph are planned for Phase 11. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

@@ -259,8 +259,12 @@ class FallbackProvider:
     def __init__(self, primary: LLMProvider, fallback: LLMProvider | None) -> None:
         self.primary = primary
         self.fallback = fallback
+        self.primary_generation_calls = 0
+        self.fallback_generation_calls = 0
+        self.embedding_calls = 0
 
     def generate_structured(self, request: StructuredGenerationRequest) -> dict[str, Any]:
+        self.primary_generation_calls += 1
         try:
             return self.primary.generate_structured(request)
         except ProviderError as error:
@@ -269,9 +273,11 @@ class FallbackProvider:
                 "provider_rate_limited",
             }:
                 raise
+            self.fallback_generation_calls += 1
             return self.fallback.generate_structured(request)
 
     def embed(self, inputs: list[str]) -> list[list[float]]:
+        self.embedding_calls += 1
         if self.fallback is not None:
             return self.fallback.embed(inputs)
         return self.primary.embed(inputs)

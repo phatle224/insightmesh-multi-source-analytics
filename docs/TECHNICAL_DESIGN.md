@@ -76,6 +76,7 @@ No module may bypass the connector abstraction to execute an analytical query. A
 
 ```python
 class DataSourceConnector(Protocol):
+    def capabilities(self) -> ConnectorCapabilities: ...
     def test_connection(self) -> ConnectionTestResult: ...
     def introspect(self) -> RawDataSourceMetadata: ...
     def profile(
@@ -93,6 +94,11 @@ Connector invariants:
 - Credentials are never included in logs, traces, exceptions returned to clients, or query history.
 - PostgreSQL and MySQL use read-only accounts and transactions where supported.
 - MongoDB credentials must permit read operations only.
+
+`ConnectorCapabilities` explicitly reports support for native explain/dry validation,
+relationship introspection, aggregation pipelines, transactions, and schema/database
+namespaces. Shared conformance tests enforce the universal invariants and each
+advertised capability so runtime code does not scatter datasource-type conditionals.
 
 ### 5.2 LLM Provider
 
@@ -352,6 +358,7 @@ test connection
 → semantic enrichment
 → embedding generation
 → pgvector storage
+→ immutable semantic-manifest snapshot
 → ready
 ```
 
@@ -363,14 +370,33 @@ No local heuristic silently substitutes for the configured remote provider.
 Question-time retrieval:
 
 ```text
-question embedding
-→ datasource-scoped Top-K search
+exact identifier matching + lexical/business-term matching + question embedding
+→ deterministic lexical/vector score fusion
+→ datasource-scoped Top-K selection
 → relationship graph expansion
 → compact context builder
 → query generation
 ```
 
-Vector similarity alone must not determine join paths. Retrieved objects and graph-expanded relationships are recorded in query history.
+Exact and lexical candidates come only from persisted datasource metadata, semantic
+terms, metric names, and privacy-safe profile summaries; V1 must not ship
+demo-schema synonym dictionaries. Phase 10 records the vector-only baseline before
+enabling fusion. Hybrid retrieval is retained only when it improves measured precision
+without reducing result accuracy or safety. Vector similarity alone must not determine
+join paths. Every candidate records lexical, semantic, and fused scores plus its
+selection source; retrieved objects and graph-expanded relationships are recorded in
+query history.
+
+Semantic manifests are immutable snapshots keyed by datasource, metadata hash,
+profile hash, enrichment/embedding configuration, and skill versions. They contain
+normalized entities, fields, relationship provenance, derived profiles, semantic
+terms, metrics, and artifact IDs, but never credentials, raw rows, or raw PII.
+
+A retrieval-context cache is optional and may be introduced only after the evaluation
+runner demonstrates a material latency or provider-cost benefit. Its key is
+`datasource_id + normalized_question_fingerprint + metadata_hash + profile_hash +
+retrieval_config_version`; hash or configuration changes make old entries unreachable.
+Do not use one global active-schema cache or TTL as the sole invalidation mechanism.
 
 ## 10. Persistence
 
@@ -387,6 +413,7 @@ semantic_terms
 metric_candidates
 query_examples
 embeddings
+semantic_manifests
 query_runs
 dashboards
 dashboard_widgets
@@ -405,6 +432,7 @@ GET    /datasources
 POST   /datasources/test
 POST   /datasources
 GET    /datasources/{datasource_id}
+GET    /datasources/{datasource_id}/semantic-manifest
 POST   /datasources/{datasource_id}/activate
 POST   /datasources/{datasource_id}/refresh
 GET    /datasources/{datasource_id}/onboarding-status
@@ -414,6 +442,12 @@ Datasource summary/detail responses include profile, PII-exclusion, semantic-ter
 metric, and embedding counts plus `semantic_status` and a safe
 `semantic_error_code`. Field detail exposes only derived profile statistics and an
 exclusion flag; raw sampled rows and credentials are never returned.
+
+The semantic-manifest endpoint returns the latest immutable, versioned manifest and
+its metadata/profile/configuration hashes. Relationship entries distinguish
+`declared` from `inferred`; inferred entries include confidence and privacy-safe
+evidence. Low-confidence inferred edges are visible for inspection but excluded from
+query-generation context.
 
 - Passwords/URIs are write-only and never returned.
 - Test connection does not persist credentials.
@@ -427,12 +461,14 @@ POST /retrieval/preview
 ```
 
 The request contains `datasource_id`, a complete independent `question`, and an
-optional bounded `top_k`. The runtime embeds only the question, performs
-datasource-scoped pgvector search over entity embeddings, and then deterministically
-adds bridge entities and relationships from the introspected relationship graph.
+optional bounded `top_k`. The runtime performs datasource-derived exact/lexical
+matching and pgvector search over entity embeddings, deterministically fuses the
+scores, and then adds bridge entities and relationships from the relationship graph.
 The response is compact query-generation context: selected entities, bounded fields,
 derived profiles, semantic terms, metric candidates, join edges, and stable context
-IDs. It never contains credentials or raw sampled rows. Every retrieval creates a
+IDs. Each selected candidate includes `selection_source`, `lexical_score`,
+`semantic_score`, and `fused_score`; these values are ranking evidence, not hidden
+reasoning. The response never contains credentials or raw sampled rows. Every retrieval creates a
 `query_runs` record with status `retrieve_context` so later evaluation and runtime
 steps can reproduce which artifacts were used.
 
@@ -440,6 +476,7 @@ steps can reproduce which artifacts were used.
 
 ```text
 POST /query-runs
+GET  /query-runs?datasource_id=&status=&created_before=&limit=&cursor=
 GET  /query-runs/{run_id}
 GET  /query-runs/{run_id}/trace
 ```
@@ -451,6 +488,11 @@ GET  /query-runs/{run_id}/trace
 ```
 
 The response contains `run_id`, terminal/current status, generated query when available, validation summary, verified result, visualization config, clarification suggestions, warnings, and a safe user-facing error. The transport may begin synchronously and move to background execution if measured latency requires it; the response shape must remain stable.
+
+The collection endpoint returns reverse-chronological, cursor-paginated summaries and
+supports optional datasource, status, and creation-time filters. Selecting `rerun`
+client-side submits the stored complete question to `POST /query-runs` and always
+creates a new `run_id`; history never supplies conversational context.
 
 ### 11.4 Dashboards
 
@@ -488,15 +530,20 @@ V1 uses Recharts only behind the local frontend visualization adapter. The backe
 
 ## 12. Observability
 
-Each query run records a structured trace of state transitions, tool names, timestamps, durations, retry count, validation outcome, row count, and safe error category. It must not store hidden chain-of-thought, secrets, or raw sampled rows.
+Each query run records a structured trace of state transitions, tool names, timestamps,
+per-state durations, provider/model identity, fallback usage, provider-call count,
+retrieval counts and ranking scores, retry count, validation category, row count,
+execution duration, and safe error category. It must not store hidden chain-of-thought,
+prompts, secrets, raw PII, or raw sampled rows.
 
 Required query-run fields:
 
 ```text
 run_id, datasource_id, question, retrieved_context_ids,
+semantic_manifest_id, retrieval_config_version,
 generated_query, query_type, validation_result, status,
 row_count, duration_ms, repair_count, visualization_type, result_json,
-trace_json, warnings, error_code, error_message, created_at
+provider_call_count, trace_json, warnings, error_code, error_message, created_at
 ```
 
 ## 13. Configuration
@@ -516,6 +563,9 @@ profiling sample/scan bound
 profiling timeout
 retrieval Top-K
 retrieval maximum entities, fields per entity, and relationship hops
+retrieval lexical/vector fusion configuration and version
+hybrid relative-score threshold (Top-K remains a maximum, not a forced count)
+minimum confidence for inferred relationships used by query generation
 ```
 
 Do not commit secrets. `.env.example` contains placeholders only.
@@ -530,9 +580,15 @@ Required automated test layers:
 - security tests for multi-statement SQL, SQL writes, `$out`, `$merge`, `$function`, `$where`, nested unsafe MongoDB stages, timeout, and row limits;
 - privacy tests confirming prompts and traces contain no credentials or raw sampled rows;
 - dashboard tests confirming refresh performs no LLM call;
-- evaluation runner reporting PostgreSQL, MySQL, MongoDB, and overall metrics by Easy, Medium, Hard, Ambiguous, and Unsafe groups.
+- adversarial guardrail tests covering prompt injection, SQL fragments, Unicode/whitespace obfuscation, model-meta requests, out-of-scope requests, and valid business wording that resembles write intent;
+- evaluation runner reporting PostgreSQL, MySQL, MongoDB, and overall metrics by Easy, Medium, Hard, Ambiguous, Out-of-scope, and Unsafe groups;
+- retrieval comparison tests that freeze the vector-only baseline before hybrid fusion is enabled.
 
-Primary evaluation metric is result accuracy, not query-string equality.
+Primary evaluation metric is result accuracy, not query-string equality. Reports also
+include execution rate, entity recall/precision, join-path accuracy, repair success,
+ambiguity/out-of-scope/safety rates, false-block rate, provider-call count, p50/p95
+latency, datasource seed version, model/provider configuration, skill versions,
+metadata/profile hashes, and retrieval configuration.
 
 ## 15. Implementation Sequence
 
@@ -543,10 +599,11 @@ Primary evaluation metric is result accuracy, not query-string equality.
 5. Lightweight Harness Runtime and structured trace.
 6. PostgreSQL query generation, validation, execution, result verification.
 7. Table plus baseline bar/line visualization.
-8. PostgreSQL evaluation baseline.
-9. MySQL connector and dialect path.
-10. MongoDB connector, schema model, query generation, and nested pipeline safety.
-11. Full evaluation and remaining release hardening.
+8. PostgreSQL evaluation baseline, adversarial guardrails, and measured hybrid retrieval.
+9. Query history, semantic-manifest inspection, relationship graph, and measured cache optimization.
+10. Connector capability contract plus MySQL connector and dialect path.
+11. MongoDB connector, schema model, query generation, and nested pipeline safety.
+12. Full evaluation and remaining release hardening.
 
 ## 16. Explicit TBDs
 

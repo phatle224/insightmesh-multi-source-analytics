@@ -30,6 +30,18 @@ class QueryEmbeddingProvider:
         return None
 
 
+class StaticEmbeddingProvider:
+    def generate_structured(self, request: StructuredGenerationRequest) -> dict[str, Any]:
+        raise AssertionError("Retrieval must not generate text")
+
+    def embed(self, inputs: list[str]) -> list[list[float]]:
+        assert len(inputs) == 1
+        return [[1.0, 0.0, 0.0]]
+
+    def close(self) -> None:
+        return None
+
+
 def test_retrieval_is_datasource_scoped_expands_join_path_and_records_context() -> None:
     datasource_id = None
     with SessionLocal() as session:
@@ -232,6 +244,32 @@ def test_retrieval_is_datasource_scoped_expands_join_path_and_records_context() 
         assert stored_run is not None
         assert stored_run.status == "retrieve_context"
         assert stored_run.retrieved_context_ids == result.context_ids
+
+        vector = retrieve_context(
+            session,
+            datasource.id,
+            "products",
+            top_k=1,
+            provider=StaticEmbeddingProvider(),
+            strategy="vector",
+        )
+        hybrid = retrieve_context(
+            session,
+            datasource.id,
+            "products",
+            top_k=1,
+            provider=StaticEmbeddingProvider(),
+            strategy="hybrid",
+        )
+        assert vector.entities[0].name == "orders"
+        assert vector.entities[0].selection_source == "semantic"
+        assert hybrid.entities[0].name == "products"
+        assert hybrid.entities[0].selection_source == "hybrid"
+        assert hybrid.entities[0].lexical_score is not None
+        assert hybrid.entities[0].lexical_score > 0
+        assert hybrid.entities[0].fused_score is not None
+        assert hybrid.strategy == "hybrid"
+        assert hybrid.config_version
 
         session.execute(delete(Datasource).where(Datasource.id == datasource.id))
         session.execute(delete(Datasource).where(Datasource.id == other_datasource.id))

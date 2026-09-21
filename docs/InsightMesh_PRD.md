@@ -881,12 +881,13 @@ Retrieval flow:
 
 ```text
 User Question
+  ├─ Exact entity/field/metric matching
+  ├─ Lexical business-term matching
+  └─ Embedding + pgvector similarity
   ↓
-Embedding
+Deterministic score fusion
   ↓
-pgvector
-  ↓
-Top-K semantic matches
+Top-K grounded matches
   ↓
 Relationship graph expansion
   ↓
@@ -917,6 +918,13 @@ revenue -> likely orders.total_amount
 
 Context should remain compact and datasource-scoped.
 
+Exact and lexical matching must be derived from the active datasource's persisted
+metadata, semantic terms, metrics, and privacy-safe profile summaries. V1 must not
+ship hard-coded synonyms tied to the demo schema. Retrieval records lexical,
+semantic, and fused ranking evidence. A vector-only baseline is measured before
+hybrid retrieval is enabled, and the hybrid strategy is retained only when it improves
+precision without reducing result accuracy or safety.
+
 ---
 
 ## 17. pgvector Storage
@@ -935,6 +943,7 @@ metric_candidates
 profile_statistics
 query_examples
 embeddings
+semantic_manifests
 dashboards
 dashboard_widgets
 query_runs
@@ -1468,6 +1477,8 @@ run_id
 datasource_id
 question
 retrieved_context_ids
+semantic_manifest_id
+retrieval_config_version
 generated_query
 query_type
 validation_result
@@ -1481,6 +1492,17 @@ created_at
 
 Never log datasource passwords or API secrets.
 
+V1 exposes a reverse-chronological, filterable, cursor-paginated history over these
+records. Opening a historical run may show its safe trace, retrieval evidence,
+generated query, verified result, and reproducibility metadata. **Run again** always
+submits the stored complete question as a new independent request with a new `run_id`;
+history is never conversational memory.
+
+Each datasource also has an immutable versioned semantic-manifest snapshot containing
+normalized entities, fields, relationship provenance, privacy-safe profile summaries,
+semantic terms, metrics, artifact IDs, metadata/profile hashes, and relevant
+configuration versions. It must never contain credentials, raw rows, or raw PII.
+
 ---
 
 ## 30. Runtime Observability
@@ -1488,17 +1510,23 @@ Never log datasource passwords or API secrets.
 Expose a structured execution trace such as:
 
 ```text
-1. retrieve_context
-2. load query-generation skill
-3. generate_query
-4. validate_sql
-5. explain_query
-6. execute_sql
-7. verify_result
-8. select_visualization
+1. deterministic scope precheck
+2. retrieve_context with lexical/semantic/fused scores
+3. load query-generation skill
+4. generate_query
+5. validate_sql
+6. explain_query
+7. execute_sql
+8. verify_result
+9. select_visualization
 ```
 
 The UI may expose **View Execution Trace**, but it should display tools/actions and structured decisions, not hidden chain-of-thought.
+
+The trace should also capture per-state duration, provider/model identity, fallback
+usage, provider-call count, retrieval counts and ranking scores, validation category,
+repair count, execution duration, and safe error category. It must not store prompts,
+hidden reasoning, secrets, raw rows, or raw PII.
 
 ---
 
@@ -1510,7 +1538,7 @@ V1 should include approximately **40–60 questions** across PostgreSQL, MySQL, 
 
 The evaluation runner must report results both overall and broken down by datasource, difficulty group, and safety/ambiguity category. A single aggregate score is not sufficient to identify dialect-specific weaknesses.
 
-Difficulty groups:
+Difficulty and behavior groups:
 
 ### Easy
 
@@ -1535,6 +1563,12 @@ Multiple joins, time comparisons, nested aggregation.
 > “Who are our best customers?”
 
 Expected: clarification required.
+
+### Out-of-scope
+
+Includes social/model-meta questions and requests unrelated to the active datasource.
+
+Expected: terminal `out_of_scope` before generation or execution.
 
 ### Unsafe
 
@@ -1578,6 +1612,24 @@ Failed first attempts that are correctly repaired.
 
 How much retrieved semantic context was actually relevant?
 
+### 32.8 Entity Recall and Join-Path Accuracy
+
+Did retrieval include every required entity and the correct relationship path?
+
+### 32.9 Out-of-Scope and False-Block Rates
+
+Measure both unrelated requests correctly stopped and valid analytical requests
+incorrectly rejected. The safety report is incomplete without the false-block rate.
+
+### 32.10 Provider Usage and Latency
+
+Report generation/embedding call counts, fallback usage, and end-to-end plus per-state
+p50/p95 latency. Do not invent targets before the baseline is measured.
+
+Every report records datasource seed version, model/provider configuration, skill
+versions, metadata/profile hashes, semantic-manifest version, and retrieval
+configuration so results are reproducible.
+
 Example evaluation report format:
 
 ```text
@@ -1588,12 +1640,17 @@ Questions                    XX         XX       XX        XX
 Execution Rate               XX%        XX%      XX%       XX%
 Result Accuracy              XX%        XX%      XX%       XX%
 Schema Retrieval Accuracy    XX%        XX%      XX%       XX%
+Entity Recall / Precision    XX/XX      XX/XX    XX/XX     XX/XX
 Repair Success               XX%        XX%      XX%       XX%
 Safety Blocking              XX%        XX%      XX%       XX%
 Ambiguity Detection          XX%        XX%      XX%       XX%
+Out-of-Scope Blocking        XX%        XX%      XX%       XX%
+False-Block Rate             XX%        XX%      XX%       XX%
+Join-Path Accuracy           XX%        XX%      XX%       XX%
+Latency p50 / p95            XX/XX      XX/XX    XX/XX     XX/XX
 
 Breakdown by difficulty:
-Easy / Medium / Hard / Ambiguous / Unsafe
+Easy / Medium / Hard / Ambiguous / Out-of-scope / Unsafe
 ```
 
 Never use placeholder numbers as portfolio claims.
@@ -1691,7 +1748,10 @@ The application may locally inspect bounded samples or run aggregate profiling q
 
 V1 target behavior:
 
-- metadata retrieval should be cached;
+- retrieval-context caching may be added only after evaluation shows a material latency
+  or provider-cost benefit; cache keys include datasource ID, normalized question
+  fingerprint, metadata hash, profile hash, and retrieval-configuration version;
+- cache invalidation is hash/version driven rather than global TTL alone;
 - semantic search should return compact Top-K context;
 - simple questions should avoid unnecessary tool calls;
 - dashboard refresh should not call the LLM;
@@ -1763,7 +1823,11 @@ V1 is complete when:
 24. successful results can be saved to dashboards;
 25. dashboard widgets refresh without LLM regeneration;
 26. an evaluation suite exists;
-27. an evaluation report can be generated reproducibly by datasource and difficulty.
+27. an evaluation report can be generated reproducibly by datasource and difficulty;
+28. vector-only and hybrid-retrieval results can be compared using the same fixtures;
+29. user can inspect and rerun independent query-history records;
+30. user can inspect relationship provenance through a graph and accessible list;
+31. a versioned semantic manifest can reproduce the context used by evaluation.
 
 ---
 
@@ -1873,6 +1937,19 @@ database error
 → second execution
 ```
 
+### Scenario 8 — Historical Run
+
+User opens a completed run and selects **Run again**.
+
+Expected:
+
+```text
+historical record remains unchanged
+→ stored complete question is copied
+→ new independent query run is created
+→ new run_id and current semantic context are used
+```
+
 ---
 
 ## 40. Development Phases
@@ -1928,9 +2005,10 @@ metadata refresh
 Implement:
 
 ```text
-question embedding
-vector search
-Top-K retrieval
+exact/lexical matching from datasource metadata
+question embedding and vector search
+deterministic score fusion
+Top-K retrieval with score evidence
 relationship expansion
 context builder
 ```
@@ -1989,21 +2067,52 @@ Save Widget
 Refresh Widget
 ```
 
-### Phase 8 — Evaluation
+### Phase 8 — PostgreSQL Evaluation and Retrieval Quality
 
 Build:
 
 ```text
-evaluation dataset
-expected results
-runner
-metrics
-report
+result-based evaluation dataset
+adversarial guardrail fixtures
+vector-only baseline
+hybrid retrieval comparison
+reproducibility metadata
+metrics and report
 ```
 
-**Definition of Done:** one command generates a reproducible evaluation report.
+**Definition of Done:** one Docker command generates baseline and optimized PostgreSQL
+reports; hybrid retrieval improves precision without reducing result accuracy or
+safety.
 
-### Phase 9 — Portfolio Polish
+### Phase 9 — Query History and Semantic Explainability
+
+Add:
+
+```text
+filterable query-run history and independent rerun
+versioned semantic manifest
+relationship graph with accessible list fallback
+declared/inferred relationship provenance
+expanded safe observability
+measured hash-scoped retrieval cache when justified
+```
+
+**Definition of Done:** prior runs and the semantic context behind them are inspectable
+and reproducible without exposing secrets, raw rows, raw PII, prompts, or hidden
+reasoning.
+
+### Phase 10 — MySQL Expansion
+
+Add connector capability flags, a reusable conformance suite, the MySQL connector and
+dialect path, and MySQL-specific evaluation reporting.
+
+### Phase 11 — MongoDB Expansion
+
+Add the MongoDB connector, collection/schema inference, nested pipeline validation,
+safe execution, and MongoDB-specific evaluation reporting through the same capability
+contract.
+
+### Phase 12 — Full Evaluation and Portfolio Polish
 
 Add:
 
@@ -2036,13 +2145,13 @@ Build one vertical slice before all connectors.
 10. Table result
 11. Bar/Line visualization
 12. Evaluation baseline
-13. MySQL connector
-14. MongoDB connector
-15. MongoDB query generation
-16. Remaining charts
-17. Dashboard
-18. Query repair
-19. Full evaluation
+13. Adversarial guardrail suite
+14. Hybrid retrieval comparison
+15. Query history and semantic explainability
+16. Connector capability/conformance suite
+17. MySQL connector
+18. MongoDB connector and query generation
+19. Full cross-datasource evaluation
 ```
 
 This sequence validates the architecture early and avoids building three incomplete datasource paths in parallel.
@@ -2097,11 +2206,9 @@ Possible future work:
 - SQL Server connector;
 - BigQuery connector;
 - Snowflake connector;
-- DuckDB connector;
 - dashboard filters;
 - natural-language dashboard creation;
 - scheduled dashboard refresh;
-- semantic cache;
 - verified-query learning;
 - user feedback loops;
 - team workspaces;

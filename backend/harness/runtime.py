@@ -4,6 +4,7 @@ import re
 import unicodedata
 from collections.abc import Callable
 from time import perf_counter
+from typing import Literal
 from uuid import UUID
 
 from pydantic import ValidationError
@@ -27,6 +28,17 @@ from visualization.selection import select_visualization
 
 UNSAFE_REQUEST = re.compile(
     r"\b(delete|drop|truncate|update|insert|merge|alter|create|grant|revoke)\b",
+    re.IGNORECASE,
+)
+OBFUSCATED_WRITE_REQUEST = re.compile(
+    r"\b(?:d\W*e\W*l\W*e\W*t\W*e|d\W*r\W*o\W*p|t\W*r\W*u\W*n\W*c\W*a\W*t\W*e"
+    r"|u\W*p\W*d\W*a\W*t\W*e|i\W*n\W*s\W*e\W*r\W*t|a\W*l\W*t\W*e\W*r)\b",
+    re.IGNORECASE,
+)
+PROMPT_INJECTION = re.compile(
+    r"\b(ignore|disregard|override|bypass|reveal|leak)\b.{0,64}"
+    r"\b(previous|prior|system|developer|instruction|prompt|guardrail|policy)\b"
+    r"|\b(jailbreak|system prompt|developer message)\b",
     re.IGNORECASE,
 )
 VAGUE_CUSTOMER_RANKING = re.compile(r"\b(best|top)\s+customers?\b", re.IGNORECASE)
@@ -166,7 +178,7 @@ def _clarification_suggestions() -> list[str]:
 
 
 def _normalized(value: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", value)
+    decomposed = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", value))
     return "".join(
         character for character in decomposed if not unicodedata.combining(character)
     ).lower()
@@ -187,11 +199,21 @@ def _is_meta_request(question: str) -> bool:
     return bool(META_REQUEST.search(_normalized(question)))
 
 
+def _unsafe_request_code(question: str) -> str | None:
+    normalized = _normalized(question)
+    if PROMPT_INJECTION.search(normalized):
+        return "prompt_injection_blocked"
+    if UNSAFE_REQUEST.search(normalized) or OBFUSCATED_WRITE_REQUEST.search(normalized):
+        return "unsafe_request_blocked"
+    return None
+
+
 def _is_out_of_scope(question: str, context: RetrievalResponse, minimum_similarity: float) -> bool:
     semantic_scores = [
-        entity.similarity
+        entity.semantic_score
         for entity in context.entities
-        if entity.selection_source == "semantic" and entity.similarity is not None
+        if entity.selection_source != "relationship_expansion"
+        and entity.semantic_score is not None
     ]
     vocabulary: set[str] = set()
     for entity in context.entities:
@@ -231,6 +253,7 @@ def run_postgres_query(
     generation_provider: LLMProvider | None = None,
     retrieval_provider: LLMProvider | None = None,
     connector_factory: ConnectorFactory = build_datasource_connector,
+    retrieval_strategy: Literal["vector", "hybrid"] | None = None,
 ) -> QueryRun:
     app_settings = settings or get_settings()
     datasource = session.get(Datasource, datasource_id)
@@ -262,15 +285,20 @@ def run_postgres_query(
             "The selected PostgreSQL datasource is not ready",
         )
         return run
-    if UNSAFE_REQUEST.search(question):
+    unsafe_code = _unsafe_request_code(question)
+    if unsafe_code is not None:
         _fail(
             session,
             run,
             state,
             "unsafe_request",
             "question_safety_precheck",
-            "unsafe_request_blocked",
-            "The request asks to modify datasource data and was blocked",
+            unsafe_code,
+            (
+                "The request attempted to override system instructions and was blocked"
+                if unsafe_code == "prompt_injection_blocked"
+                else "The request asks to modify datasource data and was blocked"
+            ),
         )
         return run
     if _is_meta_request(question):
@@ -295,6 +323,7 @@ def run_postgres_query(
             settings=app_settings,
             provider=retrieval_provider,
             query_run=run,
+            strategy=retrieval_strategy,
         )
     except AppError as error:
         _fail(
@@ -343,6 +372,17 @@ def run_postgres_query(
         details={
             "entity_count": len(context.entities),
             "relationship_count": len(context.relationships),
+            "retrieval_strategy": context.strategy,
+            "retrieval_config_version": context.config_version,
+            "top_lexical_score": max(
+                (item.lexical_score or 0.0 for item in context.entities), default=0.0
+            ),
+            "top_semantic_score": max(
+                (item.semantic_score or -1.0 for item in context.entities), default=-1.0
+            ),
+            "top_fused_score": max(
+                (item.fused_score or 0.0 for item in context.entities), default=0.0
+            ),
         },
     )
 

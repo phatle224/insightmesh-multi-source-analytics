@@ -34,8 +34,11 @@ class RetrievedEntity(BaseModel):
     schema_name: str
     name: str
     description: str | None
-    selection_source: Literal["semantic", "relationship_expansion"]
+    selection_source: Literal["semantic", "lexical", "hybrid", "relationship_expansion"]
     similarity: float | None
+    lexical_score: float | None = None
+    semantic_score: float | None = None
+    fused_score: float | None = None
     business_terms: list[str]
     fields: list[RetrievedField]
     metrics: list[RetrievedMetric]
@@ -57,6 +60,8 @@ class RetrievalResponse(BaseModel):
     datasource_id: UUID
     question: str
     top_k: int
+    strategy: Literal["vector", "hybrid"]
+    config_version: str
     context_ids: list[str]
     entities: list[RetrievedEntity]
     relationships: list[RetrievedRelationship]

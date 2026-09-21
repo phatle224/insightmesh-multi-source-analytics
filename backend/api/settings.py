@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     provider_timeout_seconds: int = Field(30, ge=1, le=120)
     retrieval_top_k: int = Field(4, ge=1, le=10)
     retrieval_min_similarity: float = Field(0.2, ge=-1, le=1)
+    retrieval_strategy: str = Field("hybrid", pattern="^(vector|hybrid)$")
+    retrieval_semantic_weight: float = Field(0.65, ge=0, le=1)
+    retrieval_lexical_weight: float = Field(0.35, ge=0, le=1)
+    retrieval_hybrid_relative_threshold: float = Field(0.64, ge=0, le=1)
+    retrieval_config_version: str = "v2-hybrid"
     retrieval_max_entities: int = Field(8, ge=1, le=20)
     retrieval_max_fields_per_entity: int = Field(24, ge=1, le=100)
     retrieval_max_relationship_hops: int = Field(3, ge=1, le=6)
@@ -59,6 +64,8 @@ class Settings(BaseSettings):
             and self.credential_encryption_key.get_secret_value() == LOCAL_ENCRYPTION_KEY
         ):
             raise ValueError("The local credential encryption key is forbidden in this environment")
+        if self.retrieval_semantic_weight + self.retrieval_lexical_weight <= 0:
+            raise ValueError("At least one retrieval fusion weight must be positive")
         return self
 
     @property
