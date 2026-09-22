@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from time import perf_counter
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -18,7 +19,7 @@ from services.dashboards import _validation_entities
 from services.datasources import build_datasource_connector
 from visualization.selection import select_visualization
 
-ConnectorFactory = Callable[[Session, Datasource, Settings], DataSourceConnector]
+ConnectorFactory = Callable[[Session, Datasource, Settings], Any]
 
 
 def _saved_analysis(session: Session, analysis_id: UUID) -> SavedAnalysis:

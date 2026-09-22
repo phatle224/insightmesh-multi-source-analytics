@@ -54,13 +54,13 @@ Implemented artifacts currently present:
 - [x] Phase 11 query history and semantic explainability
 - [x] Immutable privacy-safe semantic manifests with deterministic versioning and JSON export
 
-Overall implementation status: **Phase 12 is complete and Phase 13 is in progress. PostgreSQL and MySQL now share the normalized metadata, deterministic runtime, safety, visualization, dashboard, and UI contracts. The combined 37-case release benchmark and measured per-datasource/difficulty/overall report are complete; security, accessibility, clean-clone, and portfolio evidence gates remain**.
+Overall implementation status: **Phase 13 is complete. PostgreSQL and MySQL share the normalized metadata, deterministic runtime, safety, visualization, dashboard, and UI contracts. The 37-case release benchmark, privacy/security gate, responsive/accessibility review, clean-clone verification, and portfolio evidence artifacts are complete**.
 
 ## 3. Current Focus
 
 ### Active Phase
 
-**Phase 13 — Full Evaluation and Portfolio Readiness (in progress)**
+**Phase 13 — Full Evaluation and Portfolio Readiness (complete)**
 
 ### Current Tasks
 
@@ -73,10 +73,16 @@ Overall implementation status: **Phase 12 is complete and Phase 13 is in progres
 - [x] Expand the combined PostgreSQL/MySQL release benchmark to 37 cases.
 - [x] Generate live per-datasource, per-difficulty, and overall evaluation metrics.
 - [x] Bound discovered-entity detail to a keyboard-focusable scroll region and add datasource rename/delete controls with safe dashboard-usage protection.
+- [x] Run the Phase 13 privacy/security regression gate: secret boundary, privacy-safe traces/prompts, PostgreSQL/MySQL SQL safety, read-only execution, limits, and dependency audit.
+- [x] Run responsive and accessibility review at 375/768/1024/1440 px using `ui-ux-pro-max` guidance and browser acceptance flows.
+- [x] Verify clean Docker setup from a fresh clone-style checkout and empty named volumes.
+- [x] Write root README setup, architecture, demo, limitations, and measured results.
+- [x] Add architecture diagram, screenshots, and reproducible demo recording.
+- [x] Replace portfolio placeholder claims with measured results only.
 
 ### Next Recommended Task
 
-Run the Phase 13 privacy/security regression gate, then complete the responsive/accessibility, clean-clone, and portfolio evidence gates.
+Phase 13 Definition of Done is satisfied. Keep the measured report and browser evidence current when runtime or UI contracts change.
 
 ### Current Design-System Proposal
 
@@ -392,16 +398,16 @@ docker compose ps
 
 ### Phase 13 — Full Evaluation and Portfolio Readiness
 
-**Status:** In progress
+**Status:** Complete
 
 - [x] Complete approximately 30–50 benchmark questions across PostgreSQL and MySQL.
 - [x] Generate per-datasource, per-difficulty, and overall metrics.
-- [ ] Run privacy/security regression tests.
-- [ ] Run responsive and accessibility review using `ui-ux-pro-max`.
-- [ ] Verify clean Docker setup from a fresh clone and empty volumes.
-- [ ] Write root README setup, architecture, demo, limitations, and measured results.
-- [ ] Add architecture diagram, screenshots, and demo recording/GIF.
-- [ ] Replace all portfolio placeholder claims with measured results only.
+- [x] Run privacy/security regression tests.
+- [x] Run responsive and accessibility review using `ui-ux-pro-max`.
+- [x] Verify clean Docker setup from a fresh clone and empty volumes.
+- [x] Write root README setup, architecture, demo, limitations, and measured results.
+- [x] Add architecture diagram, screenshots, and demo recording/GIF.
+- [x] Replace portfolio placeholder claims with measured results only.
 
 **Definition of Done:** a reviewer can clone the repository, follow Docker instructions, run the demo and evaluation suite, and verify the claims in the README.
 
@@ -411,31 +417,31 @@ Apply these gates whenever relevant:
 
 ### Security and Privacy
 
-- [ ] No committed secrets or real credentials.
-- [ ] No credentials, raw PII, raw rows, or raw profiling samples in LLM prompts, logs, traces, fixtures, or API errors.
-- [ ] PostgreSQL and MySQL SQL safety tests pass before execution tests.
-- [ ] Datasource users are read-only.
-- [ ] Timeout, row limit, allowed-schema/database, and retry limit are enforced in code.
+- [x] No committed secrets or real credentials.
+- [x] No credentials, raw PII, raw rows, or raw profiling samples in LLM prompts, logs, traces, fixtures, or API errors.
+- [x] PostgreSQL and MySQL SQL safety tests pass before execution tests.
+- [x] Datasource users are read-only.
+- [x] Timeout, row limit, allowed-schema/database, and retry limit are enforced in code.
 
 ### Frontend UX
 
-- [ ] Visible labels and inline errors for forms.
-- [ ] Keyboard navigation and visible focus.
-- [ ] Normal text contrast of at least 4.5:1.
-- [ ] State is not communicated by color alone.
-- [ ] Reduced-motion behavior works.
-- [ ] No horizontal page scroll at target widths.
-- [ ] Charts have legends, exact-value access, and table fallbacks.
-- [ ] Loading, empty, error, blocked, clarification, stale, and success states are explicit.
+- [x] Visible labels and inline errors for forms.
+- [x] Keyboard navigation and visible focus.
+- [x] Normal text contrast of at least 4.5:1.
+- [x] State is not communicated by color alone.
+- [x] Reduced-motion behavior works.
+- [x] No horizontal page scroll at target widths.
+- [x] Charts have legends, exact-value access, and table fallbacks.
+- [x] Loading, empty, error, blocked, clarification, stale, and success states are explicit.
 
 ### Engineering
 
-- [ ] Docker build is reproducible.
-- [ ] Migrations and seeds are idempotent.
-- [ ] Public contracts have typed schemas.
-- [ ] Unit and integration tests cover new behavior.
-- [ ] Documentation is updated with contract or command changes.
-- [ ] Existing passing tests remain green.
+- [x] Docker build is reproducible.
+- [x] Migrations and seeds are idempotent.
+- [x] Public contracts have typed schemas.
+- [x] Unit and integration tests cover new behavior.
+- [x] Documentation is updated with contract or command changes.
+- [x] Existing passing tests remain green.
 
 ## 8. Evidence Log
 
@@ -492,8 +498,12 @@ Add one row for each completed task or phase gate. Do not include secrets or raw
 | 2026-09-21 | Phase 13 | Combined PostgreSQL/MySQL release benchmark and measured reporting | `docker compose exec backend python -m evals.run_combined_evaluation --strategy hybrid`; targeted evaluator Ruff/tests | Pass; 37 live cases (25 PostgreSQL, 12 MySQL), 100% status/execution/result accuracy, 100% entity recall and join-path accuracy, 66.98% mean entity precision; easy/medium/hard result accuracy all 100%; reports include per-datasource, per-difficulty, and overall metrics |
 | 2026-09-21 | Phase 13 | Backend lint cleanup across source and tests | `docker compose run --rm --no-deps backend uv run --frozen ruff check .`; `pytest`; `mypy .`; `git diff --check` | Pass; Ruff clean, 47 tests passed, 73 files type-checked, and no whitespace errors |
 | 2026-09-21 | Phase 13 | Datasource detail usability and source management | Backend onboarding regression test; frontend Vitest, ESLint, and TypeScript checks; `git diff --check` | Pass; discovered entities are vertically bounded with keyboard-accessible scrolling; rename uses `PATCH`; deletion requires exact-name confirmation and returns a clear 409 when dashboard widgets still reference the source |
+| 2026-09-23 | Phase 13 | Privacy/security regression gate | `docker compose --profile mysql up -d --wait --wait-timeout 240`; targeted privacy/security Pytest; full Pytest; Ruff; strict Mypy; frontend `npm audit` (production and full); `git diff --check`; tracked-secret scan | Pass; PostgreSQL/MySQL safety, read-only, schema, timeout, row-limit, retry, credential encryption, PII exclusion, safe trace/API error, and prompt-injection regressions passed; 51 backend tests passed, 82 files type-checked, and 0 npm audit vulnerabilities |
+| 2026-09-23 | Phase 13 | Responsive/accessibility browser gate | `docker compose --profile test run --rm e2e npx playwright test --workers=1`; frontend lint/typecheck/Vitest/build; `ui-ux-pro-max` review | Pass; 4 browser flows passed at responsive checkpoints, no horizontal overflow was detected, focus/labels/roles/reduced-motion/table fallbacks were reviewed; 37 frontend tests passed and truncated-result messaging was made explicit for chart/KPI views |
+| 2026-09-23 | Phase 13 | Clean-clone and empty-volume reproducibility | Temporary Compose project `insightmesh-phase13-clean` with `--env-file .env.example --profile mysql up --build -d --wait --wait-timeout 300`; foundation smoke; `alembic check`; persistence tests; `down -v` | Pass; all five services became healthy from empty named volumes, migration reached `a6c2d4e8f1b3`, read-only demo writes were rejected, persistence tests passed, and temporary volumes were removed |
+| 2026-09-23 | Phase 13 | Portfolio evidence and measured claims | `docs/ARCHITECTURE.md`; README metrics/limitations; Playwright screenshots; `frontend/playwright.demo.config.ts`; `npm run test:e2e:record` | Pass; architecture diagram, 3 screenshots, reproducible Ask recording, Docker walkthrough, 37-case measured metrics, and explicit limitations are now linked from the root README |
 
-Current limitations: development images only; MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The release fixture now contains 37 cases and both PostgreSQL/MySQL reports have a live Phase 13 provider run; portfolio claims remain limited to the measured report until the remaining evidence gates pass. No live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Retrieval-context caching is deferred pending measured repeat-hit and cost evidence. Base image tags are not digest-pinned. No existing user files were reset or committed.
+Current limitations: development images only; MongoDB is intentionally out of scope. Query-run creation is synchronous, so the Ask workspace shows a truthful neutral waiting state before the terminal backend response rather than inventing intermediate progress. Dashboard authoring uses keyboard-accessible move controls rather than drag-and-drop. The release fixture contains 37 cases and both PostgreSQL/MySQL reports have measured Phase 13 provider runs. No live case required repair, so `repair_success` is reported as null with zero attempts while bounded repair remains covered by deterministic runtime tests. Retrieval-context caching is deferred pending measured repeat-hit and cost evidence. Base image tags are not digest-pinned. No existing user files were reset or committed.
 
 ## 9. Blockers and Decisions Queue
 

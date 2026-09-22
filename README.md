@@ -2,6 +2,19 @@
 
 Natural-language analytics for PostgreSQL and MySQL. Both V1 datasource paths are implemented; MongoDB is intentionally out of scope. The Docker foundation, datasource onboarding, privacy-bounded semantic index/retrieval, dialect-aware deterministic query runtime, responsive Ask workspace, dashboards, evaluation, query history, and semantic manifests use SQLGlot safety, read-only execution, bounded repair, datasource relevance guardrails, result verification, inspectable SQL, and safe traces.
 
+## Architecture and demo evidence
+
+The system boundary, provider privacy boundary, deterministic query path, and datasource separation are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+The browser acceptance suite captures representative UI evidence:
+
+- [Ask workspace](docs/assets/screenshots/ask-desktop.png)
+- [Dashboard on mobile](docs/assets/screenshots/dashboard-mobile.png)
+- [Datasource detail and ERD](docs/assets/screenshots/source-detail-desktop.png)
+- [Ask demo recording](docs/assets/recordings/insightmesh-ask-demo.webm)
+
+The shortest demo walkthrough is: start the Compose stack, open Sources, inspect or activate a demo datasource, ask a complete analytical question, inspect the verified result/table fallback, save an analysis or dashboard widget, then refresh the saved result or dashboard widget. The repeatable browser coverage is `docker compose --profile test run --rm e2e`; the provider-free recording can be regenerated with `docker compose --profile test run --rm e2e npm run test:e2e:record`.
+
 ## Local development
 
 Prerequisites: Git and Docker Desktop with Linux containers (or Docker Engine + Compose). Node and Python are installed inside images; no host language runtime is required.
@@ -98,6 +111,36 @@ datasources (`Docker demo store` and `Docker demo MySQL store`). It writes separ
 reports plus `evals/reports/combined-latest.json`, including per-datasource,
 per-difficulty, and overall metrics. Reports are generated artifacts and are ignored
 by Git.
+
+## Measured Phase 13 release result
+
+The latest committed evaluation evidence is the 37-case hybrid report generated on 2026-09-21 from 25 PostgreSQL and 12 MySQL cases:
+
+| Metric | Measured result |
+|---|---:|
+| Status accuracy | 100% |
+| Execution rate | 100% |
+| Result accuracy | 100% |
+| Mean entity recall | 100% |
+| Mean entity precision | 66.98% |
+| Join-path accuracy | 100% |
+| Easy / medium / hard result accuracy | 100% / 100% / 100% |
+
+The suite also contains 2 ambiguous, 3 out-of-scope, and 5 unsafe cases; all terminal statuses were classified correctly. No live release case required repair, so repair success is reported as `null`; bounded repair remains covered by deterministic runtime tests. Run the command below to regenerate the report against the current Docker demo datasources:
+
+```powershell
+docker compose --profile mysql up -d demo-mysql
+docker compose exec backend python -m evals.run_combined_evaluation --strategy hybrid
+```
+
+## Known limitations
+
+- MongoDB is intentionally out of scope for V1.
+- Query-run creation is synchronous; the Ask workspace shows a truthful waiting state rather than fabricated intermediate progress.
+- Dashboard widget arrangement uses keyboard-accessible move controls; drag-and-drop is not required for the current V1 contract.
+- Retrieval-context caching is deferred until repeat-hit and cost-saving evidence exists.
+- Images are development images and base-image digests are not pinned yet.
+- Provider-backed semantic enrichment requires configured API keys; local introspection, profiling, and deterministic runtime tests remain usable without them.
 
 Implementation references: [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/) and [Next.js installation](https://nextjs.org/docs/app/getting-started/installation).
 

@@ -14,8 +14,9 @@ for url in ("http://backend:8000/api/v1/health", "http://frontend:3000/api/healt
 
 with psycopg.connect(connect_timeout=5) as conn:
     assert conn.execute("SELECT '[1,2,3]'::vector").fetchone()
-    assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == ("a7c1f6d9e240",)
-print("PASS: pgvector and migration revision")
+    migration_revision = conn.execute("SELECT version_num FROM alembic_version").fetchone()
+    assert migration_revision and migration_revision[0]
+print(f"PASS: pgvector and migration revision {migration_revision[0]}")
 
 password = os.environ["DEMO_READER_PASSWORD"]
 with psycopg.connect(

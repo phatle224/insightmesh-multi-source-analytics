@@ -144,7 +144,13 @@ export function ResultVisualization({
   };
   const { metric } = chartKeys(result, activeType);
   const metricIndex = result.columns.findIndex((column) => column.name === metric);
-  const notices = [...new Set([...result.warnings, ...additionalWarnings])];
+  const notices = [
+    ...(result.truncated
+      ? ["Only the configured row limit is shown. Refine the question for a smaller result."]
+      : []),
+    ...result.warnings,
+    ...additionalWarnings,
+  ];
   const recommendation = getDashboardRecommendation(result);
 
   return (

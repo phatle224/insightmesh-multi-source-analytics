@@ -105,6 +105,7 @@ test("creates and manages a responsive provider-free dashboard", async ({ page }
 
   await page.getByRole("heading", { name: "Operations" }).click();
   await expect(page.getByRole("heading", { name: "Operations" })).toBeVisible();
+  await page.getByText("View exact rows").first().click();
   await expect(page.getByRole("table").first()).toContainText("paid");
 
   await page.getByRole("button", { name: "Move widget down" }).first().click();

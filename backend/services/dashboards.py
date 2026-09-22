@@ -84,6 +84,7 @@ def add_widget(
     session: Session, dashboard_id: UUID, payload: DashboardWidgetCreate
 ) -> DashboardWidget:
     _dashboard(session, dashboard_id)
+    source_query_run_id: UUID | None = None
     if payload.query_run_id is not None:
         run = session.get(QueryRun, payload.query_run_id)
         if run is None:

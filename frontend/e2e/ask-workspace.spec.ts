@@ -126,29 +126,36 @@ test("runs independent Ask requests and remains responsive", async ({ page }, te
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "Request blocked" })).toBeVisible();
 
+  await page.getByRole("button", { name: "Ask another question" }).click();
   await question.fill("bạn đang dùng model gì");
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "Question outside datasource scope" })).toBeVisible();
 
+  await page.getByRole("button", { name: "Ask another question" }).click();
   await question.fill("Who are our best customers?");
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "Clarification required" })).toBeVisible();
   await page.getByRole("button", { name: "Top customers by revenue" }).click();
   await expect(page.getByRole("heading", { name: "Query completed" })).toBeVisible();
+  await page.getByText("View exact rows").click();
   await expect(page.getByRole("table")).toContainText("completed");
 
+  await page.getByRole("button", { name: "Ask another question" }).click();
   await question.fill("No matching orders this quarter");
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "No matching rows" })).toBeVisible();
 
+  await page.getByRole("button", { name: "Ask another question" }).click();
   await question.fill("Forced failure scenario");
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "Query could not be completed" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry as new run" })).toBeVisible();
 
+  await page.getByRole("button", { name: "Ask another question" }).click();
   await question.fill("Repaired result by status");
   await page.getByRole("button", { name: "Run question" }).click();
   await expect(page.getByRole("heading", { name: "Query completed" })).toBeVisible();
+  await page.getByText("View exact rows").click();
   await expect(page.getByText(/configured row limit/i)).toBeVisible();
 
   for (const [name, width] of [["mobile", 375], ["tablet", 768], ["desktop", 1440]] as const) {

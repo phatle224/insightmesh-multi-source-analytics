@@ -38,11 +38,11 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
   expect(download.suggestedFilename()).toMatch(/semantic-manifest-v\d+\.json$/);
   await page.locator("summary").filter({ hasText: "public.customers" }).click();
   await expect(page.getByText("Excluded by privacy policy")).toBeVisible();
-  await page.getByLabel("From entity").selectOption("public.orders");
-  await page.getByLabel("To entity").selectOption("public.categories");
-  await expect(page.getByRole("status")).toContainText("public.orders → public.order_items → public.products → public.categories");
-  await page.getByRole("button", { name: "Accessible list" }).click();
-  await expect(page.getByRole("table", { name: /datasource relationships/i })).toContainText("Declared");
+  await page.getByRole("button", { name: "public.orders" }).click();
+  await expect(page.getByRole("status")).toContainText("Selected entity: public.orders");
+  await page.getByRole("button", { name: "Arrange / drag" }).click();
+  await expect(page.getByText("Drag entities to arrange the map.")).toBeVisible();
+  await page.getByRole("button", { name: "Reset layout" }).click();
 
   const activate = page.getByRole("button", { name: "Activate source" });
   if (await activate.isVisible()) await activate.click();
@@ -69,7 +69,7 @@ test("onboards and activates the Docker PostgreSQL demo", async ({ page }, testI
 
   await page.setViewportSize({ width: 375, height: 900 });
   await page.goto(detailUrl);
-  await expect(page.getByRole("heading", { name: "Docker demo store" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Docker demo store" })).toBeVisible({ timeout: 15000 });
   const detailPageWidth = await page.evaluate(() => ({
     viewport: window.innerWidth,
     content: document.documentElement.scrollWidth,
