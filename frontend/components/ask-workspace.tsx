@@ -323,21 +323,7 @@ export function AskWorkspace() {
         description="Each submission is a new run. Include the metric, grouping, filters, and time range needed to answer it."
       />
 
-      <Card className="flex flex-wrap items-center gap-3 p-4" aria-label="Active datasource status">
-        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-primary" aria-hidden>
-          <DatabaseIcon size={21} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active source</p>
-          <p className="truncate font-semibold text-text">{activeSource.name}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {activeSource.source_type === "mysql" ? "MySQL" : "PostgreSQL"} · {activeSource.database_name} · semantic index {activeSource.semantic_status}
-          </p>
-        </div>
-        <StatusPill>{canRun ? "Ready to query" : "Query unavailable"}</StatusPill>
-      </Card>
-
-      <DatasourceContextPanel source={activeSource} />
+      <DatasourceContextPanel source={activeSource} canRun={canRun} />
 
       {!canRun ? (
         <ApiErrorNotice

@@ -60,46 +60,37 @@ const relationships: DatasourceRelationship[] = [
 ];
 
 describe("RelationshipExplorer", () => {
-  it("highlights the shortest join path through keyboard-native endpoint controls", () => {
+  it("highlights direct neighbors when an entity is selected", () => {
     render(<RelationshipExplorer entities={entities} relationships={relationships} />);
 
-    fireEvent.change(screen.getByLabelText("From entity"), {
-      target: { value: "public.customers" },
-    });
-    fireEvent.change(screen.getByLabelText("To entity"), {
-      target: { value: "public.order_items" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "public.orders" }));
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "public.customers → public.orders → public.order_items",
+    expect(screen.getByRole("status")).toHaveTextContent("Selected entity: public.orders");
+    expect(screen.getByRole("button", { name: "public.customers, directly related" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
     );
-    expect(screen.getByRole("img", { name: /selected join path/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: "public.products" })).toHaveAttribute(
+      "aria-label",
+      "public.products",
+    );
   });
 
-  it("provides an equivalent list with provenance and generation eligibility", () => {
+  it("exposes an explicit arrange mode for drag and keyboard positioning", () => {
     render(<RelationshipExplorer entities={entities} relationships={relationships} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Accessible list" }));
+    fireEvent.click(screen.getByRole("button", { name: "Arrange / drag" }));
 
-    expect(screen.getByRole("table")).toHaveTextContent(
-      "public.order_items.product_id → public.products.id",
-    );
-    expect(screen.getByRole("table")).toHaveTextContent("Inferred");
-    expect(screen.getByRole("table")).toHaveTextContent("62%");
-    expect(screen.getByRole("table")).toHaveTextContent("Excluded");
-    expect(screen.getByRole("button", { name: "Accessible list" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: "Arrange / drag" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Inspect" })).toHaveAttribute("aria-pressed", "false");
+  });
 
-    fireEvent.change(screen.getByLabelText("From entity"), {
-      target: { value: "public.order_items" },
-    });
-    fireEvent.change(screen.getByLabelText("To entity"), {
-      target: { value: "public.products" },
-    });
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "No generation-eligible relationship path",
-    );
+  it("keeps the ERD focused without path controls or a secondary list", () => {
+    render(<RelationshipExplorer entities={entities} relationships={relationships} />);
+
+    expect(screen.queryByText("Join path endpoints")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accessible list" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Graph" })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /datasource relationship graph/i })).toBeVisible();
   });
 });

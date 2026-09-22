@@ -231,7 +231,7 @@ export function DatasourceDetailWorkspace({ id }: { id: string }) {
           </div>
         </Card>
       </div>
-      <RelationshipExplorer entities={source.entities} relationships={source.relationships} />
+      <RelationshipExplorer datasourceId={source.id} entities={source.entities} relationships={source.relationships} />
       <SemanticManifestPanel key={source.updated_at} datasourceId={source.id} />
     </div>
   );

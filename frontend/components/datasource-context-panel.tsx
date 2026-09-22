@@ -8,6 +8,7 @@ import { ApiErrorNotice } from "@/components/api-error-notice";
 import { RelationshipExplorer } from "@/components/relationship-explorer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { StatusPill } from "@/components/ui/status-pill";
 import { ApiClientError } from "@/lib/api-client";
 import {
   getDatasource,
@@ -25,16 +26,16 @@ function normalizeError(reason: unknown) {
   return reason instanceof ApiClientError
     ? reason
     : new ApiClientError(
-        {
-          error: {
-            code: "network_error",
-            message: "Datasource context could not be loaded.",
-            retryable: true,
-          },
-          request_id: "unavailable",
+      {
+        error: {
+          code: "network_error",
+          message: "Datasource context could not be loaded.",
+          retryable: true,
         },
-        0,
-      );
+        request_id: "unavailable",
+      },
+      0,
+    );
 }
 
 function displayCell(value: unknown) {
@@ -87,7 +88,13 @@ function PreviewTable({ preview }: { preview: DatasourcePreview }) {
   );
 }
 
-export function DatasourceContextPanel({ source }: { source: DatasourceSummary }) {
+export function DatasourceContextPanel({
+  source,
+  canRun,
+}: {
+  source: DatasourceSummary;
+  canRun?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<ContextView>("preview");
   const [detail, setDetail] = useState<DatasourceDetail | null>(null);
@@ -233,18 +240,30 @@ export function DatasourceContextPanel({ source }: { source: DatasourceSummary }
 
   return (
     <>
-      <Card className="flex flex-wrap items-center gap-3 p-3 sm:p-4" aria-label="Datasource context">
-        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-primary" aria-hidden>
-          <DatabaseIcon size={21} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Source context</p>
-          <p className="truncate font-semibold text-text">{source.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{source.database_name} · {source.entity_count} entities · {source.relationship_count} relationships</p>
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4" aria-label="Active datasource status">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-primary" aria-hidden>
+            <DatabaseIcon size={21} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active source</p>
+            <p className="truncate font-semibold text-text">{source.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {source.source_type === "mysql" ? "MySQL" : "PostgreSQL"} · {source.database_name} · {source.entity_count} entities · {source.relationship_count} relationships · semantic index {source.semantic_status}
+            </p>
+          </div>
         </div>
-        <Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)} aria-expanded={open} aria-controls="datasource-context-drawer">
-          <TableIcon size={18} aria-hidden /> Inspect source
-        </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            ref={triggerRef}
+            variant="secondary"
+            onClick={() => setOpen(true)}
+            aria-expanded={open}
+            aria-controls="datasource-context-drawer"
+          >
+            <TableIcon size={18} aria-hidden /> Inspect source
+          </Button>
+        </div>
       </Card>
 
       {open ? (
@@ -311,73 +330,73 @@ export function DatasourceContextPanel({ source }: { source: DatasourceSummary }
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {view === "erd" ? (
-        loading ? (
-          <div className="h-80 animate-pulse bg-muted" aria-label="Loading datasource relationships" />
-        ) : error ? (
-          <div className="p-5"><ApiErrorNotice title="Relationships could not be loaded" message={error.message} requestId={error.requestId} /></div>
-        ) : detail ? (
-          <RelationshipExplorer entities={detail.entities} relationships={detail.relationships} />
-        ) : null
-      ) : (
-        <div className="space-y-4 p-5">
-          {loading ? (
-            <div className="h-28 animate-pulse rounded-md bg-muted" aria-label="Loading datasource preview" />
-          ) : error ? (
-            <ApiErrorNotice title="Datasource preview could not be loaded" message={error.message} requestId={error.requestId} />
-          ) : detail && detail.entities.length > 0 ? (
-            <>
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                <label className="text-sm font-medium text-text">
-                  Entity to preview
-                  <select
-                    className="mt-2 min-h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-text focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    value={selectedEntityId}
-                    onChange={(event) => {
-                      setPreview(null);
-                      setPreviewError(null);
-                      setSelectedEntityId(event.target.value);
-                    }}
-                  >
-                    {detail.entities.map((entity) => (
-                      <option key={entity.id} value={entity.id}>{entity.schema_name}.{entity.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setPreview(null);
-                    setPreviewError(null);
-                    setRefreshToken((value) => value + 1);
-                  }}
-                  disabled={previewLoading || !selectedEntityId}
-                >
-                  {previewLoading ? <CircleNotchIcon className="animate-spin" size={18} aria-hidden /> : <ArrowClockwiseIcon size={18} aria-hidden />} Refresh sample
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground" aria-label="Selected entity metadata">
-                <span><strong className="text-text">{selectedEntity?.fields.length ?? 0}</strong> fields</span>
-                <span>Read-only sample, maximum 10 rows</span>
-              </div>
-              {previewError ? <ApiErrorNotice title="Rows could not be loaded" message={previewError.message} requestId={previewError.requestId} /> : null}
-              {previewLoading && !preview ? <div className="h-44 animate-pulse rounded-md bg-muted" aria-label="Loading preview rows" /> : null}
-              {preview && !previewLoading ? (
-                <>
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <p className="font-semibold text-text">First {preview.rows.length} rows from {preview.schema_name}.{preview.entity_name}</p>
-                    {preview.truncated ? <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">More rows available</span> : null}
-                  </div>
-                  <PreviewTable preview={preview} />
-                </>
-              ) : null}
-            </>
-          ) : (
-            <div className="rounded-md border border-border bg-muted/35 p-5 text-sm text-muted-foreground">
-              No entities are available yet. Refresh metadata from the source details page first.
-            </div>
-          )}
-        </div>
-      )}
+                loading ? (
+                  <div className="h-80 animate-pulse bg-muted" aria-label="Loading datasource relationships" />
+                ) : error ? (
+                  <div className="p-5"><ApiErrorNotice title="Relationships could not be loaded" message={error.message} requestId={error.requestId} /></div>
+                ) : detail ? (
+                  <RelationshipExplorer datasourceId={source.id} entities={detail.entities} relationships={detail.relationships} />
+                ) : null
+              ) : (
+                <div className="space-y-4 p-5">
+                  {loading ? (
+                    <div className="h-28 animate-pulse rounded-md bg-muted" aria-label="Loading datasource preview" />
+                  ) : error ? (
+                    <ApiErrorNotice title="Datasource preview could not be loaded" message={error.message} requestId={error.requestId} />
+                  ) : detail && detail.entities.length > 0 ? (
+                    <>
+                      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                        <label className="text-sm font-medium text-text">
+                          Entity to preview
+                          <select
+                            className="mt-2 min-h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-text focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            value={selectedEntityId}
+                            onChange={(event) => {
+                              setPreview(null);
+                              setPreviewError(null);
+                              setSelectedEntityId(event.target.value);
+                            }}
+                          >
+                            {detail.entities.map((entity) => (
+                              <option key={entity.id} value={entity.id}>{entity.schema_name}.{entity.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setPreview(null);
+                            setPreviewError(null);
+                            setRefreshToken((value) => value + 1);
+                          }}
+                          disabled={previewLoading || !selectedEntityId}
+                        >
+                          {previewLoading ? <CircleNotchIcon className="animate-spin" size={18} aria-hidden /> : <ArrowClockwiseIcon size={18} aria-hidden />} Refresh sample
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground" aria-label="Selected entity metadata">
+                        <span><strong className="text-text">{selectedEntity?.fields.length ?? 0}</strong> fields</span>
+                        <span>Read-only sample, maximum 10 rows</span>
+                      </div>
+                      {previewError ? <ApiErrorNotice title="Rows could not be loaded" message={previewError.message} requestId={previewError.requestId} /> : null}
+                      {previewLoading && !preview ? <div className="h-44 animate-pulse rounded-md bg-muted" aria-label="Loading preview rows" /> : null}
+                      {preview && !previewLoading ? (
+                        <>
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <p className="font-semibold text-text">First {preview.rows.length} rows from {preview.schema_name}.{preview.entity_name}</p>
+                            {preview.truncated ? <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">More rows available</span> : null}
+                          </div>
+                          <PreviewTable preview={preview} />
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="rounded-md border border-border bg-muted/35 p-5 text-sm text-muted-foreground">
+                      No entities are available yet. Refresh metadata from the source details page first.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="border-t border-border px-5 py-3">
               <Link href={`/sources/${source.id}`} className="text-sm font-semibold text-primary hover:text-primary-hover">Open full source details</Link>
