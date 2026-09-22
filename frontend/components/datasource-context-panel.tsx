@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowClockwiseIcon, CircleNotchIcon, DatabaseIcon, GraphIcon, TableIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, CircleNotchIcon, DatabaseIcon, GraphIcon, TableIcon, XIcon } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiErrorNotice } from "@/components/api-error-notice";
 import { RelationshipExplorer } from "@/components/relationship-explorer";
@@ -18,6 +18,8 @@ import {
 } from "@/lib/datasources";
 
 type ContextView = "preview" | "erd";
+const DEFAULT_DRAWER_WIDTH = 640;
+const MAX_DRAWER_WIDTH = 1080;
 
 function normalizeError(reason: unknown) {
   return reason instanceof ApiClientError
@@ -86,6 +88,7 @@ function PreviewTable({ preview }: { preview: DatasourcePreview }) {
 }
 
 export function DatasourceContextPanel({ source }: { source: DatasourceSummary }) {
+  const [open, setOpen] = useState(false);
   const [view, setView] = useState<ContextView>("preview");
   const [detail, setDetail] = useState<DatasourceDetail | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState("");
@@ -94,6 +97,12 @@ export function DatasourceContextPanel({ source }: { source: DatasourceSummary }
   const [error, setError] = useState<ApiClientError | null>(null);
   const [previewError, setPreviewError] = useState<ApiClientError | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [drawerWidth, setDrawerWidth] = useState(DEFAULT_DRAWER_WIDTH);
+  const [resizing, setResizing] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const resizeStartRef = useRef({ startX: 0, startWidth: DEFAULT_DRAWER_WIDTH });
 
   useEffect(() => {
     let active = true;
@@ -140,45 +149,168 @@ export function DatasourceContextPanel({ source }: { source: DatasourceSummary }
     selectedEntityId && (!preview || preview.entity_id !== selectedEntityId),
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
+        'button, a[href], select, input, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [open]);
+
+  function startResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (window.innerWidth < 768) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeStartRef.current = { startX: event.clientX, startWidth: drawerWidth };
+    setResizing(true);
+  }
+
+  function resizeDrawer(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!resizing) return;
+    const maxWidth = Math.min(MAX_DRAWER_WIDTH, window.innerWidth - 16);
+    const nextWidth = resizeStartRef.current.startWidth + resizeStartRef.current.startX - event.clientX;
+    setDrawerWidth(Math.min(maxWidth, Math.max(DEFAULT_DRAWER_WIDTH, nextWidth)));
+  }
+
+  function stopResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!resizing) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setResizing(false);
+  }
+
+  function adjustDrawerWidth(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const maxWidth = Math.min(MAX_DRAWER_WIDTH, window.innerWidth - 16);
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setDrawerWidth((width) => Math.min(maxWidth, width + 32));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setDrawerWidth((width) => Math.max(DEFAULT_DRAWER_WIDTH, width - 32));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setDrawerWidth(DEFAULT_DRAWER_WIDTH);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setDrawerWidth(maxWidth);
+    }
+  }
+
+  function closeDrawer() {
+    setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }
+
   return (
-    <Card className="overflow-hidden" aria-labelledby="datasource-context-heading">
-      <div className="flex flex-col gap-4 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-primary" aria-hidden>
-            <DatabaseIcon size={21} />
-          </span>
-          <div className="min-w-0">
-            <h2 id="datasource-context-heading" className="font-semibold text-text">Explore source</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Inspect a small read-only sample or understand how entities connect before asking a question.</p>
-          </div>
+    <>
+      <Card className="flex flex-wrap items-center gap-3 p-3 sm:p-4" aria-label="Datasource context">
+        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-primary" aria-hidden>
+          <DatabaseIcon size={21} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Source context</p>
+          <p className="truncate font-semibold text-text">{source.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{source.database_name} · {source.entity_count} entities · {source.relationship_count} relationships</p>
         </div>
-        <Button asChild variant="ghost" size="small">
-          <Link href={`/sources/${source.id}`}>Full source details</Link>
+        <Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)} aria-expanded={open} aria-controls="datasource-context-drawer">
+          <TableIcon size={18} aria-hidden /> Inspect source
         </Button>
-      </div>
+      </Card>
 
-      <div className="grid gap-2 border-b border-border bg-muted/25 p-3 sm:grid-cols-2" role="tablist" aria-label="Datasource context view">
-        <Button
-          size="default"
-          variant={view === "preview" ? "primary" : "secondary"}
-          role="tab"
-          aria-selected={view === "preview"}
-          onClick={() => setView("preview")}
-        >
-          <TableIcon size={18} aria-hidden /> Preview rows
-        </Button>
-        <Button
-          size="default"
-          variant={view === "erd" ? "primary" : "secondary"}
-          role="tab"
-          aria-selected={view === "erd"}
-          onClick={() => setView("erd")}
-        >
-          <GraphIcon size={18} aria-hidden /> ERD / relationships
-        </Button>
-      </div>
+      {open ? (
+        <>
+          <button type="button" className="fixed inset-0 z-40 bg-text/35 backdrop-blur-[1px]" aria-label="Close source context" onClick={closeDrawer} />
+          <aside
+            ref={drawerRef}
+            id="datasource-context-drawer"
+            className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-[calc(100vw-1rem)] flex-col border-l border-border bg-card shadow-float ${resizing ? "select-none" : "transition-[width] duration-200 ease-out"}`}
+            style={{ width: `${drawerWidth}px` }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="datasource-context-heading"
+          >
+            <div
+              className="absolute inset-y-0 left-0 z-10 hidden w-3 -translate-x-1/2 cursor-col-resize items-center justify-center md:flex"
+              role="separator"
+              aria-label="Resize source context drawer"
+              aria-orientation="vertical"
+              aria-valuemin={DEFAULT_DRAWER_WIDTH}
+              aria-valuemax={MAX_DRAWER_WIDTH}
+              aria-valuenow={drawerWidth}
+              aria-valuetext={`${drawerWidth}px wide; use left and right arrow keys to resize`}
+              tabIndex={0}
+              onPointerDown={startResize}
+              onPointerMove={resizeDrawer}
+              onPointerUp={stopResize}
+              onPointerCancel={stopResize}
+              onKeyDown={adjustDrawerWidth}
+            >
+              <span className="h-16 w-1 rounded-full bg-border-strong transition-colors hover:bg-primary" />
+            </div>
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary">Source context</p>
+                <h2 id="datasource-context-heading" className="mt-1 truncate text-lg font-semibold text-text">{source.name}</h2>
+                <p className="mt-1 truncate text-sm text-muted-foreground">{source.source_type === "mysql" ? "MySQL" : "PostgreSQL"} · {source.database_name}</p>
+              </div>
+              <Button ref={closeButtonRef} size="icon" variant="ghost" aria-label="Close source context" onClick={closeDrawer}>
+                <XIcon size={20} aria-hidden />
+              </Button>
+            </div>
 
-      {view === "erd" ? (
+            <div className="grid gap-2 border-b border-border bg-muted/25 p-3 sm:grid-cols-2" role="tablist" aria-label="Datasource context view">
+              <Button
+                size="default"
+                variant={view === "preview" ? "primary" : "secondary"}
+                role="tab"
+                aria-selected={view === "preview"}
+                onClick={() => setView("preview")}
+              >
+                <TableIcon size={18} aria-hidden /> Preview rows
+              </Button>
+              <Button
+                size="default"
+                variant={view === "erd" ? "primary" : "secondary"}
+                role="tab"
+                aria-selected={view === "erd"}
+                onClick={() => setView("erd")}
+              >
+                <GraphIcon size={18} aria-hidden /> ERD / relationships
+              </Button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {view === "erd" ? (
         loading ? (
           <div className="h-80 animate-pulse bg-muted" aria-label="Loading datasource relationships" />
         ) : error ? (
@@ -246,6 +378,13 @@ export function DatasourceContextPanel({ source }: { source: DatasourceSummary }
           )}
         </div>
       )}
-    </Card>
+            </div>
+            <div className="border-t border-border px-5 py-3">
+              <Link href={`/sources/${source.id}`} className="text-sm font-semibold text-primary hover:text-primary-hover">Open full source details</Link>
+            </div>
+          </aside>
+        </>
+      ) : null}
+    </>
   );
 }

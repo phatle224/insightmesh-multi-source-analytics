@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/page-header";
 import { QueryRunDetails } from "@/components/query-run-details";
 import { ResultVisualization } from "@/components/result-visualization";
 import { SaveWidgetDialog } from "@/components/save-widget-dialog";
+import { QuestionSuggestions } from "@/components/question-suggestions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -379,6 +380,15 @@ export function AskWorkspace() {
             maxLength={1000}
             disabled={!canRun || pending}
           />
+          {canRun ? (
+            <QuestionSuggestions
+              datasourceId={activeSource.id}
+              onSelect={(suggestion) => {
+                setQuestion(suggestion);
+                setFieldError(null);
+              }}
+            />
+          ) : null}
           <div className="mt-2 flex min-h-6 flex-wrap items-start justify-between gap-2">
             <p id="question-error" className="text-sm font-medium text-destructive" role={fieldError ? "alert" : undefined}>
               {fieldError}
