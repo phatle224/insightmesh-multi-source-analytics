@@ -27,6 +27,7 @@ import {
   chartKeys,
   compatibleChartTypes,
   describeChart,
+  getDashboardRecommendation,
   isChartType,
   toChartData,
   type ChartType,
@@ -123,6 +124,7 @@ export function ResultVisualization({
   onTypeChange,
   actions,
   additionalWarnings = [],
+  showDashboardRecommendation = false,
 }: {
   result: QueryResult;
   initialType?: string | null;
@@ -130,6 +132,7 @@ export function ResultVisualization({
   onTypeChange?: (type: ChartType) => void;
   actions?: ReactNode;
   additionalWarnings?: string[];
+  showDashboardRecommendation?: boolean;
 }) {
   const compatible = compatibleChartTypes(result);
   const safeInitial = isChartType(initialType) && compatible.includes(initialType) ? initialType : "table";
@@ -142,6 +145,7 @@ export function ResultVisualization({
   const { metric } = chartKeys(result, activeType);
   const metricIndex = result.columns.findIndex((column) => column.name === metric);
   const notices = [...new Set([...result.warnings, ...additionalWarnings])];
+  const recommendation = getDashboardRecommendation(result);
 
   return (
     <section aria-labelledby="visualization-heading">
@@ -177,6 +181,12 @@ export function ResultVisualization({
           </div>
         </div>
         {notices.length > 0 ? <ResultNotices notices={notices} embedded /> : null}
+        {showDashboardRecommendation ? (
+          <div className={recommendation.fit === "recommended" ? "border-b border-primary/30 bg-primary/5 px-4 py-3 text-sm" : recommendation.fit === "not_ready" ? "border-b border-accent/35 bg-accent/5 px-4 py-3 text-sm" : "border-b border-border bg-muted/35 px-4 py-3 text-sm"} role="status">
+            <strong className="text-text">{recommendation.fit === "recommended" ? "Dashboard recommendation" : recommendation.fit === "not_ready" ? "Dashboard not ready" : "Limited dashboard fit"}</strong>
+            <span className="ml-1 text-muted-foreground">{recommendation.message}</span>
+          </div>
+        ) : null}
         {activeType === "table" ? (
           <QueryResultTable result={result} embedded hideNotices />
         ) : activeType === "kpi" ? (

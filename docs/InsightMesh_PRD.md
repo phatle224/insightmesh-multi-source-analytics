@@ -521,9 +521,10 @@ retrieve context
 The scope guard must use two deterministic layers. A pre-retrieval check rejects
 explicit questions about the application's model, prompt, or system configuration. A
 post-retrieval relevance/domain gate requires either an entity, field, business-term,
-or metric anchor, or both an analytical-intent cue and the configured minimum semantic
-similarity. Semantic similarity alone must never authorize query generation. It must
-not rely on an LLM-only classification. Questions such as “What is the weather today?”
+or metric anchor, or the configured minimum semantic similarity. The semantic index is
+the language-agnostic signal for relevant questions;
+lexical/entity anchors remain a deterministic fallback. The gate must not ship
+demo-schema synonym dictionaries or rely on an LLM-only classification. Questions such as “What is the weather today?”
 or “Bạn đang dùng model gì?” must be stopped safely with a message that InsightMesh
 only answers analytical questions about the active datasource. A relevant question
 with missing detail remains `clarification_required` instead.

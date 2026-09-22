@@ -47,6 +47,13 @@ def _json_value(value: Any) -> Any:
     return value
 
 
+def _result_value(value: Any) -> Any:
+    """Keep native scalar types until result verification infers their semantics."""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
 def _normalized_type(native_type: str) -> str:
     lowered = native_type.lower()
     if lowered.startswith("tinyint(1)") or lowered == "boolean":
@@ -389,7 +396,8 @@ class MySQLConnector:
             return QueryResult(
                 columns=columns,
                 rows=tuple(
-                    tuple(_json_value(value) for value in row) for row in rows[: limits.max_rows]
+                    tuple(_result_value(value) for value in row)
+                    for row in rows[: limits.max_rows]
                 ),
                 truncated=len(rows) > limits.max_rows,
             )

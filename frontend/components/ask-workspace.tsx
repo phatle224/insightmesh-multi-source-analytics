@@ -34,7 +34,7 @@ import {
   type QueryTrace,
 } from "@/lib/query-runs";
 import { cn } from "@/lib/utils";
-import { isChartType, type ChartType } from "@/lib/visualization";
+import { getDashboardRecommendation, isChartType, type ChartType } from "@/lib/visualization";
 
 interface StatusPresentation {
   label: string;
@@ -223,6 +223,9 @@ export function AskWorkspace() {
   const semanticReady =
     activeSource?.semantic_status === "ready" || activeSource?.semantic_status === "stale";
   const canRun = Boolean(activeSource && activeSource.status === "ready" && semanticReady);
+  const dashboardRecommendation = run?.status === "completed" && run.result
+    ? getDashboardRecommendation(run.result)
+    : null;
 
   async function submitQuestion(completeQuestion: string) {
     const normalized = completeQuestion.trim();
@@ -508,16 +511,20 @@ export function AskWorkspace() {
       {run?.status === "completed" && run.result ? (
         <ResultVisualization
           result={run.result}
-          initialType={run.visualization_type}
+          initialType={chartType ?? dashboardRecommendation?.chartType ?? run.visualization_type}
           selectedType={chartType}
           onTypeChange={setChartType}
           additionalWarnings={run.warnings}
+          showDashboardRecommendation
           actions={
-            <SaveWidgetDialog
-              runId={run.run_id}
-              defaultTitle={run.question}
-              chartType={chartType ?? (isChartType(run.visualization_type) ? run.visualization_type : "table")}
-            />
+            dashboardRecommendation?.fit !== "not_ready" ? (
+              <SaveWidgetDialog
+                runId={run.run_id}
+                defaultTitle={run.question}
+                chartType={chartType ?? dashboardRecommendation?.chartType ?? (isChartType(run.visualization_type) ? run.visualization_type : "table")}
+                recommendation={dashboardRecommendation ?? undefined}
+              />
+            ) : null
           }
         />
       ) : null}

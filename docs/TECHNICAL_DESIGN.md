@@ -302,10 +302,11 @@ The runtime applies two deterministic scope layers. Before retrieval, an explici
 meta/system precheck rejects questions about the application's model, prompt, or system
 configuration. After datasource-scoped retrieval, the relevance/domain gate requires
 either a lexical anchor from retrieved entities, fields, business terms, or metrics, or
-both an analytical-intent cue and the configured minimum semantic similarity. Semantic
-similarity alone is not sufficient. If either layer rejects the question, the run
-terminates as `out_of_scope` with error code `question_out_of_scope`; query generation,
-validation, repair, and execution are not called. This state is distinct from
+the configured minimum semantic similarity from the datasource's embedding index.
+Semantic retrieval is language-agnostic and must not depend on demo-schema synonym
+dictionaries. If neither signal is present, the run terminates as `out_of_scope` with
+error code `question_out_of_scope`; query generation, validation, repair, and execution
+are not called. This state is distinct from
 `clarification_required`: the latter means the question is about the datasource but is
 missing a metric, filter, grouping, or time range.
 

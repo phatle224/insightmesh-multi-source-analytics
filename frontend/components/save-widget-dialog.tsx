@@ -6,23 +6,26 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ApiClientError } from "@/lib/api-client";
-import { addDashboardWidget, listDashboards, type DashboardSummary } from "@/lib/dashboards";
-import type { ChartType } from "@/lib/visualization";
+import { addDashboardWidget, createDashboard, listDashboards, type DashboardSummary } from "@/lib/dashboards";
+import type { ChartType, DashboardRecommendation } from "@/lib/visualization";
 
 export function SaveWidgetDialog({
   runId,
   defaultTitle,
   chartType,
+  recommendation,
 }: {
   runId: string;
   defaultTitle: string;
   chartType: ChartType;
+  recommendation?: DashboardRecommendation;
 }) {
   const [open, setOpen] = useState(false);
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
   const [dashboardId, setDashboardId] = useState("");
   const [title, setTitle] = useState(defaultTitle.slice(0, 160));
   const [pending, setPending] = useState(false);
+  const [creatingDashboard, setCreatingDashboard] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -58,6 +61,30 @@ export function SaveWidgetDialog({
     }
   }
 
+  async function createRecommendedDashboard() {
+    if (!recommendation || recommendation.fit !== "recommended") return;
+    setCreatingDashboard(true);
+    setMessage(null);
+    try {
+      const dashboard = await createDashboard(
+        recommendation.dashboardName,
+        recommendation.dashboardDescription,
+      );
+      await addDashboardWidget(dashboard.id, {
+        query_run_id: runId,
+        title: defaultTitle.slice(0, 160),
+        chart_type: chartType,
+      });
+      setDashboards((current) => [dashboard, ...current]);
+      setDashboardId(dashboard.id);
+      setMessage(`Created ${dashboard.name} and saved this result as a ${chartType} widget.`);
+    } catch (error) {
+      setMessage(error instanceof ApiClientError ? error.message : "The recommended dashboard could not be created.");
+    } finally {
+      setCreatingDashboard(false);
+    }
+  }
+
   return (
     <>
       <Button onClick={() => setOpen(true)}>
@@ -77,6 +104,12 @@ export function SaveWidgetDialog({
             </div>
             {dashboards.length ? (
               <div className="mt-5 space-y-4">
+                {recommendation ? (
+                  <div className={recommendation.fit === "recommended" ? "rounded-md border border-primary/30 bg-primary/5 p-3 text-sm" : "rounded-md border border-accent/35 bg-accent/5 p-3 text-sm"} role="status">
+                    <p className="font-semibold text-text">{recommendation.fit === "recommended" ? "Recommended dashboard" : "Dashboard fit"}</p>
+                    <p className="mt-1 text-muted-foreground">{recommendation.message}</p>
+                  </div>
+                ) : null}
                 <label className="block text-sm font-semibold text-text">
                   Dashboard
                   <select value={dashboardId} onChange={(event) => setDashboardId(event.target.value)} className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-3 font-normal">
@@ -89,15 +122,22 @@ export function SaveWidgetDialog({
                 </label>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground" role="status">{message}</p>
-                  <Button onClick={() => void save()} disabled={pending || !dashboardId || !title.trim()}>
-                    {pending ? "Saving…" : "Save widget"}
-                  </Button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {recommendation?.fit === "recommended" ? <Button variant="secondary" onClick={() => void createRecommendedDashboard()} disabled={pending || creatingDashboard}>{creatingDashboard ? "Creating…" : "Create recommended dashboard"}</Button> : null}
+                    <Button onClick={() => void save()} disabled={pending || creatingDashboard || !dashboardId || !title.trim()}>
+                      {pending ? "Saving…" : "Save widget"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="mt-5 rounded-md bg-muted p-4">
-                <p className="text-sm text-muted-foreground">Create a dashboard before saving this result.</p>
-                <Button asChild variant="secondary" className="mt-3"><Link href="/dashboards">Create dashboard</Link></Button>
+                {recommendation ? <p className="text-sm text-muted-foreground">{recommendation.message}</p> : <p className="text-sm text-muted-foreground">Create a dashboard before saving this result.</p>}
+                {recommendation?.fit === "recommended" ? (
+                  <Button className="mt-3" onClick={() => void createRecommendedDashboard()} disabled={creatingDashboard}>{creatingDashboard ? "Creating…" : "Create dashboard and save result"}</Button>
+                ) : (
+                  <Button asChild variant="secondary" className="mt-3"><Link href="/dashboards">Create dashboard</Link></Button>
+                )}
                 {message ? <p className="mt-3 text-sm text-destructive" role="alert">{message}</p> : null}
               </div>
             )}

@@ -81,40 +81,6 @@ STOP_WORDS = {
     "show",
     "give",
 }
-ANALYTICAL_CUES = {
-    "average",
-    "bottom",
-    "compare",
-    "comparison",
-    "count",
-    "daily",
-    "dem",
-    "group",
-    "highest",
-    "lowest",
-    "max",
-    "mean",
-    "min",
-    "monthly",
-    "percent",
-    "percentage",
-    "ratio",
-    "rate",
-    "revenue",
-    "sales",
-    "so",
-    "sum",
-    "theo",
-    "thong",
-    "top",
-    "total",
-    "trend",
-    "trung",
-    "ty",
-    "weekly",
-    "yearly",
-    "xu",
-}
 
 ConnectorFactory = Callable[[Session, Datasource, Settings], DataSourceConnector]
 
@@ -243,9 +209,8 @@ def _is_out_of_scope(question: str, context: RetrievalResponse, minimum_similari
             vocabulary.update(_tokens(metric.description or ""))
     question_tokens = _tokens(question)
     has_domain_anchor = bool(question_tokens & vocabulary)
-    has_analytical_cue = bool(question_tokens & ANALYTICAL_CUES)
     similarity_sufficient = bool(semantic_scores and max(semantic_scores) >= minimum_similarity)
-    return not has_domain_anchor and not (has_analytical_cue and similarity_sufficient)
+    return not has_domain_anchor and not similarity_sufficient
 
 
 def _validation_payload(result: SQLValidationResult, explain_valid: bool) -> dict[str, object]:

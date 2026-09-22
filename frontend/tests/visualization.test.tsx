@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { ResultVisualization } from "@/components/result-visualization";
 import type { QueryResult } from "@/lib/query-runs";
-import { compatibleChartTypes } from "@/lib/visualization";
+import { compatibleChartTypes, getDashboardRecommendation } from "@/lib/visualization";
 
 const categoryResult: QueryResult = {
   columns: [
@@ -30,5 +30,29 @@ describe("deterministic visualization adapter", () => {
     expect(screen.getByRole("button", { name: "Bar" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("table")).toHaveTextContent("paid");
     expect(screen.getByText(/bar chart of orders by status/i)).toBeVisible();
+  });
+
+  it("recommends a KPI tile for a single metric result", () => {
+    const recommendation = getDashboardRecommendation({
+      ...categoryResult,
+      columns: [{ name: "total_categories", type: "number", semantic_type: "metric" }],
+      rows: [[3]],
+      row_count: 1,
+    });
+
+    expect(recommendation.fit).toBe("limited");
+    expect(recommendation.chartType).toBe("kpi");
+    expect(recommendation.message).toMatch(/single KPI/i);
+  });
+
+  it("marks empty results as not ready for a dashboard", () => {
+    const recommendation = getDashboardRecommendation({
+      ...categoryResult,
+      rows: [],
+      row_count: 0,
+    });
+
+    expect(recommendation.fit).toBe("not_ready");
+    expect(recommendation.message).toMatch(/No rows were returned/i);
   });
 });

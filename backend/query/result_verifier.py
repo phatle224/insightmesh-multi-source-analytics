@@ -15,7 +15,9 @@ def _json_safe(value: Any) -> Any:
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, Decimal):
-        return str(value)
+        if not value.is_finite():
+            return str(value)
+        return int(value) if value == value.to_integral_value() else float(value)
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, date):

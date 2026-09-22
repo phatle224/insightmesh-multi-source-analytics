@@ -593,6 +593,23 @@ def test_runtime_allows_relevant_vietnamese_analytical_question() -> None:
         assert provider.generation_calls == 1
 
 
+def test_runtime_allows_vietnamese_product_revenue_question() -> None:
+    provider = RuntimeProvider([_correct_query()])
+    with runtime_datasource() as (session, datasource):
+        run = run_postgres_query(
+            session,
+            datasource.id,
+            "xuất ra các sản phẩm và doanh thu của từng sản phẩm đó",
+            generation_provider=provider,
+            retrieval_provider=provider,
+        )
+
+        assert run.status == "completed"
+        assert run.error_code is None
+        assert provider.embedding_calls == 1
+        assert provider.generation_calls == 1
+
+
 def test_runtime_requires_new_complete_question_for_ambiguity() -> None:
     provider = RuntimeProvider([])
     with runtime_datasource() as (session, datasource):
