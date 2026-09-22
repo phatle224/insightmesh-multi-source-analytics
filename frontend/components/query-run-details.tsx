@@ -82,7 +82,15 @@ function traceDetails(details?: Record<string, unknown>) {
   );
 }
 
-export function QueryRunDetails({ run, trace }: { run: QueryRun; trace: QueryTrace | null }) {
+export function QueryRunDetails({
+  run,
+  trace,
+  collapsible = false,
+}: {
+  run: QueryRun;
+  trace: QueryTrace | null;
+  collapsible?: boolean;
+}) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   async function copyQuery() {
@@ -95,7 +103,7 @@ export function QueryRunDetails({ run, trace }: { run: QueryRun; trace: QueryTra
     }
   }
 
-  return (
+  const detailsContent = (
     <div className="grid min-w-0 gap-4 xl:grid-cols-2">
       <Card className="min-w-0 overflow-hidden">
         <details>
@@ -202,5 +210,19 @@ export function QueryRunDetails({ run, trace }: { run: QueryRun; trace: QueryTra
         </details>
       </Card>
     </div>
+  );
+
+  if (!collapsible) return detailsContent;
+
+  return (
+    <details className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
+      <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 py-3 font-semibold text-text transition-colors hover:bg-muted/55">
+        <span className="flex items-center gap-2"><CodeIcon size={19} aria-hidden /> Technical details</span>
+        <span className="text-xs font-normal text-muted-foreground">SQL and execution trace</span>
+      </summary>
+      <div className="border-t border-border p-4">
+        {detailsContent}
+      </div>
+    </details>
   );
 }

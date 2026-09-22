@@ -30,7 +30,15 @@ function formatValue(value: unknown, column: QueryResultColumn) {
   return String(value);
 }
 
-export function QueryResultTable({ result }: { result: QueryResult }) {
+export function QueryResultTable({
+  result,
+  embedded = false,
+  hideNotices = false,
+}: {
+  result: QueryResult;
+  embedded?: boolean;
+  hideNotices?: boolean;
+}) {
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [previousResult, setPreviousResult] = useState(result);
@@ -50,7 +58,7 @@ export function QueryResultTable({ result }: { result: QueryResult }) {
   if (result.rows.length === 0) {
     return (
       <div className="space-y-3">
-        <ResultNotices notices={notices} />
+        {!hideNotices ? <ResultNotices notices={notices} /> : null}
         <Card className="flex min-h-44 flex-col items-center justify-center p-6 text-center">
           <TableIcon className="text-primary" size={28} weight="duotone" aria-hidden />
           <h2 className="mt-3 text-lg font-semibold text-text">No matching rows</h2>
@@ -69,8 +77,10 @@ export function QueryResultTable({ result }: { result: QueryResult }) {
   const endIndex = Math.min(startIndex + pageSize, totalRows);
   const displayedRows = result.rows.slice(startIndex, endIndex);
 
+  const TableShell = embedded ? "div" : Card;
+
   return (
-    <Card className="min-w-0 overflow-hidden">
+    <TableShell className="min-w-0 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
           <h2 className="font-semibold text-text">Verified result</h2>
@@ -118,13 +128,13 @@ export function QueryResultTable({ result }: { result: QueryResult }) {
           </span>
         </div>
       </div>
-      <ResultNotices notices={notices} embedded />
-      <div className="max-w-full overflow-x-auto" tabIndex={0} aria-label="Scrollable query result">
+      {!hideNotices ? <ResultNotices notices={notices} embedded /> : null}
+      <div className={`max-w-full overflow-x-auto ${embedded ? "max-h-[28rem] overflow-y-auto" : ""}`} tabIndex={0} aria-label="Scrollable query result">
         <table className="w-full min-w-max border-collapse text-left text-sm">
           <caption className="sr-only">
             Query result with {result.row_count} rows and {result.columns.length} columns. Displaying page {safePage} of {totalPages}.
           </caption>
-          <thead className="bg-muted/70">
+          <thead className="sticky top-0 z-10 bg-muted/70">
             <tr>
               {result.columns.map((column) => (
                 <th
@@ -221,11 +231,11 @@ export function QueryResultTable({ result }: { result: QueryResult }) {
           </nav>
         </div>
       </div>
-    </Card>
+    </TableShell>
   );
 }
 
-function ResultNotices({ notices, embedded = false }: { notices: string[]; embedded?: boolean }) {
+export function ResultNotices({ notices, embedded = false }: { notices: string[]; embedded?: boolean }) {
   if (notices.length === 0) return null;
   return (
     <div

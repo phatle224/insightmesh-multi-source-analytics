@@ -154,6 +154,7 @@ describe("Ask workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run question" }));
 
     expect(await screen.findByRole("heading", { name: "Query completed" })).toBeVisible();
+    fireEvent.click(screen.getByText("Technical details"));
     expect(screen.getByText("Generated PostgreSQL")).toBeVisible();
     expect(screen.getByText("Execution trace")).toBeVisible();
     fireEvent.click(screen.getByText("Execution trace"));

@@ -134,6 +134,18 @@ function requestError(reason: unknown) {
 
 function RunStatus({ run }: { run: QueryRun }) {
   const presentation = RUN_STATUS_PRESENTATION[run.status];
+  if (run.status === "completed" && run.result) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm" role="status">
+        <CheckCircleIcon className="shrink-0 text-primary" size={18} weight="duotone" aria-hidden />
+        <h2 className="font-semibold text-text">Query completed</h2>
+        <StatusPill>{run.result.row_count.toLocaleString()} row{run.result.row_count === 1 ? "" : "s"}</StatusPill>
+        <StatusPill>{run.result.duration_ms.toLocaleString()} ms</StatusPill>
+        <span className="font-mono text-xs text-muted-foreground">Run {run.run_id}</span>
+      </div>
+    );
+  }
+
   const Icon =
     run.status === "completed"
       ? CheckCircleIcon
@@ -201,6 +213,7 @@ export function AskWorkspace() {
   const [traceError, setTraceError] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [chartType, setChartType] = useState<ChartType | undefined>();
+  const [questionEditorOpen, setQuestionEditorOpen] = useState(true);
   const statusRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -229,6 +242,7 @@ export function AskWorkspace() {
     try {
       const nextRun = await createQueryRun(activeSource.id, normalized);
       setRun(nextRun);
+      setQuestionEditorOpen(false);
       try {
         setTrace(await getQueryTrace(nextRun.run_id));
       } catch {
@@ -323,7 +337,7 @@ export function AskWorkspace() {
         description="Each submission is a new run. Include the metric, grouping, filters, and time range needed to answer it."
       />
 
-      <DatasourceContextPanel source={activeSource} canRun={canRun} />
+      <DatasourceContextPanel source={activeSource} />
 
       {!canRun ? (
         <ApiErrorNotice
@@ -337,6 +351,17 @@ export function AskWorkspace() {
         />
       ) : null}
 
+      {run && !pending && !questionEditorOpen ? (
+        <Card className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4" aria-label="Current question">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current question</p>
+            <p className="mt-1 truncate text-sm font-medium text-text">{question}</p>
+          </div>
+          <Button variant="secondary" onClick={() => setQuestionEditorOpen(true)}>
+            Ask another question
+          </Button>
+        </Card>
+      ) : (
       <Card className="p-4 sm:p-5">
         <form onSubmit={handleSubmit} noValidate>
           <label htmlFor="analytical-question" className="font-semibold text-text">
@@ -393,6 +418,7 @@ export function AskWorkspace() {
           </div>
         </form>
       </Card>
+      )}
 
       <section
         ref={statusRef}
@@ -400,7 +426,7 @@ export function AskWorkspace() {
         aria-live="polite"
         aria-atomic="true"
         aria-label="Query run status"
-        className="min-h-32 scroll-mt-20 rounded-lg focus:outline-none focus-visible:ring-3 focus-visible:ring-primary/30"
+        className="scroll-mt-20 rounded-lg focus:outline-none focus-visible:ring-3 focus-visible:ring-primary/30"
       >
         {pending ? (
           <Card className="flex min-h-32 items-start gap-3 border-border-strong bg-muted/45 p-4">
@@ -428,7 +454,7 @@ export function AskWorkspace() {
         ) : run ? (
           <RunStatus run={run} />
         ) : (
-          <Card className="flex min-h-32 items-center p-4">
+        <Card className="flex min-h-24 items-center p-4">
             <div>
               <h2 className="font-semibold text-text">Ready for a question</h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -468,7 +494,7 @@ export function AskWorkspace() {
         </div>
       ) : null}
 
-      {run?.warnings.length ? (
+      {run?.warnings.length && !(run.status === "completed" && run.result) ? (
         <Card className="border-accent/45 p-4" role="status">
           <h2 className="font-semibold text-text">Result warnings</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
@@ -479,6 +505,23 @@ export function AskWorkspace() {
         </Card>
       ) : null}
 
+      {run?.status === "completed" && run.result ? (
+        <ResultVisualization
+          result={run.result}
+          initialType={run.visualization_type}
+          selectedType={chartType}
+          onTypeChange={setChartType}
+          additionalWarnings={run.warnings}
+          actions={
+            <SaveWidgetDialog
+              runId={run.run_id}
+              defaultTitle={run.question}
+              chartType={chartType ?? (isChartType(run.visualization_type) ? run.visualization_type : "table")}
+            />
+          }
+        />
+      ) : null}
+
       {pending ? (
         <div className="grid gap-4 xl:grid-cols-2" aria-hidden="true">
           <Card className="h-40 animate-pulse bg-muted" />
@@ -486,31 +529,13 @@ export function AskWorkspace() {
         </div>
       ) : run ? (
         <>
-          <QueryRunDetails run={run} trace={trace} />
+          <QueryRunDetails run={run} trace={trace} collapsible />
           {traceError ? (
             <p className="text-sm text-muted-foreground" role="status">
               The run completed, but its trace could not be loaded. The result remains available.
             </p>
           ) : null}
         </>
-      ) : null}
-
-      {run?.status === "completed" && run.result ? (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <SaveWidgetDialog
-              runId={run.run_id}
-              defaultTitle={run.question}
-              chartType={chartType ?? (isChartType(run.visualization_type) ? run.visualization_type : "table")}
-            />
-          </div>
-          <ResultVisualization
-            result={run.result}
-            initialType={run.visualization_type}
-            selectedType={chartType}
-            onTypeChange={setChartType}
-          />
-        </div>
       ) : null}
     </div>
   );

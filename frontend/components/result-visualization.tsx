@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -19,7 +20,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { QueryResultTable } from "@/components/query-result-table";
+import { QueryResultTable, ResultNotices } from "@/components/query-result-table";
 import { Card } from "@/components/ui/card";
 import type { QueryResult } from "@/lib/query-runs";
 import {
@@ -120,11 +121,15 @@ export function ResultVisualization({
   initialType,
   selectedType,
   onTypeChange,
+  actions,
+  additionalWarnings = [],
 }: {
   result: QueryResult;
   initialType?: string | null;
   selectedType?: ChartType;
   onTypeChange?: (type: ChartType) => void;
+  actions?: ReactNode;
+  additionalWarnings?: string[];
 }) {
   const compatible = compatibleChartTypes(result);
   const safeInitial = isChartType(initialType) && compatible.includes(initialType) ? initialType : "table";
@@ -136,59 +141,73 @@ export function ResultVisualization({
   };
   const { metric } = chartKeys(result, activeType);
   const metricIndex = result.columns.findIndex((column) => column.name === metric);
+  const notices = [...new Set([...result.warnings, ...additionalWarnings])];
 
   return (
-    <section className="space-y-4" aria-labelledby="visualization-heading">
+    <section aria-labelledby="visualization-heading">
       <Card className="min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <h2 id="visualization-heading" className="font-semibold text-text">Result visualization</h2>
-            <p className="text-xs text-muted-foreground">Only structurally compatible views are available.</p>
+            <h2 id="visualization-heading" className="font-semibold text-text">Verified result</h2>
+            <p className="text-xs text-muted-foreground">
+              {result.row_count.toLocaleString()} returned row{result.row_count === 1 ? "" : "s"} · {result.duration_ms.toLocaleString()} ms
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{describeChart(result, activeType)}</p>
           </div>
-          <div className="flex flex-wrap gap-1" aria-label="Visualization type">
-            {compatible.map((type) => (
-              <button
-                key={type}
-                type="button"
-                aria-pressed={activeType === type}
-                onClick={() => setType(type)}
-                className={cn(
-                  "min-h-9 rounded-md border px-3 text-sm font-semibold transition-colors",
-                  activeType === type
-                    ? "border-primary bg-primary text-on-primary"
-                    : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-text",
-                )}
-              >
-                {labels[type]}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1" aria-label="Visualization type">
+              {compatible.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  aria-pressed={activeType === type}
+                  onClick={() => setType(type)}
+                  className={cn(
+                    "min-h-9 rounded-md border px-3 text-sm font-semibold transition-colors",
+                    activeType === type
+                      ? "border-primary bg-primary text-on-primary"
+                      : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-text",
+                  )}
+                >
+                  {labels[type]}
+                </button>
+              ))}
+            </div>
+            {actions}
           </div>
         </div>
+        {notices.length > 0 ? <ResultNotices notices={notices} embedded /> : null}
         {activeType === "table" ? (
-          <p className="px-4 py-5 text-sm text-muted-foreground">
-            The exact verified rows are shown in the accessible data table below.
-          </p>
+          <QueryResultTable result={result} embedded hideNotices />
         ) : activeType === "kpi" ? (
-          <div className="px-5 py-8 text-center" role="img" aria-label={describeChart(result, activeType)}>
-            <p className="text-sm font-semibold text-muted-foreground">{metric}</p>
-            <p className="mt-2 font-mono text-4xl font-semibold tabular-nums text-primary">
-              {formatMetric(result.rows[0]?.[metricIndex])}
-            </p>
-          </div>
+          <>
+            <div className="px-5 py-8 text-center" role="img" aria-label={describeChart(result, activeType)}>
+              <p className="text-sm font-semibold text-muted-foreground">{metric}</p>
+              <p className="mt-2 font-mono text-4xl font-semibold tabular-nums text-primary">
+                {formatMetric(result.rows[0]?.[metricIndex])}
+              </p>
+            </div>
+            <details className="border-t border-border">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-primary hover:bg-muted/40">View exact rows</summary>
+              <QueryResultTable result={result} embedded hideNotices />
+            </details>
+          </>
         ) : (
-          <div
-            className="h-80 min-w-0 px-2 py-3"
-            role="img"
-            aria-label={describeChart(result, activeType)}
-          >
-            <ChartCanvas type={activeType} result={result} />
-          </div>
+          <>
+            <div
+              className="h-80 min-w-0 px-2 py-3"
+              role="img"
+              aria-label={describeChart(result, activeType)}
+            >
+              <ChartCanvas type={activeType} result={result} />
+            </div>
+            <details className="border-t border-border">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-primary hover:bg-muted/40">View exact rows</summary>
+              <QueryResultTable result={result} embedded hideNotices />
+            </details>
+          </>
         )}
-        <p className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
-          {describeChart(result, activeType)}
-        </p>
       </Card>
-      <QueryResultTable result={result} />
     </section>
   );
 }

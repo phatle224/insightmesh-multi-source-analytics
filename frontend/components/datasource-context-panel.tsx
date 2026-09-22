@@ -8,7 +8,6 @@ import { ApiErrorNotice } from "@/components/api-error-notice";
 import { RelationshipExplorer } from "@/components/relationship-explorer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { StatusPill } from "@/components/ui/status-pill";
 import { ApiClientError } from "@/lib/api-client";
 import {
   getDatasource,
@@ -88,13 +87,7 @@ function PreviewTable({ preview }: { preview: DatasourcePreview }) {
   );
 }
 
-export function DatasourceContextPanel({
-  source,
-  canRun,
-}: {
-  source: DatasourceSummary;
-  canRun?: boolean;
-}) {
+export function DatasourceContextPanel({ source }: { source: DatasourceSummary }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<ContextView>("preview");
   const [detail, setDetail] = useState<DatasourceDetail | null>(null);
