@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/page-header";
 import { QueryRunDetails } from "@/components/query-run-details";
 import { ResultVisualization } from "@/components/result-visualization";
 import { SaveWidgetDialog } from "@/components/save-widget-dialog";
+import { SaveAnalysisDialog } from "@/components/save-analysis-dialog";
 import { QuestionSuggestions } from "@/components/question-suggestions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -517,14 +518,17 @@ export function AskWorkspace() {
           additionalWarnings={run.warnings}
           showDashboardRecommendation
           actions={
-            dashboardRecommendation?.fit !== "not_ready" ? (
-              <SaveWidgetDialog
-                runId={run.run_id}
-                defaultTitle={run.question}
-                chartType={chartType ?? dashboardRecommendation?.chartType ?? (isChartType(run.visualization_type) ? run.visualization_type : "table")}
-                recommendation={dashboardRecommendation ?? undefined}
-              />
-            ) : null
+            <div className="flex flex-wrap justify-end gap-2">
+              <SaveAnalysisDialog runId={run.run_id} defaultName={run.question} />
+              {dashboardRecommendation?.fit !== "not_ready" ? (
+                <SaveWidgetDialog
+                  runId={run.run_id}
+                  defaultTitle={run.question}
+                  chartType={chartType ?? dashboardRecommendation?.chartType ?? (isChartType(run.visualization_type) ? run.visualization_type : "table")}
+                  recommendation={dashboardRecommendation ?? undefined}
+                />
+              ) : null}
+            </div>
           }
         />
       ) : null}

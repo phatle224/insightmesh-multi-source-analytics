@@ -120,6 +120,9 @@ export const getQueryRun = (runId: string) =>
 export const getQueryTrace = (runId: string) =>
   apiRequest<QueryTrace>(`/api/v1/query-runs/${runId}/trace`);
 
+export const clearQueryRuns = () =>
+  apiRequest<{ deleted_count: number }>("/api/v1/query-runs", { method: "DELETE" });
+
 export function listQueryRuns(filters: QueryRunFilters = {}) {
   const params = new URLSearchParams();
   params.set("limit", String(filters.limit ?? 20));

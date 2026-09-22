@@ -57,6 +57,10 @@ class QueryRunPage(BaseModel):
     has_more: bool
 
 
+class QueryRunClearResponse(BaseModel):
+    deleted_count: int
+
+
 class QueryRunResponse(BaseModel):
     run_id: UUID
     datasource_id: UUID

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     datasource_profile_max_rows: int = Field(1_000, ge=1, le=100_000)
     datasource_profile_timeout_ms: int = Field(10_000, ge=100, le=120_000)
     datasource_profile_enum_max_distinct: int = Field(20, ge=1, le=100)
+    query_run_artifact_retention_days: int = Field(7, ge=1, le=365)
+    query_run_retention_days: int = Field(90, ge=7, le=3_650)
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_api_key: SecretStr | None = None
     gemini_base_url: str = "https://generativelanguage.googleapis.com"

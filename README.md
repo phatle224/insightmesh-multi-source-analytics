@@ -47,6 +47,9 @@ docker compose run --rm backend uv run ruff check .
 docker compose run --rm backend uv run mypy .
 docker compose run --rm migrate alembic check
 
+# Run query-run retention cleanup manually or from a scheduled job
+docker compose exec backend python -m scripts.cleanup_query_runs
+
 # Live PostgreSQL schema-selection and join-path retrieval benchmark
 docker compose exec backend python -m evals.run_retrieval_benchmark
 
@@ -88,7 +91,7 @@ PostgreSQL demo connection inside Compose: host `demo-postgres`, port `5432`, da
 - [Frontend specification](docs/FRONTEND_SPEC.md)
 - [Approved visual system](design-system/insightmesh/MASTER.md)
 
-Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, dashboards, and widgets. `POST /api/v1/query-runs` selects PostgreSQL or MySQL deterministically and runs through fixed states; `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. The frontend exposes datasource onboarding, semantic-index status, complete independent question runs, clarification choices, out-of-scope/blocked/failed states, generated SQL, safe traces, verified paginated result tables, and dashboard management.
+Phase numbers in the tracker are delivery milestones; the PRD groups requirements differently. The product persistence schema covers datasources, encrypted credentials, metadata/profiles, semantic artifacts, embeddings, query runs, saved analyses, dashboards, and widgets. `POST /api/v1/query-runs` selects PostgreSQL or MySQL deterministically and runs through fixed states; `GET /api/v1/query-runs/{run_id}/trace` exposes a safe structured trace without prompts, rows, credentials, or hidden reasoning. Query-run artifacts are retained for 7 days by default and run summaries for 90 days; saved analyses copy validated query definitions and survive that cleanup. The frontend exposes datasource onboarding, semantic-index status, complete independent question runs, saved/recent history, clarification choices, out-of-scope/blocked/failed states, generated SQL, safe traces, verified paginated result tables, and dashboard management.
 
 The combined evaluation expects ready semantic indexes for the named Docker demo
 datasources (`Docker demo store` and `Docker demo MySQL store`). It writes separate

@@ -2,14 +2,16 @@
 
 import {
   ArrowClockwiseIcon,
+  BookmarkSimpleIcon,
   CaretLeftIcon,
   CaretRightIcon,
   ClockCounterClockwiseIcon,
   EyeIcon,
   MagnifyingGlassIcon,
   PlayIcon,
+  TrashIcon,
 } from "@phosphor-icons/react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiErrorNotice } from "@/components/api-error-notice";
 import { useDatasources } from "@/components/datasource-provider";
@@ -18,12 +20,14 @@ import { PageHeader } from "@/components/page-header";
 import { QueryRunDetails } from "@/components/query-run-details";
 import { ResultVisualization } from "@/components/result-visualization";
 import { SaveWidgetDialog } from "@/components/save-widget-dialog";
+import { SaveAnalysisDialog } from "@/components/save-analysis-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { ApiClientError } from "@/lib/api-client";
 import {
   createQueryRun,
+  clearQueryRuns,
   getQueryRun,
   getQueryTrace,
   listQueryRuns,
@@ -33,6 +37,11 @@ import {
   type QueryTrace,
 } from "@/lib/query-runs";
 import { isChartType } from "@/lib/visualization";
+import {
+  deleteSavedAnalysis,
+  listSavedAnalyses,
+  type SavedAnalysis,
+} from "@/lib/saved-analyses";
 
 const FILTER_STATUSES: Array<{ value: QueryRunStatus | ""; label: string }> = [
   { value: "", label: "All statuses" },
@@ -89,6 +98,14 @@ export function HistoryWorkspace() {
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailErrorRunId, setDetailErrorRunId] = useState<string | null>(null);
+  const [view, setView] = useState<"recent" | "saved">("recent");
+  const [saved, setSaved] = useState<SavedAnalysis[]>([]);
+  const [savedLoaded, setSavedLoaded] = useState(false);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [savedError, setSavedError] = useState<Error | null>(null);
+  const [deletingSavedId, setDeletingSavedId] = useState<string | null>(null);
+  const recentRequestKey = useRef<string | null>(null);
+  const recentRequestGeneration = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,7 +130,46 @@ export function HistoryWorkspace() {
     }
   }, [cursor, filters]);
 
+  const loadSaved = useCallback(async () => {
+    setSavedLoading(true);
+    setSavedError(null);
+    try {
+      setSaved(await listSavedAnalyses());
+      setSavedLoaded(true);
+    } catch (reason) {
+      setSavedError(asError(reason));
+    } finally {
+      setSavedLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
+    if (view !== "saved" || savedLoaded) return;
+    let active = true;
+    listSavedAnalyses()
+      .then((nextSaved) => {
+        if (active) {
+          setSaved(nextSaved);
+          setSavedLoaded(true);
+        }
+      })
+      .catch((reason: unknown) => {
+        if (active) setSavedError(asError(reason));
+      })
+      .finally(() => {
+        if (active) setSavedLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [savedLoaded, view]);
+
+  useEffect(() => {
+    if (view !== "recent") return;
+    const requestKey = JSON.stringify({ cursor, filters });
+    if (recentRequestKey.current === requestKey) return;
+    recentRequestKey.current = requestKey;
+    const requestGeneration = recentRequestGeneration.current;
     let active = true;
     listQueryRuns({
       limit: 20,
@@ -126,18 +182,22 @@ export function HistoryWorkspace() {
         : undefined,
     })
       .then((nextData) => {
-        if (active) setData(nextData);
+        if (active && requestGeneration === recentRequestGeneration.current) setData(nextData);
       })
       .catch((reason: unknown) => {
-        if (active) setError(asError(reason));
+        if (active && requestGeneration === recentRequestGeneration.current) {
+          recentRequestKey.current = null;
+          setError(asError(reason));
+        }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && requestGeneration === recentRequestGeneration.current) setLoading(false);
       });
     return () => {
       active = false;
+      recentRequestKey.current = null;
     };
-  }, [cursor, filters]);
+  }, [cursor, filters, view]);
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -221,6 +281,42 @@ export function HistoryWorkspace() {
     }
   }
 
+  async function removeSaved(analysis: SavedAnalysis) {
+    setDeletingSavedId(analysis.id);
+    try {
+      await deleteSavedAnalysis(analysis.id);
+      setSaved((current) => current.filter((item) => item.id !== analysis.id));
+      setAnnouncement(`Removed saved analysis ${analysis.name}.`);
+    } catch (reason) {
+      setAnnouncement(`Could not remove saved analysis. ${asError(reason).message}`);
+    } finally {
+      setDeletingSavedId(null);
+    }
+  }
+
+  async function clearRecentActivity() {
+    if (!window.confirm("Clear all recent activity? Saved analyses and dashboards will not be removed.")) return;
+    recentRequestGeneration.current += 1;
+    recentRequestKey.current = null;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await clearQueryRuns();
+      recentRequestGeneration.current += 1;
+      recentRequestKey.current = null;
+      setData({ items: [], limit: 20, total: 0, next_cursor: null, has_more: false });
+      setDetail(null);
+      setDetailTrace(null);
+      setAnnouncement(`Cleared ${result.deleted_count} recent run${result.deleted_count === 1 ? "" : "s"}.`);
+    } catch (reason) {
+      recentRequestGeneration.current += 1;
+      recentRequestKey.current = null;
+      setError(asError(reason));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const filtered = Boolean(
     filters.search || filters.status || filters.datasourceId || filters.createdBefore,
   );
@@ -230,10 +326,33 @@ export function HistoryWorkspace() {
       <PageHeader
         eyebrow="Reproducible runs"
         title="Query history"
-        description="Review independent analytical requests and rerun the same complete question as a new request."
+        description="Keep the analyses you care about, while recent execution activity expires automatically."
       />
 
-      <Card className="p-4 sm:p-5">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Query history views">
+        <Button
+          variant={view === "recent" ? "primary" : "secondary"}
+          role="tab"
+          aria-selected={view === "recent"}
+          onClick={() => setView("recent")}
+        >
+          <ClockCounterClockwiseIcon size={18} aria-hidden /> Recent activity
+        </Button>
+        <Button
+          variant={view === "saved" ? "primary" : "secondary"}
+          role="tab"
+          aria-selected={view === "saved"}
+          onClick={() => {
+            if (!savedLoaded) setSavedLoading(true);
+            setSavedError(null);
+            setView("saved");
+          }}
+        >
+          <BookmarkSimpleIcon size={18} aria-hidden /> Saved analyses
+        </Button>
+      </div>
+
+      {view === "recent" ? <Card className="p-4 sm:p-5">
         <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_13rem_13rem_13rem_auto] xl:items-end" onSubmit={applyFilters}>
           <div>
             <label htmlFor="history-search" className="text-sm font-semibold text-text">Search questions</label>
@@ -286,23 +405,26 @@ export function HistoryWorkspace() {
           <div className="flex flex-wrap gap-2">
             <Button type="submit">Apply filters</Button>
             {filtered ? <Button type="button" variant="ghost" onClick={clearFilters}>Clear</Button> : null}
+            <Button type="button" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void clearRecentActivity()}>Clear recent</Button>
           </div>
         </form>
-      </Card>
+      </Card> : null}
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
 
-      {error ? (
+      <div className="min-h-[30rem]">
+
+      {view === "recent" && error ? (
         <ApiErrorNotice title="Query history could not be loaded" message={error.message} action={<Button onClick={() => void load()}><ArrowClockwiseIcon size={18} aria-hidden /> Retry</Button>} />
       ) : null}
 
-      {loading && !data ? (
+      {view === "recent" && loading && !data ? (
         <div className="space-y-3" aria-label="Loading query history">
           {[0, 1, 2].map((item) => <Card key={item} className="h-32 animate-pulse bg-muted" />)}
         </div>
       ) : null}
 
-      {!loading && !error && data?.items.length === 0 ? (
+      {view === "recent" && !loading && !error && data?.items.length === 0 ? (
         <EmptyState
           icon={<ClockCounterClockwiseIcon size={24} weight="duotone" />}
           title={filtered ? "No runs match these filters" : "No query runs yet"}
@@ -311,7 +433,7 @@ export function HistoryWorkspace() {
         />
       ) : null}
 
-      {data && data.items.length > 0 ? (
+      {view === "recent" && data && data.items.length > 0 ? (
         <section aria-label="Query runs" aria-busy={loading} className="space-y-3">
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <p><span className="font-mono font-semibold text-text">{data.total}</span> runs</p>
@@ -360,16 +482,23 @@ export function HistoryWorkspace() {
               {detail?.run_id === run.run_id ? (
                 <div className="mt-5 space-y-4 border-t border-border pt-5">
                   <QueryRunDetails run={detail} trace={detailTrace} />
-                  {detail.status === "completed" && detail.result ? (
+                  {detail.status === "completed" ? (
                     <>
-                      <div className="flex justify-end">
-                        <SaveWidgetDialog
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <SaveAnalysisDialog
                           runId={detail.run_id}
-                          defaultTitle={detail.question}
-                          chartType={isChartType(detail.visualization_type) ? detail.visualization_type : "table"}
+                          defaultName={detail.question}
+                          onSaved={(analysis) => setSaved((current) => [analysis, ...current.filter((item) => item.id !== analysis.id)])}
                         />
+                        {detail.result ? (
+                          <SaveWidgetDialog
+                            runId={detail.run_id}
+                            defaultTitle={detail.question}
+                            chartType={isChartType(detail.visualization_type) ? detail.visualization_type : "table"}
+                          />
+                        ) : null}
                       </div>
-                      <ResultVisualization result={detail.result} initialType={detail.visualization_type} />
+                      {detail.result ? <ResultVisualization result={detail.result} initialType={detail.visualization_type} /> : <p className="text-sm text-muted-foreground">The result snapshot expired, but the validated query can still be saved and rerun.</p>}
                     </>
                   ) : null}
                 </div>
@@ -388,6 +517,51 @@ export function HistoryWorkspace() {
           </nav>
         </section>
       ) : null}
+
+      {view === "saved" ? (
+        <section aria-label="Saved analyses" aria-busy={savedLoading} className="space-y-3">
+          {savedError ? <ApiErrorNotice title="Saved analyses could not be loaded" message={savedError.message} action={<Button onClick={() => void loadSaved()}><ArrowClockwiseIcon size={18} aria-hidden /> Retry</Button>} /> : null}
+          {savedLoading && !saved.length ? (
+            <div className="space-y-3" aria-label="Loading saved analyses">
+              {[0, 1, 2].map((item) => <Card key={item} className="h-32 animate-pulse bg-muted" />)}
+            </div>
+          ) : null}
+          {!savedLoading && !savedError && saved.length === 0 ? (
+            <EmptyState
+              icon={<BookmarkSimpleIcon size={24} weight="duotone" />}
+              title="No saved analyses yet"
+              description="Save a completed result from Recent activity or Ask to keep its validated query for later."
+            />
+          ) : null}
+          {saved.map((analysis) => (
+            <Card key={analysis.id} className="p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <BookmarkSimpleIcon size={18} className="text-primary" weight="duotone" aria-hidden />
+                    <h2 className="[overflow-wrap:anywhere] text-base font-semibold leading-6 text-text">{analysis.name}</h2>
+                  </div>
+                  <p className="mt-1 [overflow-wrap:anywhere] text-sm text-muted-foreground">{analysis.question}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{analysis.datasource_name} · Saved {formatDate(analysis.updated_at)}</p>
+                  {analysis.description ? <p className="mt-2 text-sm text-muted-foreground">{analysis.description}</p> : null}
+                  {analysis.tags.length ? <div className="mt-3 flex flex-wrap gap-2">{analysis.tags.map((tag) => <StatusPill key={tag}>{tag}</StatusPill>)}</div> : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => void rerun(analysis.id, analysis.datasource_id, analysis.question)} disabled={rerunningId !== null}>
+                    {rerunningId === analysis.id ? <ArrowClockwiseIcon className="animate-spin" size={18} aria-hidden /> : <PlayIcon size={18} aria-hidden />}
+                    {rerunningId === analysis.id ? "Running…" : "Run again"}
+                  </Button>
+                  <Button variant="ghost" onClick={() => void removeSaved(analysis)} disabled={deletingSavedId !== null}>
+                    {deletingSavedId === analysis.id ? <ArrowClockwiseIcon className="animate-spin" size={18} aria-hidden /> : <TrashIcon size={18} aria-hidden />}
+                    {deletingSavedId === analysis.id ? "Removing…" : "Remove"}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </section>
+      ) : null}
+      </div>
     </div>
   );
 }

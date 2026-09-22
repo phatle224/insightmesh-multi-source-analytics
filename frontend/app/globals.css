@@ -44,7 +44,10 @@
 }
 
 * { box-sizing: border-box; }
-html { background: var(--color-background); }
+html {
+  background: var(--color-background);
+  scrollbar-gutter: stable;
+}
 body {
   min-width: 320px;
   margin: 0;

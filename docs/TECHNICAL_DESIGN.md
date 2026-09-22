@@ -491,6 +491,12 @@ POST /query-runs
 GET  /query-runs?datasource_id=&status=&created_before=&search=&limit=&cursor=
 GET  /query-runs/{run_id}
 GET  /query-runs/{run_id}/trace
+
+GET    /saved-analyses
+POST   /saved-analyses
+GET    /saved-analyses/{analysis_id}
+PATCH  /saved-analyses/{analysis_id}
+DELETE /saved-analyses/{analysis_id}
 ```
 
 `POST /query-runs` input:
@@ -505,6 +511,14 @@ The collection endpoint returns reverse-chronological, cursor-paginated summarie
 supports optional datasource, status, creation-time, and question-text filters. Selecting `rerun`
 client-side submits the stored complete question to `POST /query-runs` and always
 creates a new `run_id`; history never supplies conversational context.
+
+Query runs are short-lived recent activity and execution telemetry. Heavy result and
+trace artifacts expire after `QUERY_RUN_ARTIFACT_RETENTION_DAYS` (default 7), while
+the summary run expires after `QUERY_RUN_RETENTION_DAYS` (default 90). Cleanup runs
+opportunistically when a new query starts and can also be scheduled with
+`python -m scripts.cleanup_query_runs`. A saved analysis copies the validated query
+definition into `saved_analyses`, so it survives query-run cleanup and can be rerun
+without depending on the source run or its result snapshot.
 
 ### 11.4 Dashboards
 

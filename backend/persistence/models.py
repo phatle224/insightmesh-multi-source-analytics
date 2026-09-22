@@ -256,11 +256,43 @@ class QueryRun(Base):
     result_json: Mapped[JsonObject | None] = mapped_column(JSONB)
     trace_json: Mapped[list[JsonObject]] = mapped_column(JSONB, default=list)
     warnings: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    artifacts_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         CheckConstraint("repair_count >= 0 AND repair_count <= 2", name="repair_count"),
         CheckConstraint("provider_call_count >= 0", name="provider_call_count"),
+        Index(
+            "ix_query_runs_artifacts_expires_at",
+            "artifacts_expires_at",
+            postgresql_where=text("result_json IS NOT NULL OR trace_json <> '[]'::jsonb"),
+        ),
+        Index("ix_query_runs_expires_at", "expires_at"),
+        Index("ix_query_runs_datasource_created", "datasource_id", "created_at", "id"),
+    )
+
+
+class SavedAnalysis(TimestampMixin, Base):
+    """A user-facing query definition that survives query-run retention."""
+
+    __tablename__ = "saved_analyses"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    datasource_id: Mapped[UUID] = mapped_column(ForeignKey("datasources.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str | None] = mapped_column(Text)
+    question: Mapped[str] = mapped_column(Text)
+    validated_query: Mapped[JsonObject] = mapped_column(JSONB)
+    query_type: Mapped[str] = mapped_column(String(24))
+    visualization_type: Mapped[str | None] = mapped_column(String(40))
+    tags: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    source_query_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("query_runs.id", ondelete="SET NULL")
+    )
+
+    __table_args__ = (
+        Index("ix_saved_analyses_datasource_updated", "datasource_id", "updated_at"),
     )
 
 

@@ -11,6 +11,7 @@ from api.routes.dashboards import router as dashboards_router
 from api.routes.datasources import router as datasources_router
 from api.routes.query_runs import router as query_runs_router
 from api.routes.retrieval import router as retrieval_router
+from api.routes.saved_analyses import router as saved_analyses_router
 from persistence.database import engine
 
 app = FastAPI(title="InsightMesh", version="0.1.0")
@@ -19,6 +20,7 @@ install_error_handlers(app)
 app.include_router(datasources_router)
 app.include_router(retrieval_router)
 app.include_router(query_runs_router)
+app.include_router(saved_analyses_router)
 app.include_router(dashboards_router)
 
 

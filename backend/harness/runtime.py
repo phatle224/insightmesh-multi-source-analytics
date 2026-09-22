@@ -3,6 +3,7 @@
 import re
 import unicodedata
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from typing import Literal
 from uuid import UUID
@@ -29,6 +30,7 @@ from query.result_verifier import verify_result
 from query.sql_validator import SQLValidationResult, validate_mysql_sql, validate_postgres_sql
 from semantic.provider import LLMProvider, ProviderError
 from services.datasources import build_datasource_connector, build_semantic_provider
+from services.query_retention import cleanup_expired_query_runs
 from services.retrieval import retrieve_context
 from visualization.selection import select_visualization
 
@@ -289,9 +291,12 @@ def run_query(
 ) -> QueryRun:
     state_started = perf_counter()
     app_settings = settings or get_settings()
+    cleanup_expired_query_runs(session)
+    session.commit()
     datasource = session.get(Datasource, datasource_id)
     if datasource is None:
         raise AppError("datasource_not_found", "Datasource was not found", status_code=404)
+    expires_base = datetime.now(UTC)
     run = QueryRun(
         datasource_id=datasource.id,
         question=question,
@@ -302,6 +307,9 @@ def run_query(
         status=RuntimeStatus.RECEIVED.value,
         trace_json=[],
         warnings=[],
+        artifacts_expires_at=expires_base
+        + timedelta(days=app_settings.query_run_artifact_retention_days),
+        expires_at=expires_base + timedelta(days=app_settings.query_run_retention_days),
     )
     session.add(run)
     session.commit()

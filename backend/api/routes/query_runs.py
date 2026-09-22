@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.errors import AppError
 from api.schemas.query_runs import (
+    QueryRunClearResponse,
     QueryRunCreate,
     QueryRunPage,
     QueryRunResponse,
@@ -21,6 +22,7 @@ from api.schemas.query_runs import (
 from harness.runtime import run_query
 from persistence.database import get_session
 from persistence.models import Datasource, QueryRun
+from services.query_retention import clear_all_query_runs
 
 router = APIRouter(prefix="/api/v1/query-runs", tags=["query-runs"])
 SessionDependency = Annotated[Session, Depends(get_session)]
@@ -58,6 +60,11 @@ def _get_run(session: Session, run_id: UUID) -> QueryRun:
 def create_query_run(payload: QueryRunCreate, session: SessionDependency) -> QueryRunResponse:
     run = run_query(session, payload.datasource_id, payload.question)
     return query_run_response(run)
+
+
+@router.delete("", response_model=QueryRunClearResponse)
+def clear_query_runs(session: SessionDependency) -> QueryRunClearResponse:
+    return QueryRunClearResponse(deleted_count=clear_all_query_runs(session))
 
 
 @router.get("", response_model=QueryRunPage)
