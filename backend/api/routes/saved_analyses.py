@@ -51,6 +51,15 @@ def update_saved_analysis(
     return saved_analysis_response(item, datasource_name)
 
 
+@router.post("/{analysis_id}/refresh", response_model=SavedAnalysisResponse)
+def refresh_saved_analysis(
+    analysis_id: UUID, session: SessionDependency
+) -> SavedAnalysisResponse:
+    item = saved_analysis_service.refresh_saved_analysis(session, analysis_id)
+    _, datasource_name = saved_analysis_service.get_saved_analysis(session, analysis_id)
+    return saved_analysis_response(item, datasource_name)
+
+
 @router.delete("/{analysis_id}", status_code=204)
 def delete_saved_analysis(analysis_id: UUID, session: SessionDependency) -> Response:
     saved_analysis_service.delete_saved_analysis(session, analysis_id)

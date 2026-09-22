@@ -14,7 +14,15 @@ from api.schemas.dashboards import DashboardCreate, DashboardWidgetCreate, Dashb
 from api.schemas.retrieval import RetrievedEntity, RetrievedField
 from api.settings import Settings, get_settings
 from connectors.base import ConnectorError, DataSourceConnector, QueryLimits
-from persistence.models import Dashboard, DashboardWidget, Datasource, Entity, Field, QueryRun
+from persistence.models import (
+    Dashboard,
+    DashboardWidget,
+    Datasource,
+    Entity,
+    Field,
+    QueryRun,
+    SavedAnalysis,
+)
 from query.result_verifier import verify_result
 from query.sql_validator import validate_mysql_sql, validate_postgres_sql
 from services.datasources import build_datasource_connector
@@ -76,16 +84,46 @@ def add_widget(
     session: Session, dashboard_id: UUID, payload: DashboardWidgetCreate
 ) -> DashboardWidget:
     _dashboard(session, dashboard_id)
-    run = session.get(QueryRun, payload.query_run_id)
-    if run is None:
-        raise AppError("query_run_not_found", "Query run was not found", status_code=404)
-    if run.status != "completed" or not run.result_json or not run.generated_query.get("sql"):
-        raise AppError(
-            "query_run_not_saveable",
-            "Only a completed query result can be saved to a dashboard",
-            status_code=409,
-        )
-    if payload.chart_type not in compatible_chart_types(run.result_json):
+    if payload.query_run_id is not None:
+        run = session.get(QueryRun, payload.query_run_id)
+        if run is None:
+            raise AppError("query_run_not_found", "Query run was not found", status_code=404)
+        if run.status != "completed" or not run.result_json or not run.generated_query.get("sql"):
+            raise AppError(
+                "query_run_not_saveable",
+                "Only a completed query result can be saved to a dashboard",
+                status_code=409,
+            )
+        datasource_id = run.datasource_id
+        question = run.question
+        validated_query = run.generated_query
+        query_type = run.query_type
+        result_json = run.result_json
+        source_query_run_id = run.id
+        row_count = run.row_count
+        duration_ms = run.duration_ms
+    else:
+        saved = session.get(SavedAnalysis, payload.saved_analysis_id)
+        if saved is None:
+            raise AppError(
+                "saved_analysis_not_found", "Saved analysis was not found", status_code=404
+            )
+        if not saved.result_json or not saved.validated_query.get("sql"):
+            raise AppError(
+                "saved_analysis_not_saveable",
+                "This saved analysis does not have a retained result snapshot",
+                status_code=409,
+            )
+        datasource_id = saved.datasource_id
+        question = saved.question
+        validated_query = saved.validated_query
+        query_type = saved.query_type
+        result_json = saved.result_json
+        source_query_run_id = saved.source_query_run_id
+        row_count = result_json.get("row_count")
+        duration_ms = result_json.get("duration_ms")
+
+    if payload.chart_type not in compatible_chart_types(result_json):
         raise AppError(
             "chart_type_incompatible",
             "The selected chart is not compatible with this result shape",
@@ -98,19 +136,19 @@ def add_widget(
     )
     widget = DashboardWidget(
         dashboard_id=dashboard_id,
-        datasource_id=run.datasource_id,
-        source_query_run_id=run.id,
+        datasource_id=datasource_id,
+        source_query_run_id=source_query_run_id,
         title=payload.title,
-        question=run.question,
-        validated_query=run.generated_query,
-        query_type=run.query_type,
+        question=question,
+        validated_query=validated_query,
+        query_type=query_type,
         chart_type=payload.chart_type,
-        chart_config=build_chart_config(run.result_json, payload.chart_type),
+        chart_config=build_chart_config(result_json, payload.chart_type),
         position=int(next_position or 0),
-        result_json=run.result_json,
-        status="empty" if run.result_json.get("row_count") == 0 else "ready",
-        row_count=run.row_count,
-        duration_ms=run.duration_ms,
+        result_json=result_json,
+        status="empty" if result_json.get("row_count") == 0 else "ready",
+        row_count=row_count if isinstance(row_count, int) else None,
+        duration_ms=duration_ms if isinstance(duration_ms, int) else None,
         last_refreshed_at=datetime.now(UTC),
     )
     session.add(widget)

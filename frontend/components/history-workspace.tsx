@@ -5,6 +5,9 @@ import {
   BookmarkSimpleIcon,
   CaretLeftIcon,
   CaretRightIcon,
+  CheckCircleIcon,
+  ClipboardIcon,
+  CodeIcon,
   ClockCounterClockwiseIcon,
   EyeIcon,
   MagnifyingGlassIcon,
@@ -21,6 +24,7 @@ import { QueryRunDetails } from "@/components/query-run-details";
 import { ResultVisualization } from "@/components/result-visualization";
 import { SaveWidgetDialog } from "@/components/save-widget-dialog";
 import { SaveAnalysisDialog } from "@/components/save-analysis-dialog";
+import { EditSavedAnalysisDialog } from "@/components/edit-saved-analysis-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -40,8 +44,10 @@ import { isChartType } from "@/lib/visualization";
 import {
   deleteSavedAnalysis,
   listSavedAnalyses,
+  refreshSavedAnalysis,
   type SavedAnalysis,
 } from "@/lib/saved-analyses";
+import { cn } from "@/lib/utils";
 
 const FILTER_STATUSES: Array<{ value: QueryRunStatus | ""; label: string }> = [
   { value: "", label: "All statuses" },
@@ -82,6 +88,57 @@ function asError(reason: unknown) {
   return reason instanceof Error ? reason : new Error("Query history could not be loaded.");
 }
 
+function SavedAnalysisDetails({ analysis }: { analysis: SavedAnalysis }) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const sql = analysis.validated_query.sql;
+
+  async function copyQuery() {
+    try {
+      await navigator.clipboard.writeText(sql);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(15rem,0.7fr)]">
+      <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <CodeIcon size={18} className="text-primary" aria-hidden />
+          <h3 className="font-semibold text-text">Saved SQL</h3>
+          <Button className="ml-auto" size="small" variant="ghost" onClick={() => void copyQuery()}>
+            {copyStatus === "copied" ? <CheckCircleIcon size={17} aria-hidden /> : <ClipboardIcon size={17} aria-hidden />}
+            {copyStatus === "copied" ? "Copied" : "Copy SQL"}
+          </Button>
+        </div>
+        <pre className="max-h-72 overflow-auto rounded-md bg-sidebar p-4 font-mono text-[0.8125rem] leading-6 text-on-primary whitespace-pre-wrap">{sql}</pre>
+        <p className="sr-only" aria-live="polite">
+          {copyStatus === "copied" ? "SQL copied to clipboard" : copyStatus === "failed" ? "SQL could not be copied" : ""}
+        </p>
+      </div>
+      <dl className="grid content-start gap-3 rounded-md border border-border bg-muted/30 p-4 text-sm">
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Datasource</dt>
+          <dd className="mt-1 font-medium text-text">{analysis.datasource_name}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Query type</dt>
+          <dd className="mt-1 font-medium capitalize text-text">{analysis.query_type}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Expected columns</dt>
+          <dd className="mt-1 break-words text-text">{analysis.validated_query.expected_columns.join(", ") || "None"}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What happens next</dt>
+          <dd className="mt-1 text-muted-foreground">Refresh result to execute this saved analysis against the latest datasource data.</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 export function HistoryWorkspace() {
   const { sources } = useDatasources();
   const [draft, setDraft] = useState<AppliedFilters>(EMPTY_FILTERS);
@@ -104,6 +161,7 @@ export function HistoryWorkspace() {
   const [savedLoading, setSavedLoading] = useState(false);
   const [savedError, setSavedError] = useState<Error | null>(null);
   const [deletingSavedId, setDeletingSavedId] = useState<string | null>(null);
+  const [expandedSavedId, setExpandedSavedId] = useState<string | null>(null);
   const recentRequestKey = useRef<string | null>(null);
   const recentRequestGeneration = useRef(0);
 
@@ -253,6 +311,21 @@ export function HistoryWorkspace() {
     }
   }
 
+  async function refreshSaved(analysis: SavedAnalysis) {
+    setRerunningId(analysis.id);
+    setAnnouncement("");
+    try {
+      const updated = await refreshSavedAnalysis(analysis.id);
+      setSaved((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setAnnouncement(`Updated saved analysis ${updated.name}.`);
+    } catch (reason) {
+      const refreshError = reason instanceof ApiClientError ? reason.message : asError(reason).message;
+      setAnnouncement(`Refresh failed. ${refreshError}`);
+    } finally {
+      setRerunningId(null);
+    }
+  }
+
   async function toggleDetails(runId: string) {
     if (detail?.run_id === runId) {
       setDetail(null);
@@ -329,19 +402,25 @@ export function HistoryWorkspace() {
         description="Keep the analyses you care about, while recent execution activity expires automatically."
       />
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Query history views">
+      <div className="inline-flex max-w-full flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-card" role="tablist" aria-label="Query history views">
         <Button
-          variant={view === "recent" ? "primary" : "secondary"}
+          variant={view === "recent" ? "primary" : "ghost"}
+          className={cn("min-h-10 px-4", view !== "recent" && "text-primary")}
+          id="history-recent-tab"
           role="tab"
           aria-selected={view === "recent"}
+          aria-controls="history-recent-panel"
           onClick={() => setView("recent")}
         >
           <ClockCounterClockwiseIcon size={18} aria-hidden /> Recent activity
         </Button>
         <Button
-          variant={view === "saved" ? "primary" : "secondary"}
+          variant={view === "saved" ? "primary" : "ghost"}
+          className={cn("min-h-10 px-4", view !== "saved" && "text-primary")}
+          id="history-saved-tab"
           role="tab"
           aria-selected={view === "saved"}
+          aria-controls="history-saved-panel"
           onClick={() => {
             if (!savedLoaded) setSavedLoading(true);
             setSavedError(null);
@@ -352,7 +431,7 @@ export function HistoryWorkspace() {
         </Button>
       </div>
 
-      {view === "recent" ? <Card className="p-4 sm:p-5">
+      {view === "recent" ? <Card id="history-recent-panel" role="tabpanel" aria-labelledby="history-recent-tab" className="p-4 sm:p-5">
         <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_13rem_13rem_13rem_auto] xl:items-end" onSubmit={applyFilters}>
           <div>
             <label htmlFor="history-search" className="text-sm font-semibold text-text">Search questions</label>
@@ -519,7 +598,11 @@ export function HistoryWorkspace() {
       ) : null}
 
       {view === "saved" ? (
-        <section aria-label="Saved analyses" aria-busy={savedLoading} className="space-y-3">
+        <section id="history-saved-panel" role="tabpanel" aria-labelledby="history-saved-tab" aria-label="Saved analyses" aria-busy={savedLoading} className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+            <p><span className="font-mono font-semibold text-text">{saved.length}</span> saved {saved.length === 1 ? "analysis" : "analyses"}</p>
+            {savedLoading ? <span role="status">Refreshing…</span> : <span>Kept until you remove them</span>}
+          </div>
           {savedError ? <ApiErrorNotice title="Saved analyses could not be loaded" message={savedError.message} action={<Button onClick={() => void loadSaved()}><ArrowClockwiseIcon size={18} aria-hidden /> Retry</Button>} /> : null}
           {savedLoading && !saved.length ? (
             <div className="space-y-3" aria-label="Loading saved analyses">
@@ -546,17 +629,58 @@ export function HistoryWorkspace() {
                   {analysis.description ? <p className="mt-2 text-sm text-muted-foreground">{analysis.description}</p> : null}
                   {analysis.tags.length ? <div className="mt-3 flex flex-wrap gap-2">{analysis.tags.map((tag) => <StatusPill key={tag}>{tag}</StatusPill>)}</div> : null}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => void rerun(analysis.id, analysis.datasource_id, analysis.question)} disabled={rerunningId !== null}>
-                    {rerunningId === analysis.id ? <ArrowClockwiseIcon className="animate-spin" size={18} aria-hidden /> : <PlayIcon size={18} aria-hidden />}
-                    {rerunningId === analysis.id ? "Running…" : "Run again"}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setExpandedSavedId((current) => current === analysis.id ? null : analysis.id)}
+                    aria-expanded={expandedSavedId === analysis.id}
+                  >
+                    <EyeIcon size={18} aria-hidden />
+                    {expandedSavedId === analysis.id ? "Hide details" : "View details"}
                   </Button>
-                  <Button variant="ghost" onClick={() => void removeSaved(analysis)} disabled={deletingSavedId !== null}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => void refreshSaved(analysis)}
+                    disabled={rerunningId !== null}
+                  >
+                    {rerunningId === analysis.id ? <ArrowClockwiseIcon className="animate-spin" size={18} aria-hidden /> : <PlayIcon size={18} aria-hidden />}
+                    {rerunningId === analysis.id ? "Refreshing…" : "Refresh result"}
+                  </Button>
+                  <div className="hidden h-5 w-px bg-border sm:block" aria-hidden />
+                  <EditSavedAnalysisDialog
+                    analysis={analysis}
+                    onUpdated={(updated) => setSaved((current) => current.map((item) => item.id === updated.id ? updated : item))}
+                  />
+                  <Button
+                    variant="ghost"
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => void removeSaved(analysis)}
+                    disabled={deletingSavedId !== null}
+                  >
                     {deletingSavedId === analysis.id ? <ArrowClockwiseIcon className="animate-spin" size={18} aria-hidden /> : <TrashIcon size={18} aria-hidden />}
                     {deletingSavedId === analysis.id ? "Removing…" : "Remove"}
                   </Button>
                 </div>
               </div>
+              {expandedSavedId === analysis.id ? (
+                <div className="mt-5 space-y-4 border-t border-border pt-5">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {analysis.result ? (
+                      <SaveWidgetDialog
+                        savedAnalysisId={analysis.id}
+                        defaultTitle={analysis.name}
+                        chartType={isChartType(analysis.visualization_type) ? analysis.visualization_type : "table"}
+                      />
+                    ) : null}
+                  </div>
+                  {analysis.result ? (
+                    <ResultVisualization result={analysis.result} initialType={analysis.visualization_type} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">This saved analysis keeps its validated query, but its original result snapshot is no longer available. Refresh the result to view fresh data.</p>
+                  )}
+                  <SavedAnalysisDetails analysis={analysis} />
+                </div>
+              ) : null}
             </Card>
           ))}
         </section>

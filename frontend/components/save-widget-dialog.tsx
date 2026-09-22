@@ -11,11 +11,13 @@ import type { ChartType, DashboardRecommendation } from "@/lib/visualization";
 
 export function SaveWidgetDialog({
   runId,
+  savedAnalysisId,
   defaultTitle,
   chartType,
   recommendation,
 }: {
-  runId: string;
+  runId?: string;
+  savedAnalysisId?: string;
   defaultTitle: string;
   chartType: ChartType;
   recommendation?: DashboardRecommendation;
@@ -49,7 +51,7 @@ export function SaveWidgetDialog({
     setMessage(null);
     try {
       await addDashboardWidget(dashboardId, {
-        query_run_id: runId,
+        ...(runId ? { query_run_id: runId } : { saved_analysis_id: savedAnalysisId }),
         title: title.trim(),
         chart_type: chartType,
       });
@@ -71,7 +73,7 @@ export function SaveWidgetDialog({
         recommendation.dashboardDescription,
       );
       await addDashboardWidget(dashboard.id, {
-        query_run_id: runId,
+        ...(runId ? { query_run_id: runId } : { saved_analysis_id: savedAnalysisId }),
         title: defaultTitle.slice(0, 160),
         chart_type: chartType,
       });

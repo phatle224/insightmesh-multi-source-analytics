@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   createQueryRun: vi.fn(),
   getQueryRun: vi.fn(),
   getQueryTrace: vi.fn(),
+  listSavedAnalyses: vi.fn(),
+  refreshSavedAnalysis: vi.fn(),
 }));
 
 vi.mock("@/lib/query-runs", async (importOriginal) => ({
@@ -17,6 +19,12 @@ vi.mock("@/lib/query-runs", async (importOriginal) => ({
   createQueryRun: mocks.createQueryRun,
   getQueryRun: mocks.getQueryRun,
   getQueryTrace: mocks.getQueryTrace,
+}));
+
+vi.mock("@/lib/saved-analyses", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/saved-analyses")>()),
+  listSavedAnalyses: mocks.listSavedAnalyses,
+  refreshSavedAnalysis: mocks.refreshSavedAnalysis,
 }));
 
 vi.mock("@/components/datasource-provider", () => ({
@@ -73,6 +81,8 @@ describe("HistoryWorkspace", () => {
       status: "completed",
       trace: [],
     });
+    mocks.listSavedAnalyses.mockReset().mockResolvedValue([]);
+    mocks.refreshSavedAnalysis.mockReset();
   });
 
   it("shows safe run summaries and reruns as a new request", async () => {
@@ -118,5 +128,47 @@ describe("HistoryWorkspace", () => {
         expect.objectContaining({ search: "customers", status: "failed", cursor: undefined }),
       ),
     );
+  });
+
+  it("refreshes a saved analysis in place instead of creating a recent run", async () => {
+    const saved = {
+      id: "saved-1",
+      datasource_id: "source-1",
+      datasource_name: "Docker demo store",
+      name: "Revenue snapshot",
+      description: null,
+      question: "Revenue by category",
+      validated_query: { sql: "SELECT 1", expected_columns: ["value"] },
+      query_type: "postgresql" as const,
+      visualization_type: "table",
+      result: null,
+      tags: [],
+      source_query_run_id: "run-1",
+      created_at: "2026-09-21T00:00:00Z",
+      updated_at: "2026-09-21T00:00:00Z",
+    };
+    mocks.listSavedAnalyses.mockResolvedValue([saved]);
+    mocks.refreshSavedAnalysis.mockResolvedValue({
+      ...saved,
+      result: {
+        columns: [{ name: "value", type: "number", semantic_type: "metric" }],
+        rows: [[42]],
+        row_count: 1,
+        truncated: false,
+        duration_ms: 4,
+        warnings: [],
+      },
+      updated_at: "2026-09-21T00:01:00Z",
+    });
+
+    render(<HistoryWorkspace />);
+    fireEvent.click(screen.getByRole("tab", { name: /Saved analyses/ }));
+    expect(await screen.findByText("Revenue snapshot")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh result" }));
+
+    await waitFor(() => expect(mocks.refreshSavedAnalysis).toHaveBeenCalledWith("saved-1"));
+    expect(mocks.createQueryRun).not.toHaveBeenCalled();
+    expect(await screen.findByText("Updated saved analysis Revenue snapshot.")).toBeInTheDocument();
   });
 });

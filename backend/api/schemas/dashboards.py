@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from persistence.models import Dashboard, DashboardWidget
 from visualization.selection import compatible_chart_types
@@ -32,7 +32,8 @@ class DashboardSummary(BaseModel):
 
 
 class DashboardWidgetCreate(BaseModel):
-    query_run_id: UUID
+    query_run_id: UUID | None = None
+    saved_analysis_id: UUID | None = None
     title: str = Field(min_length=1, max_length=160)
     chart_type: ChartType
 
@@ -42,6 +43,12 @@ class DashboardWidgetCreate(BaseModel):
         if not (clean := value.strip()):
             raise ValueError("Widget title must not be blank")
         return clean
+
+    @model_validator(mode="after")
+    def require_source(self) -> "DashboardWidgetCreate":
+        if (self.query_run_id is None) == (self.saved_analysis_id is None):
+            raise ValueError("Provide exactly one query run or saved analysis")
+        return self
 
 
 class DashboardWidgetUpdate(BaseModel):

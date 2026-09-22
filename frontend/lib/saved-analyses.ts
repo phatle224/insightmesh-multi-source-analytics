@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api-client";
+import type { QueryResult } from "@/lib/query-runs";
 
 export interface SavedAnalysis {
   id: string;
@@ -10,6 +11,7 @@ export interface SavedAnalysis {
   validated_query: { sql: string; expected_columns: string[] };
   query_type: "postgresql" | "mysql";
   visualization_type: string | null;
+  result: QueryResult | null;
   tags: string[];
   source_query_run_id: string | null;
   created_at: string;
@@ -37,6 +39,11 @@ export const updateSavedAnalysis = (
   apiRequest<SavedAnalysis>(`/api/v1/saved-analyses/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  });
+
+export const refreshSavedAnalysis = (id: string) =>
+  apiRequest<SavedAnalysis>(`/api/v1/saved-analyses/${id}/refresh`, {
+    method: 'POST',
   });
 
 export const deleteSavedAnalysis = (id: string) =>

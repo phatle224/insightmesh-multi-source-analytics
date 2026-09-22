@@ -78,6 +78,7 @@ class SavedAnalysisResponse(BaseModel):
     validated_query: dict[str, Any]
     query_type: str
     visualization_type: str | None
+    result: dict[str, Any] | None
     tags: list[str]
     source_query_run_id: UUID | None
     created_at: datetime
@@ -95,6 +96,7 @@ def saved_analysis_response(item: SavedAnalysis, datasource_name: str) -> SavedA
         validated_query=item.validated_query,
         query_type=item.query_type,
         visualization_type=item.visualization_type,
+        result=item.result_json,
         tags=item.tags,
         source_query_run_id=item.source_query_run_id,
         created_at=item.created_at,

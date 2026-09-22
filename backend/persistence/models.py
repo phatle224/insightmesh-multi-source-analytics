@@ -274,7 +274,7 @@ class QueryRun(Base):
 
 
 class SavedAnalysis(TimestampMixin, Base):
-    """A user-facing query definition that survives query-run retention."""
+    """A user-facing query and result snapshot that survives query-run retention."""
 
     __tablename__ = "saved_analyses"
 
@@ -286,6 +286,7 @@ class SavedAnalysis(TimestampMixin, Base):
     validated_query: Mapped[JsonObject] = mapped_column(JSONB)
     query_type: Mapped[str] = mapped_column(String(24))
     visualization_type: Mapped[str | None] = mapped_column(String(40))
+    result_json: Mapped[JsonObject | None] = mapped_column(JSONB)
     tags: Mapped[list[str]] = mapped_column(JSONB, default=list)
     source_query_run_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("query_runs.id", ondelete="SET NULL")

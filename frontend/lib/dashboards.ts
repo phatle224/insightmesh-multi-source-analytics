@@ -51,7 +51,12 @@ export const getDashboard = (id: string) =>
 
 export const addDashboardWidget = (
   dashboardId: string,
-  payload: { query_run_id: string; title: string; chart_type: ChartType },
+  payload: {
+    query_run_id?: string;
+    saved_analysis_id?: string;
+    title: string;
+    chart_type: ChartType;
+  },
 ) =>
   apiRequest<DashboardWidget>(`/api/v1/dashboards/${dashboardId}/widgets`, {
     method: "POST",

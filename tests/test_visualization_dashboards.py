@@ -1,13 +1,15 @@
 from uuid import uuid4
 
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from api.schemas.dashboards import DashboardCreate, DashboardWidgetCreate
+from api.schemas.saved_analyses import SavedAnalysisCreate
 from api.settings import get_settings
 from connectors.base import ConnectorError, ExplainResult, QueryResult
 from persistence.database import SessionLocal
 from persistence.models import Dashboard, Datasource, Entity, Field, QueryRun
 from services.dashboards import add_widget, create_dashboard, refresh_widget
+from services.saved_analyses import create_saved_analysis, refresh_saved_analysis
 from visualization.selection import compatible_chart_types, select_visualization
 
 
@@ -143,6 +145,7 @@ def test_dashboard_refresh_reuses_stored_query_and_preserves_last_good_result() 
         )
         session.add(run)
         session.commit()
+
         dashboard = create_dashboard(session, DashboardCreate(name="Operations"))
         widget = add_widget(
             session,
@@ -178,5 +181,164 @@ def test_dashboard_refresh_reuses_stored_query_and_preserves_last_good_result() 
         assert failed_connector.closed
 
         session.execute(delete(Dashboard).where(Dashboard.id == dashboard.id))
+        session.execute(delete(Datasource).where(Datasource.id == datasource.id))
+        session.commit()
+
+
+def test_saved_analysis_retains_result_and_can_create_dashboard_widget() -> None:
+    with SessionLocal() as session:
+        datasource = Datasource(
+            name=f"saved-analysis-source-{uuid4()}",
+            source_type="postgresql",
+            database_name="analytics",
+            safe_host="database.internal",
+            port=5432,
+            allowed_schemas=["public"],
+            status="ready",
+            semantic_status="ready",
+        )
+        result = result_payload(
+            [("status", "string"), ("orders", "number")], [["paid", 8], ["new", 3]]
+        )
+        run = QueryRun(
+            datasource_id=datasource.id,
+            question="Orders by status",
+            retrieved_context_ids=[],
+            generated_query={
+                "sql": "SELECT status, COUNT(id) AS orders FROM public.orders GROUP BY status",
+                "expected_columns": ["status", "orders"],
+            },
+            query_type="postgresql",
+            validation_result={"valid": True},
+            status="completed",
+            row_count=2,
+            duration_ms=10,
+            repair_count=0,
+            visualization_type="bar",
+            result_json=result,
+            trace_json=[],
+            warnings=[],
+        )
+        session.add(datasource)
+        session.flush()
+        run.datasource_id = datasource.id
+        session.add(run)
+        session.commit()
+
+        saved = create_saved_analysis(
+            session,
+            SavedAnalysisCreate(query_run_id=run.id, name="Orders snapshot"),
+        )
+        assert saved.result_json == result
+
+        dashboard = create_dashboard(session, DashboardCreate(name="Saved analysis dashboard"))
+        widget = add_widget(
+            session,
+            dashboard.id,
+            DashboardWidgetCreate(
+                saved_analysis_id=saved.id,
+                title="Orders snapshot",
+                chart_type="bar",
+            ),
+        )
+        assert widget.result_json == result
+        assert widget.source_query_run_id == run.id
+
+        session.execute(delete(Dashboard).where(Dashboard.id == dashboard.id))
+        session.execute(delete(Datasource).where(Datasource.id == datasource.id))
+        session.commit()
+
+
+def test_saved_analysis_refresh_updates_snapshot_without_creating_query_run() -> None:
+    with SessionLocal() as session:
+        datasource = Datasource(
+            name=f"saved-refresh-source-{uuid4()}",
+            source_type="postgresql",
+            database_name="analytics",
+            safe_host="database.internal",
+            port=5432,
+            allowed_schemas=["public"],
+            status="ready",
+            semantic_status="ready",
+        )
+        session.add(datasource)
+        session.flush()
+        entity = Entity(
+            datasource_id=datasource.id,
+            schema_name="public",
+            name="orders",
+            entity_type="table",
+            metadata_json={},
+        )
+        session.add(entity)
+        session.flush()
+        session.add_all(
+            [
+                Field(
+                    entity_id=entity.id,
+                    name="status",
+                    native_type="text",
+                    normalized_type="string",
+                    nullable=False,
+                    ordinal=1,
+                    metadata_json={},
+                ),
+                Field(
+                    entity_id=entity.id,
+                    name="id",
+                    native_type="integer",
+                    normalized_type="number",
+                    nullable=False,
+                    ordinal=2,
+                    metadata_json={},
+                ),
+            ]
+        )
+        run = QueryRun(
+            datasource_id=datasource.id,
+            question="Orders by status",
+            retrieved_context_ids=[],
+            generated_query={
+                "sql": "SELECT status, COUNT(id) AS orders FROM public.orders GROUP BY status",
+                "expected_columns": ["status", "orders"],
+            },
+            query_type="postgresql",
+            validation_result={"valid": True},
+            status="completed",
+            row_count=2,
+            duration_ms=10,
+            repair_count=0,
+            visualization_type="bar",
+            result_json=result_payload(
+                [("status", "string"), ("orders", "number")], [["paid", 8], ["new", 3]]
+            ),
+            trace_json=[],
+            warnings=[],
+        )
+        session.add(run)
+        session.commit()
+
+        saved = create_saved_analysis(
+            session,
+            SavedAnalysisCreate(query_run_id=run.id, name="Refreshable orders"),
+        )
+        before_count = session.scalar(select(func.count(QueryRun.id)))
+        connector = RefreshConnector()
+
+        refreshed = refresh_saved_analysis(
+            session,
+            saved.id,
+            settings=get_settings(),
+            connector_factory=lambda *_: connector,
+        )
+
+        assert refreshed.result_json is not None
+        assert refreshed.result_json["rows"] == [["paid", 11], ["new", 4]]
+        assert refreshed.visualization_type == "bar"
+        assert refreshed.source_query_run_id == run.id
+        assert session.scalar(select(func.count(QueryRun.id))) == before_count
+        assert connector.execution_calls == 1
+        assert connector.closed
+
         session.execute(delete(Datasource).where(Datasource.id == datasource.id))
         session.commit()
