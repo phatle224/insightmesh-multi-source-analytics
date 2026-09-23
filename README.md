@@ -1,4 +1,4 @@
-<div>
+﻿<div>
   <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=header&reversal=true&text=InsightMesh&fontSize=34&fontColor=ffffff&fontAlign=50&fontAlignY=45&animation=twinkling&desc=Privacy-bounded%20natural-language%20analytics%20for%20PostgreSQL%20%26%20MySQL&descSize=15&descAlign=50&descAlignY=65&color=gradient" />
 </div>
 
@@ -8,15 +8,6 @@
 
 <h3 align="center">Ask Questions in Plain Language. Explore Your Data Safely.</h3>
 
-<div align="center">
-  <img src="https://img.shields.io/badge/API-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI badge" />
-  <img src="https://img.shields.io/badge/Frontend-Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js badge" />
-  <img src="https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL badge" />
-  <img src="https://img.shields.io/badge/Database-MySQL%208-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL badge" />
-  <img src="https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini badge" />
-  <img src="https://img.shields.io/badge/Infra-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker badge" />
-</div>
-
 ---
 
 ## Table of Contents
@@ -24,14 +15,15 @@
 1. [Project Overview](#project-overview)
 2. [System Architecture & Data Flow](#system-architecture--data-flow)
 3. [Core Features](#core-features)
-4. [Tech Stack](#tech-stack)
-5. [Directory Structure](#directory-structure)
-6. [Quick Start Guide](#quick-start-guide)
-7. [Service Endpoints](#service-endpoints)
-8. [Evaluation & Quality Gates](#evaluation--quality-gates)
-9. [Security & Privacy](#security--privacy)
-10. [Known Limitations](#known-limitations)
-11. [Troubleshooting](#troubleshooting)
+4. [System Performance & Benchmarks](#system-performance--benchmarks)
+5. [Tech Stack](#tech-stack)
+6. [Directory Structure](#directory-structure)
+7. [Quick Start Guide](#quick-start-guide)
+8. [Service Endpoints](#service-endpoints)
+9. [Evaluation & Quality Gates](#evaluation--quality-gates)
+10. [Security & Privacy](#security--privacy)
+11. [Known Limitations](#known-limitations)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -49,21 +41,15 @@ MongoDB is intentionally out of scope for V1. Provider enrichment is optional: l
 | **Solution** | Build a privacy-bounded semantic layer from metadata and profiles, retrieve relevant schema context, generate dialect-aware SQL, validate it with SQLGlot, execute through read-only connectors, and present a verified result with traceable states. |
 | **Result** | A reproducible Ask workflow across PostgreSQL and MySQL with datasource inspection, ERD interactions, suggestions, chart/table fallback, dashboards, saved analyses, query history, retention, and deterministic evaluation. |
 
-### Measured release result
+### Portal Management Interface
 
-The latest 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generated on 2026-09-21) measured:
-
-| Metric | Result |
-|---|---:|
-| Status accuracy | 100% |
-| Execution rate | 100% |
-| Result accuracy | 100% |
-| Mean entity recall | 100% |
-| Mean entity precision | 66.98% |
-| Join-path accuracy | 100% |
-| Easy / medium / hard result accuracy | 100% / 100% / 100% |
-
-The suite also includes 2 ambiguous, 3 out-of-scope, and 5 unsafe cases; all terminal statuses were classified correctly.
+<div align="center">
+  <img src="docs/assets/screenshots/ask-desktop.png" alt="InsightMesh Ask workspace" width="49%" />
+  <img src="docs/assets/screenshots/dashboard-mobile.png" alt="InsightMesh dashboard on mobile" width="49%" />
+</div>
+<div align="center">
+  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="InsightMesh datasource detail and ERD" width="80%" />
+</div>
 
 ---
 
@@ -71,19 +57,56 @@ The suite also includes 2 ambiguous, 3 out-of-scope, and 5 unsafe cases; all ter
 
 The system boundary, provider privacy boundary, deterministic query path, and datasource separation are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+### End-to-End Query Pipeline
+
 ~~~mermaid
-flowchart LR
-    U[User] --> F[Next.js Ask workspace]
-    F --> A[FastAPI API]
-    A --> M[(Metadata DB - PostgreSQL + pgvector)]
-    A --> S[Semantic retrieval - metadata only]
-    S --> L[Optional LLM / embedding provider]
-    A --> V[SQLGlot validator - read-only policy]
-    V --> C[Dialect connector]
-    C --> PG[(PostgreSQL source)]
-    C --> MY[(MySQL source)]
-    A --> R[Verified result, trace, dashboard]
-    R --> F
+flowchart TB
+    subgraph "Client Layer"
+        USER["User Browser"]
+        NEXT["Next.js Frontend\n(Sources / Ask / History / Dashboards)"]
+    end
+
+    subgraph "API Layer"
+        API["FastAPI Backend\n(Port: 8000)"]
+        HEALTH["Health & OpenAPI\n/api/v1/health"]
+    end
+
+    subgraph "Semantic Layer (Privacy-Bounded)"
+        SEM["Semantic Retrieval\n(metadata + profiles only)"]
+        EMB["pgvector Embeddings\n(schema context)"]
+        LLM["Optional LLM Provider\n(Gemini 2.5 Flash / OpenRouter)"]
+    end
+
+    subgraph "Deterministic Query Path"
+        GEN["SQL Generator\n(dialect-aware)"]
+        VAL["SQLGlot Validator\n(read-only AST policy)"]
+        CONN["Dialect Connector\n(read-only execution)"]
+    end
+
+    subgraph "Datasource Layer"
+        PG[("PostgreSQL Source")]
+        MY[("MySQL 8 Source")]
+    end
+
+    subgraph "Persistence Layer"
+        META[("Metadata DB\nPostgreSQL + pgvector")]
+        STORE["Query Runs / Saved Analyses\nDashboards / Widgets"]
+    end
+
+    USER --> NEXT
+    NEXT --> API
+    API --> SEM
+    SEM --> EMB
+    SEM --> LLM
+    API --> GEN
+    GEN --> VAL
+    VAL --> CONN
+    CONN --> PG
+    CONN --> MY
+    API --> META
+    META --> STORE
+    CONN --> API
+    API --> NEXT
 ~~~
 
 ### Runtime flow
@@ -94,17 +117,7 @@ flowchart LR
 4. **Verify** — verify result shape and values, select a table/chart/KPI view, and expose SQL plus a safe structured trace.
 5. **Reuse** — save an analysis, save a dashboard widget, refresh results in place, or rerun as a new recent activity.
 
-### Evidence
-
-<div align="center">
-  <img src="docs/assets/screenshots/ask-desktop.png" alt="InsightMesh Ask workspace" width="49%" />
-  <img src="docs/assets/screenshots/dashboard-mobile.png" alt="InsightMesh dashboard on mobile" width="49%" />
-</div>
-<div align="center">
-  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="InsightMesh datasource detail and ERD" width="80%" />
-</div>
-
-The browser demo is available at [docs/assets/recordings/insightmesh-ask-demo.webm](docs/assets/recordings/insightmesh-ask-demo.webm). Run repeatable browser coverage with the test profile command in the Quick Start section.
+The browser demo is available at [docs/assets/recordings/insightmesh-ask-demo.webm](docs/assets/recordings/insightmesh-ask-demo.webm).
 
 ---
 
@@ -116,7 +129,7 @@ Connect PostgreSQL or MySQL with encrypted credentials, allowlist databases, ver
 
 ### 2. Datasource inspection and ERD
 
-Inspect entities, fields, safe sample rows, semantic profiles, and relationships. The ERD supports drag-and-drop, reset-to-default, and relationship highlighting when an entity is selected. Sources and Ask inspect mode share the same interaction model.
+Inspect entities, fields, safe sample rows, semantic profiles, and relationships. The ERD supports drag-and-drop, reset-to-default, and relationship highlighting when an entity is selected.
 
 ### 3. Source-aware question suggestions
 
@@ -130,6 +143,14 @@ The runtime selects PostgreSQL or MySQL deterministically, generates bounded SQL
 
 Results include truthful status transitions, paginated tables, SQL, safe traces, warnings, chart/KPI recommendations, and table fallback when visualization is unsuitable.
 
+````carousel
+![InsightMesh Ask workspace – desktop](docs/assets/screenshots/ask-desktop.png)
+<!-- slide -->
+![InsightMesh dashboard – mobile](docs/assets/screenshots/dashboard-mobile.png)
+<!-- slide -->
+![InsightMesh datasource detail and ERD](docs/assets/screenshots/source-detail-desktop.png)
+````
+
 ### 6. Reusable analyses and dashboards
 
 Save validated analyses with query definition and result snapshot, refresh saved results in place, and save compatible results as dashboard widgets. Recent activity is execution history; saved analyses are durable reusable assets.
@@ -140,15 +161,72 @@ Recent query artifacts expire after 7 days by default and run summaries after 90
 
 ---
 
+## System Performance & Benchmarks
+
+The latest 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generated on 2026-09-21) measured on a local Docker environment:
+
+| Metric | Result | Description |
+|---|---:|---|
+| **Status accuracy** | 100% | Terminal status matches expected for all 37 cases including ambiguous, out-of-scope, and unsafe |
+| **Execution rate** | 100% | All completable cases executed without requiring manual intervention |
+| **Result accuracy** | 100% | Verified row counts and column structure match reference expectations |
+| **Mean entity recall** | 100% | All relevant schema entities retrieved in context |
+| **Mean entity precision** | 66.98% | Relevant entities as a share of all retrieved context items |
+| **Join-path accuracy** | 100% | Multi-table relationships resolved correctly across all join cases |
+| **Easy / medium / hard accuracy** | 100% / 100% / 100% | Consistent across all difficulty tiers |
+| **Unsafe case rejection** | 5 / 5 | All unsafe queries blocked before generation and database execution |
+| **Out-of-scope detection** | 3 / 3 | Out-of-scope questions stopped deterministically without SQL generation |
+| **SQL repair rate** | ≤ 2 attempts | Bounded repair never exceeds the configured ceiling |
+
+> **Note**: The suite covers easy, medium, hard, ambiguous, out-of-scope, and unsafe cases. All terminal statuses were classified correctly. Results are reproducible via the evaluation command in the [Evaluation & Quality Gates](#evaluation--quality-gates) section.
+
+---
+
 ## Tech Stack
 
-* **FastAPI + Python** — typed API, deterministic query state machine, SQLGlot validation, connectors, result verification, and evaluation.
-* **PostgreSQL 16 + pgvector** — application metadata, semantic artifacts, embeddings, query runs, saved analyses, dashboards, and widgets.
-* **Next.js + React + TypeScript + Tailwind CSS** — responsive Sources, Ask, History, and Dashboard workspaces.
-* **PostgreSQL and MySQL 8** — supported source engines with read-only execution.
-* **Gemini 2.5 Flash** — primary structured-generation provider; OpenRouter is a bounded fallback when configured.
-* **Docker Compose + Alembic + uv + npm ci** — reproducible services, migrations, and locked dependencies.
-* **Playwright + Vitest** — browser acceptance and component/unit coverage.
+### Frontend
+
+<div align="left">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg" height="40" alt="nextjs" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" height="40" alt="react" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" height="40" alt="typescript" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" height="40" alt="tailwindcss" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/playwright/2EAD33" height="40" alt="playwright" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/vitest/6E9F18" height="40" alt="vitest" />
+</div>
+
+* **Next.js 16 & React & TypeScript**: App Router, server components, typed API client, and responsive workspace UIs (Sources, Ask, History, Dashboards).
+* **Tailwind CSS**: Design-token-driven utility-first styling with a curated visual system.
+* **Playwright + Vitest**: Browser acceptance flows and component/unit coverage.
+
+### Backend & AI
+
+<div align="left">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" height="40" alt="python" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fastapi/fastapi-original.svg" height="40" alt="fastapi" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/sqlalchemy/d71f00" height="40" alt="sqlalchemy" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg" height="40" alt="postgresql" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" height="40" alt="mysql" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/googlegemini/4285F4" height="40" alt="gemini" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" height="40" alt="docker" />
+</div>
+
+* **FastAPI + Python**: Typed API, deterministic query state machine, SQLGlot validation, dialect connectors, result verification, and evaluation harness.
+* **PostgreSQL 16 + pgvector**: Application metadata, semantic artifacts, embeddings, query runs, saved analyses, dashboards, and widgets.
+* **PostgreSQL and MySQL 8**: Supported source engines with read-only execution paths.
+* **Gemini 2.5 Flash**: Primary structured-generation provider; OpenRouter is a bounded fallback when configured.
+* **Docker Compose + Alembic + uv + npm ci**: Reproducible services, schema migrations, and locked dependencies.
 
 ---
 
@@ -181,6 +259,7 @@ insightmesh-multi-source-analytics/
 ### Step 1: Initialize the environment
 
 ~~~powershell
+# Windows (PowerShell)
 cd D:\project\insightmesh-multi-source-analytics
 Copy-Item .env.example .env
 docker compose config --quiet
@@ -203,7 +282,7 @@ docker compose --profile mysql up --build -d --wait --wait-timeout 240
 
 ### Step 3: Connect and ask
 
-Open Sources, choose PostgreSQL or MySQL, enter a read-only account, set host/port/database, and run **Test connection**. For Compose databases use service hosts demo-postgres or demo-mysql; localhost is for a host-published database, not a sibling container.
+Open Sources, choose PostgreSQL or MySQL, enter a read-only account, set host/port/database, and run **Test connection**. For Compose databases use service hosts `demo-postgres` or `demo-mysql`; `localhost` is for a host-published database, not a sibling container.
 
 Activate a datasource, inspect its schema or choose a suggestion, ask a complete question, and review the verified result. **Refresh** updates a saved analysis in place; **Run again** intentionally creates a new recent execution.
 
@@ -252,7 +331,7 @@ docker compose --profile mysql up -d demo-mysql
 docker compose exec backend python -m evals.run_combined_evaluation --strategy hybrid
 ~~~
 
-The command writes per-datasource and per-difficulty reports plus the combined-latest.json report. The release suite covers easy, medium, hard, ambiguous, out-of-scope, and unsafe questions.
+The command writes per-datasource and per-difficulty reports plus the `combined-latest.json` report. The release suite covers easy, medium, hard, ambiguous, out-of-scope, and unsafe questions.
 
 ---
 
@@ -280,8 +359,8 @@ The command writes per-datasource and per-difficulty reports plus the combined-l
 
 ## Troubleshooting
 
-* **Connection fails from the browser** — localhost refers to the backend container during a connector call. Use demo-mysql, demo-postgres, host.docker.internal for Docker Desktop host services, or a reachable LAN address.
-* **No entities are discovered** — check the allowlisted database, information_schema permissions, and selected schema tables, then use **Refresh metadata**.
+* **Connection fails from the browser** — `localhost` refers to the backend container during a connector call. Use `demo-mysql`, `demo-postgres`, `host.docker.internal` for Docker Desktop host services, or a reachable LAN address.
+* **No entities are discovered** — check the allowlisted database, `information_schema` permissions, and selected schema tables, then use **Refresh metadata**.
 * **Connection succeeds but the result is out of scope** — ask about fields in the active datasource and try a generated suggestion.
 * **Chart becomes a table** — the result may lack a categorical dimension and numeric measure; the table is the truthful fallback.
 * **MySQL demo is unavailable** — run the MySQL profile and confirm service health.
@@ -290,5 +369,5 @@ The command writes per-datasource and per-difficulty reports plus the combined-l
 Implementation references: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/InsightMesh_PRD.md](docs/InsightMesh_PRD.md), [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md), and [design-system/insightmesh/MASTER.md](design-system/insightmesh/MASTER.md).
 
 <div>
-  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&reversal=true&text=Ask%20clearly%20%E2%80%A2%20Verify%20safely%20%E2%80%A2%20Reuse%20confidently&fontSize=22&fontColor=ffffff&fontAlign=50&fontAlignY=50&animation=twinkling&color=gradient" />
+  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&reversal=true&text=Ask%20clearly%20%E2%80%A2%20Verify%20safely%20%E2%80%A2%20Reuse%20confidently&fontSize=22&fontColor=ffffff&fontAlign=50&fontAlignY=50&rotate=0&stroke=-&animation=twinkling&textBg=false&color=gradient" />
 </div>
