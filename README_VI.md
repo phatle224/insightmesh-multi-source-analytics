@@ -1,21 +1,12 @@
 <div>
-  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=header&reversal=true&text=InsightMesh&fontSize=34&fontColor=ffffff&fontAlign=50&fontAlignY=45&animation=twinkling&desc=Ph%C3%A2n%20t%C3%ADch%20t%E1%BB%B1%20nhi%C3%AAn%20ng%C3%B4n%20ng%E1%BB%AF%20c%C3%B3%20ki%E1%BB%83m%20so%C3%A1t%20quy%E1%BB%81n%20ri%C3%AAng%20t%C6%B0%20cho%20PostgreSQL%20%26%20MySQL&descSize=15&descAlign=50&descAlignY=65&color=gradient" />
+  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=header&reversal=true&text=InsightMesh&fontSize=34&fontColor=ffffff&fontAlign=50&fontAlignY=45&animation=twinkling&desc=Ph%C3%A2n%20t%C3%ADch%20ng%C3%B4n%20ng%E1%BB%AF%20t%E1%BB%B1%20nhi%C3%AAn%20b%E1%BA%A3o%20m%E1%BA%ADt%20cho%20PostgreSQL%20%26%20MySQL&descSize=15&descAlign=50&descAlignY=65&color=gradient" />
 </div>
 
 <div align="center">
   <a href="README.md">English</a> | <strong>Tiếng Việt</strong>
 </div>
 
-<h3 align="center">Đặt câu hỏi tự nhiên. Khám phá dữ liệu an toàn.</h3>
-
-<div align="center">
-  <img src="https://img.shields.io/badge/API-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI badge" />
-  <img src="https://img.shields.io/badge/Frontend-Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js badge" />
-  <img src="https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL badge" />
-  <img src="https://img.shields.io/badge/Database-MySQL%208-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL badge" />
-  <img src="https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini badge" />
-  <img src="https://img.shields.io/badge/Infra-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker badge" />
-</div>
+<h3 align="center">Đặt câu hỏi bằng ngôn ngữ thường dùng. Khám phá dữ liệu an toàn.</h3>
 
 ---
 
@@ -23,116 +14,135 @@
 
 1. [Tổng Quan Dự Án](#tổng-quan-dự-án)
 2. [Kiến Trúc Hệ Thống & Luồng Dữ Liệu](#kiến-trúc-hệ-thống--luồng-dữ-liệu)
-3. [Tính Năng Chính](#tính-năng-chính)
-4. [Công Nghệ Sử Dụng](#công-nghệ-sử-dụng)
-5. [Cấu Trúc Thư Mục](#cấu-trúc-thư-mục)
-6. [Hướng Dẫn Khởi Chạy](#hướng-dẫn-khởi-chạy)
-7. [Các Endpoint Dịch Vụ](#các-endpoint-dịch-vụ)
-8. [Đánh Giá & Quality Gates](#đánh-giá--quality-gates)
-9. [Bảo Mật & Quyền Riêng Tư](#bảo-mật--quyền-riêng-tư)
-10. [Giới Hạn Đã Biết](#giới-hạn-đã-biết)
-11. [Xử Lý Sự Cố](#xử-lý-sự-cố)
+3. [Tính Năng Cốt Lõi](#tính-năng-cốt-lõi)
+4. [Hiệu Năng Hệ Thống & Benchmark](#hiệu-năng-hệ-thống--benchmark)
+5. [Công Nghệ Sử Dụng](#công-nghệ-sử-dụng)
+6. [Cấu Trúc Thư Mục](#cấu-trúc-thư-mục)
+7. [Hướng Dẫn Khởi Chạy](#hướng-dẫn-khởi-chạy)
+8. [Các Endpoint Dịch Vụ](#các-endpoint-dịch-vụ)
+9. [Đánh Giá & Quality Gates](#đánh-giá--quality-gates)
+10. [Bảo Mật & Quyền Riêng Tư](#bảo-mật--quyền-riêng-tư)
+11. [Giới Hạn Đã Biết](#giới-hạn-đã-biết)
+12. [Xử Lý Sự Cố](#xử-lý-sự-cố)
 
 ---
 
 ## Tổng Quan Dự Án
 
-InsightMesh là workspace phân tích dữ liệu bằng ngôn ngữ tự nhiên, ưu tiên chạy local, dành cho PostgreSQL và MySQL. User có thể kết nối datasource read-only, xem schema và relationship map, đặt câu hỏi, kiểm tra SQL và execution trace, sau đó lưu verified result thành analysis hoặc dashboard widget.
+InsightMesh là workspace phân tích ngôn ngữ tự nhiên chạy local-first cho PostgreSQL và MySQL. Người dùng kết nối datasource read-only, kiểm tra schema và quan hệ dữ liệu, đặt câu hỏi bằng ngôn ngữ thường dùng, xem SQL được tạo và execution trace, rồi lưu kết quả đã xác minh thành saved analysis hoặc dashboard widget.
 
-MongoDB được chủ động đưa ra ngoài phạm vi V1. Provider enrichment là tùy chọn: introspection, profiling, semantic retrieval, kiểm tra SQL và thực thi deterministic vẫn có thể hoạt động mà không cần AI provider bên ngoài.
+MongoDB nằm ngoài phạm vi V1. Tích hợp provider AI là tùy chọn: introspection local, profiling, semantic retrieval, SQL validation và thực thi deterministic vẫn hoạt động được mà không cần provider AI bên ngoài.
 
 ### Vấn Đề → Giải Pháp → Kết Quả (PSR)
 
-| Khía cạnh | Mô tả |
+| Chiều | Mô tả |
 |---|---|
-| **Vấn đề** | Câu hỏi nghiệp vụ dùng ngôn ngữ tự nhiên, trong khi database thể hiện bằng schema kỹ thuật. Analyst cần cách an toàn để hiểu bảng, sinh SQL, xác thực kết quả và tái sử dụng analysis mà không gửi dữ liệu thô cho LLM. |
-| **Giải pháp** | Xây semantic layer có kiểm soát quyền riêng tư từ metadata và profile, truy xuất schema context liên quan, sinh SQL theo dialect, kiểm tra bằng SQLGlot, thực thi qua connector read-only và hiển thị result có thể truy vết. |
-| **Kết quả** | Quy trình Ask có thể tái lập cho PostgreSQL và MySQL, gồm inspect datasource, ERD, suggestions, chart/table fallback, dashboard, saved analysis, query history, retention và deterministic evaluation. |
+| **Vấn đề** | Câu hỏi kinh doanh dùng ngôn ngữ tự nhiên trong khi cơ sở dữ liệu lại lộ ra schema kỹ thuật. Các analyst cần cách an toàn để hiểu bảng, tạo SQL, xác minh kết quả và tái sử dụng phân tích mà không cần gửi raw data lên LLM. |
+| **Giải pháp** | Xây dựng semantic layer bảo mật từ metadata và profile, truy xuất schema context liên quan, tạo SQL theo dialect, validate bằng SQLGlot, thực thi qua connector read-only, và trình bày kết quả đã xác minh cùng các trạng thái truy vết được. |
+| **Kết quả** | Quy trình Ask tái lập được trên PostgreSQL và MySQL với datasource inspection, ERD tương tác, gợi ý câu hỏi, chart/table fallback, dashboard, saved analysis, query history, retention và đánh giá deterministic. |
 
-### Kết quả release đã đo lường
+### Giao Diện Quản Lý
 
-Bộ đánh giá hybrid mới nhất có 37 case (25 PostgreSQL và 12 MySQL, tạo ngày 2026-09-21):
-
-| Chỉ số | Kết quả |
-|---|---:|
-| Status accuracy | 100% |
-| Execution rate | 100% |
-| Result accuracy | 100% |
-| Mean entity recall | 100% |
-| Mean entity precision | 66.98% |
-| Join-path accuracy | 100% |
-| Result accuracy easy / medium / hard | 100% / 100% / 100% |
-
-Bộ test có thêm 2 case ambiguous, 3 case out-of-scope và 5 case unsafe; mọi terminal status đều được phân loại đúng.
+<div align="center">
+  <img src="docs/assets/screenshots/ask-desktop.png" alt="Workspace Ask của InsightMesh" width="49%" />
+  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="Chi tiết datasource và ERD của InsightMesh" width="49%" />
+</div>
 
 ---
 
 ## Kiến Trúc Hệ Thống & Luồng Dữ Liệu
 
-Ranh giới hệ thống, ranh giới quyền riêng tư của provider, query path deterministic và sự tách biệt datasource nằm trong [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Ranh giới hệ thống, ranh giới bảo mật provider, đường dẫn query deterministic và phân tách datasource được ghi tại [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### Pipeline Query End-to-End
 
 ~~~mermaid
-flowchart LR
-    U[User] --> F[Next.js Ask workspace]
-    F --> A[FastAPI API]
-    A --> M[(Metadata DB - PostgreSQL + pgvector)]
-    A --> S[Semantic retrieval - chỉ metadata]
-    S --> L[LLM / embedding provider - tùy chọn]
-    A --> V[SQLGlot validator - read-only policy]
-    V --> C[Dialect connector]
-    C --> PG[(PostgreSQL source)]
-    C --> MY[(MySQL source)]
-    A --> R[Verified result, trace, dashboard]
-    R --> F
+flowchart TB
+    subgraph "Tầng Client"
+        USER["Trình duyệt người dùng"]
+        NEXT["Next.js Frontend<br/>(Sources / Ask / History / Dashboards)"]
+    end
+
+    subgraph "Tầng API"
+        API["FastAPI Backend<br/>(Port: 8000)"]
+        HEALTH["Health & OpenAPI<br/>/api/v1/health"]
+    end
+
+    subgraph "Tầng Semantic (Bảo Mật Riêng Tư)"
+        SEM["Semantic Retrieval<br/>(chỉ metadata + profile)"]
+        EMB["pgvector Embeddings<br/>(schema context)"]
+        LLM["LLM Provider tùy chọn<br/>(Gemini 2.5 Flash / OpenRouter)"]
+    end
+
+    subgraph "Đường Dẫn Query Deterministic"
+        GEN["SQL Generator<br/>(theo dialect)"]
+        VAL["SQLGlot Validator<br/>(chính sách AST read-only)"]
+        CONN["Dialect Connector<br/>(thực thi read-only)"]
+    end
+
+    subgraph "Tầng Datasource"
+        PG[("PostgreSQL Source")]
+        MY[("MySQL 8 Source")]
+    end
+
+    subgraph "Tầng Lưu Trữ"
+        META[("Metadata DB<br/>PostgreSQL + pgvector")]
+        STORE["Query Runs / Saved Analyses<br/>Dashboards / Widgets"]
+    end
+
+    USER --> NEXT
+    NEXT --> API
+    API --> SEM
+    SEM --> EMB
+    SEM --> LLM
+    API --> GEN
+    GEN --> VAL
+    VAL --> CONN
+    CONN --> PG
+    CONN --> MY
+    API --> META
+    META --> STORE
+    CONN --> API
+    API --> NEXT
 ~~~
 
 ### Luồng runtime
 
-1. **Onboard** — xác thực credential, discover schema metadata, profile thống kê an toàn và xây semantic index có giới hạn quyền riêng tư.
-2. **Understand** — hiển thị entity, field, sample row an toàn, profile, relationship, ERD layout và ba question suggestion theo datasource.
-3. **Ask** — phân loại câu hỏi, truy xuất metadata liên quan, sinh SQL theo dialect, kiểm tra safety và thực thi qua connector.
-4. **Verify** — kiểm tra shape/value, chọn table/chart/KPI phù hợp và hiển thị SQL cùng structured trace an toàn.
-5. **Reuse** — lưu analysis, lưu dashboard widget, refresh result ngay trên saved item hoặc rerun thành recent activity mới.
+1. **Onboard** — xác thực credential, khám phá schema metadata, profile thống kê field an toàn và xây dựng semantic index bảo mật.
+2. **Understand** — hiển thị entity, field, sample row an toàn, profile, quan hệ, layout ERD và ba gợi ý câu hỏi theo datasource.
+3. **Ask** — phân loại câu hỏi, truy xuất metadata liên quan, tạo SQL theo dialect, xác minh an toàn và thực thi qua connector đã chọn.
+4. **Verify** — xác minh hình dạng và giá trị kết quả, chọn view table/chart/KPI, và xuất SQL cùng safe structured trace.
+5. **Reuse** — lưu analysis, lưu dashboard widget, refresh kết quả tại chỗ, hoặc rerun thành recent activity mới.
 
-### Hình ảnh minh họa
-
-<div align="center">
-  <img src="docs/assets/screenshots/ask-desktop.png" alt="InsightMesh Ask workspace" width="49%" />
-  <img src="docs/assets/screenshots/dashboard-mobile.png" alt="InsightMesh dashboard trên mobile" width="49%" />
-</div>
-<div align="center">
-  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="InsightMesh datasource detail và ERD" width="80%" />
-</div>
-
-Video demo trình duyệt nằm tại [docs/assets/recordings/insightmesh-ask-demo.webm](docs/assets/recordings/insightmesh-ask-demo.webm). Có thể chạy browser coverage bằng test profile command trong phần dưới.
+Bản demo trình duyệt có tại [docs/assets/recordings/insightmesh-ask-demo.webm](docs/assets/recordings/insightmesh-ask-demo.webm).
 
 ---
 
-## Tính Năng Chính
+## Tính Năng Cốt Lõi
 
 ### 1. Onboarding datasource read-only
 
-Kết nối PostgreSQL hoặc MySQL bằng credential được mã hóa, allowlist database, kiểm tra connectivity và refresh metadata mà không lưu raw row hoặc secret trong API response.
+Kết nối PostgreSQL hoặc MySQL với credential được mã hóa, allowlist database, xác minh kết nối và refresh metadata mà không lưu raw row hay secret trong API response.
 
-### 2. Inspect datasource và ERD
+### 2. Datasource inspection và ERD
 
-Xem entity, field, sample row an toàn, semantic profile và relationship. ERD hỗ trợ kéo thả, reset layout và tự highlight entity liên quan khi chọn một entity. Sources và Ask inspect mode dùng chung interaction model.
+Kiểm tra entity, field, sample row an toàn, semantic profile và quan hệ dữ liệu. ERD hỗ trợ kéo thả, reset về mặc định và highlight quan hệ khi chọn entity.
 
-### 3. Question suggestion theo datasource
+### 3. Gợi ý câu hỏi theo datasource
 
-Ask workspace hiển thị ba suggestion inline từ context datasource đang active.
+Workspace Ask cung cấp ba gợi ý inline được tạo từ context của datasource đang hoạt động.
 
 ### 4. Query ngôn ngữ tự nhiên theo dialect
 
-Runtime chọn PostgreSQL hoặc MySQL deterministic, sinh SQL có giới hạn, kiểm tra bằng SQLGlot, chặn thao tác nguy hiểm, thực thi read-only và hỗ trợ bounded repair cho lỗi đủ điều kiện.
+Runtime chọn PostgreSQL hoặc MySQL theo cách deterministic, tạo SQL có giới hạn, validate câu lệnh bằng SQLGlot, chặn thao tác không an toàn, thực thi qua connector read-only và hỗ trợ repair có giới hạn cho các lỗi đủ điều kiện.
 
-### 5. Verified result và visualization
+### 5. Kết quả đã xác minh và visualization
 
-Kết quả gồm status trung thực, bảng phân trang, SQL, trace an toàn, warning, đề xuất chart/KPI và table fallback khi result không phù hợp để vẽ.
+Kết quả bao gồm chuyển trạng thái trung thực, bảng dữ liệu phân trang, SQL, safe trace, cảnh báo, gợi ý chart/KPI và table fallback khi visualization không phù hợp.
 
-### 6. Analysis và dashboard có thể tái sử dụng
+### 6. Saved analysis và dashboard tái sử dụng
 
-Lưu analysis đã validate cùng query definition và result snapshot, refresh saved result tại chỗ và lưu result phù hợp thành dashboard widget. Recent activity là lịch sử thực thi; saved analysis là tài sản dùng lại lâu dài.
+Lưu analysis đã validate cùng query definition và result snapshot, refresh kết quả lưu tại chỗ, và lưu kết quả tương thích thành dashboard widget. Recent activity là lịch sử thực thi; saved analysis là tài sản tái sử dụng lâu dài.
 
 ### 7. History có retention
 
@@ -140,15 +150,72 @@ Query artifact gần đây mặc định hết hạn sau 7 ngày và run summary
 
 ---
 
+## Hiệu Năng Hệ Thống & Benchmark
+
+Bộ đánh giá hybrid 37 cases gần nhất (25 PostgreSQL và 12 MySQL, tạo ngày 2026-09-21) đo trên môi trường Docker local:
+
+| Chỉ số | Kết quả | Mô tả |
+|---|---:|---|
+| **Độ chính xác trạng thái** | 100% | Terminal status khớp kỳ vọng cho tất cả 37 cases gồm ambiguous, out-of-scope và unsafe |
+| **Tỷ lệ thực thi** | 100% | Tất cả cases có thể hoàn thành đều thực thi không cần can thiệp thủ công |
+| **Độ chính xác kết quả** | 100% | Row count và cấu trúc cột đã xác minh khớp tham chiếu kỳ vọng |
+| **Mean entity recall** | 100% | Tất cả schema entity liên quan được truy xuất vào context |
+| **Mean entity precision** | 66,98% | Entity liên quan trên tổng số context item được truy xuất |
+| **Độ chính xác join-path** | 100% | Quan hệ multi-table được xử lý đúng trên tất cả join case |
+| **Độ chính xác easy / medium / hard** | 100% / 100% / 100% | Nhất quán trên tất cả mức độ khó |
+| **Từ chối unsafe case** | 5 / 5 | Tất cả unsafe query bị chặn trước khi tạo SQL và thực thi database |
+| **Phát hiện out-of-scope** | 3 / 3 | Câu hỏi out-of-scope dừng deterministic mà không tạo SQL |
+| **Mức sử dụng repair thực tế** | 0 case | Không release case nào cần repair; giới hạn tối đa hai lần vẫn được kiểm tra bằng deterministic runtime test |
+
+> **Lưu ý**: Bộ test bao gồm easy, medium, hard, ambiguous, out-of-scope và unsafe. Tất cả terminal status được phân loại đúng. Kết quả có thể tái lập qua lệnh evaluation trong phần [Đánh Giá & Quality Gates](#đánh-giá--quality-gates).
+
+---
+
 ## Công Nghệ Sử Dụng
 
-* **FastAPI + Python** — typed API, state machine deterministic, SQLGlot validation, connector, result verification và evaluation.
-* **PostgreSQL 16 + pgvector** — metadata ứng dụng, semantic artifact, embedding, query run, saved analysis, dashboard và widget.
-* **Next.js + React + TypeScript + Tailwind CSS** — workspace Sources, Ask, History và Dashboard responsive.
-* **PostgreSQL và MySQL 8** — source engine được hỗ trợ với thực thi read-only.
-* **Gemini 2.5 Flash** — provider structured-generation chính; OpenRouter là fallback có giới hạn nếu được cấu hình.
-* **Docker Compose + Alembic + uv + npm ci** — service tái lập, migration và dependency có lock.
-* **Playwright + Vitest** — browser acceptance và component/unit coverage.
+### Frontend
+
+<div align="left">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg" height="40" alt="nextjs" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" height="40" alt="react" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" height="40" alt="typescript" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" height="40" alt="tailwindcss" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/playwright/2EAD33" height="40" alt="playwright" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/vitest/6E9F18" height="40" alt="vitest" />
+</div>
+
+* **Next.js 16 & React & TypeScript**: App Router, server component, typed API client và UI workspace responsive (Sources, Ask, History, Dashboards).
+* **Tailwind CSS**: Styling utility-first theo design token với visual system được kiểm duyệt.
+* **Playwright + Vitest**: Browser acceptance flow và component/unit coverage.
+
+### Backend & AI
+
+<div align="left">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" height="40" alt="python" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fastapi/fastapi-original.svg" height="40" alt="fastapi" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/sqlalchemy/d71f00" height="40" alt="sqlalchemy" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg" height="40" alt="postgresql" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg" height="40" alt="mysql" />
+  <img width="8" />
+  <img src="https://cdn.simpleicons.org/googlegemini/4285F4" height="40" alt="gemini" />
+  <img width="8" />
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" height="40" alt="docker" />
+</div>
+
+* **FastAPI + Python**: Typed API, state machine query deterministic, SQLGlot validation, dialect connector, result verification và evaluation harness.
+* **PostgreSQL 16 + pgvector**: Metadata ứng dụng, semantic artifact, embedding, query run, saved analysis, dashboard và widget.
+* **PostgreSQL và MySQL 8**: Source engine được hỗ trợ với đường thực thi read-only.
+* **Gemini 2.5 Flash**: Provider structured-generation chính; OpenRouter là fallback có giới hạn khi được cấu hình.
+* **Docker Compose + Alembic + uv + npm ci**: Service tái lập, schema migration và dependency có lock.
 
 ---
 
@@ -174,13 +241,14 @@ insightmesh-multi-source-analytics/
 
 ### Yêu Cầu
 
-* Docker Desktop với Linux containers, hoặc Docker Engine với Compose v2+.
+* Docker Desktop với Linux container, hoặc Docker Engine với Compose v2+.
 * Git nếu cần clone repository.
 * Không cần cài Python hoặc Node.js trên host.
 
 ### Bước 1: Khởi tạo môi trường
 
 ~~~powershell
+# Windows (PowerShell)
 cd D:\project\insightmesh-multi-source-analytics
 Copy-Item .env.example .env
 docker compose config --quiet
@@ -203,7 +271,7 @@ docker compose --profile mysql up --build -d --wait --wait-timeout 240
 
 ### Bước 3: Kết nối và hỏi
 
-Mở Sources, chọn PostgreSQL hoặc MySQL, nhập account read-only, host/port/database và nhấn **Test connection**. Với database trong Compose dùng service host demo-postgres hoặc demo-mysql; localhost là database publish ra host, không phải container bên cạnh.
+Mở Sources, chọn PostgreSQL hoặc MySQL, nhập account read-only, host/port/database và nhấn **Test connection**. Với database trong Compose dùng service host `demo-postgres` hoặc `demo-mysql`; `localhost` là database publish ra host, không phải container bên cạnh.
 
 Activate datasource, inspect schema hoặc chọn suggestion, đặt câu hỏi rồi kiểm tra verified result. **Refresh** cập nhật saved analysis tại chỗ; **Run again** cố ý tạo execution mới trong recent activity.
 
@@ -225,7 +293,7 @@ docker compose --profile test run --rm e2e
 
 ## Các Endpoint Dịch Vụ
 
-| Service | URL | Mục đích |
+| Dịch vụ | URL | Mục đích |
 |---|---|---|
 | **Frontend** | [http://localhost:3000](http://localhost:3000) | Sources, Ask, History và Dashboards |
 | **Backend health** | [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health) | Liveness/readiness API |
@@ -252,7 +320,7 @@ docker compose --profile mysql up -d demo-mysql
 docker compose exec backend python -m evals.run_combined_evaluation --strategy hybrid
 ~~~
 
-Command ghi report theo datasource và difficulty cùng combined-latest.json. Release suite bao phủ easy, medium, hard, ambiguous, out-of-scope và unsafe questions.
+Lệnh ghi report theo datasource và difficulty cùng file `combined-latest.json`. Release suite bao phủ easy, medium, hard, ambiguous, out-of-scope và unsafe question.
 
 ---
 
@@ -280,8 +348,8 @@ Command ghi report theo datasource và difficulty cùng combined-latest.json. Re
 
 ## Xử Lý Sự Cố
 
-* **Kết nối thất bại từ browser** — localhost trỏ tới backend container. Dùng demo-mysql, demo-postgres, host.docker.internal cho service trên host qua Docker Desktop, hoặc LAN address có thể truy cập.
-* **Không discover được entity** — kiểm tra database đã allowlist, quyền đọc information_schema, schema có table và nhấn **Refresh metadata**.
+* **Kết nối thất bại từ browser** — `localhost` trỏ tới backend container. Dùng `demo-mysql`, `demo-postgres`, `host.docker.internal` cho service trên host qua Docker Desktop, hoặc LAN address có thể truy cập được.
+* **Không discover được entity** — kiểm tra database đã allowlist, quyền đọc `information_schema`, schema có table và nhấn **Refresh metadata**.
 * **Kết nối được nhưng result out-of-scope** — hỏi về field trong datasource active và thử suggestion được sinh tự động.
 * **Chart thành table** — result có thể thiếu categorical dimension và numeric measure; table là fallback trung thực.
 * **Không có MySQL demo** — bật MySQL profile và kiểm tra health.
@@ -290,5 +358,5 @@ Command ghi report theo datasource và difficulty cùng combined-latest.json. Re
 Tài liệu liên quan: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/InsightMesh_PRD.md](docs/InsightMesh_PRD.md), [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) và [design-system/insightmesh/MASTER.md](design-system/insightmesh/MASTER.md).
 
 <div>
-  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&reversal=true&text=H%E1%BB%8Fi%20r%C3%B5%20%E2%80%A2%20Ki%E1%BB%83m%20tra%20an%20to%C3%A0n%20%E2%80%A2%20T%C3%A1i%20s%E1%BB%AD%20d%E1%BB%A5ng%20t%E1%BB%B1%20tin&fontSize=22&fontColor=ffffff&fontAlign=50&fontAlignY=50&animation=twinkling&color=gradient" />
+  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&reversal=true&text=H%E1%BB%8Fi%20r%C3%B5%20%E2%80%A2%20Ki%E1%BB%83m%20tra%20an%20to%C3%A0n%20%E2%80%A2%20T%C3%A1i%20s%E1%BB%AD%20d%E1%BB%A5ng%20t%E1%BB%B1%20tin&fontSize=22&fontColor=ffffff&fontAlign=50&fontAlignY=50&rotate=0&stroke=-&animation=twinkling&textBg=false&color=gradient" />
 </div>

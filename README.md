@@ -45,10 +45,7 @@ MongoDB is intentionally out of scope for V1. Provider enrichment is optional: l
 
 <div align="center">
   <img src="docs/assets/screenshots/ask-desktop.png" alt="InsightMesh Ask workspace" width="49%" />
-  <img src="docs/assets/screenshots/dashboard-mobile.png" alt="InsightMesh dashboard on mobile" width="49%" />
-</div>
-<div align="center">
-  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="InsightMesh datasource detail and ERD" width="80%" />
+  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="InsightMesh datasource detail and ERD" width="49%" />
 </div>
 
 ---
@@ -63,24 +60,24 @@ The system boundary, provider privacy boundary, deterministic query path, and da
 flowchart TB
     subgraph "Client Layer"
         USER["User Browser"]
-        NEXT["Next.js Frontend\n(Sources / Ask / History / Dashboards)"]
+        NEXT["Next.js Frontend<br/>(Sources / Ask / History / Dashboards)"]
     end
 
     subgraph "API Layer"
-        API["FastAPI Backend\n(Port: 8000)"]
-        HEALTH["Health & OpenAPI\n/api/v1/health"]
+        API["FastAPI Backend<br/>(Port: 8000)"]
+        HEALTH["Health & OpenAPI<br/>/api/v1/health"]
     end
 
     subgraph "Semantic Layer (Privacy-Bounded)"
-        SEM["Semantic Retrieval\n(metadata + profiles only)"]
-        EMB["pgvector Embeddings\n(schema context)"]
-        LLM["Optional LLM Provider\n(Gemini 2.5 Flash / OpenRouter)"]
+        SEM["Semantic Retrieval<br/>(metadata + profiles only)"]
+        EMB["pgvector Embeddings<br/>(schema context)"]
+        LLM["Optional LLM Provider<br/>(Gemini 2.5 Flash / OpenRouter)"]
     end
 
     subgraph "Deterministic Query Path"
-        GEN["SQL Generator\n(dialect-aware)"]
-        VAL["SQLGlot Validator\n(read-only AST policy)"]
-        CONN["Dialect Connector\n(read-only execution)"]
+        GEN["SQL Generator<br/>(dialect-aware)"]
+        VAL["SQLGlot Validator<br/>(read-only AST policy)"]
+        CONN["Dialect Connector<br/>(read-only execution)"]
     end
 
     subgraph "Datasource Layer"
@@ -89,8 +86,8 @@ flowchart TB
     end
 
     subgraph "Persistence Layer"
-        META[("Metadata DB\nPostgreSQL + pgvector")]
-        STORE["Query Runs / Saved Analyses\nDashboards / Widgets"]
+        META[("Metadata DB<br/>PostgreSQL + pgvector")]
+        STORE["Query Runs / Saved Analyses<br/>Dashboards / Widgets"]
     end
 
     USER --> NEXT
@@ -143,14 +140,6 @@ The runtime selects PostgreSQL or MySQL deterministically, generates bounded SQL
 
 Results include truthful status transitions, paginated tables, SQL, safe traces, warnings, chart/KPI recommendations, and table fallback when visualization is unsuitable.
 
-````carousel
-![InsightMesh Ask workspace – desktop](docs/assets/screenshots/ask-desktop.png)
-<!-- slide -->
-![InsightMesh dashboard – mobile](docs/assets/screenshots/dashboard-mobile.png)
-<!-- slide -->
-![InsightMesh datasource detail and ERD](docs/assets/screenshots/source-detail-desktop.png)
-````
-
 ### 6. Reusable analyses and dashboards
 
 Save validated analyses with query definition and result snapshot, refresh saved results in place, and save compatible results as dashboard widgets. Recent activity is execution history; saved analyses are durable reusable assets.
@@ -176,7 +165,7 @@ The latest 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generate
 | **Easy / medium / hard accuracy** | 100% / 100% / 100% | Consistent across all difficulty tiers |
 | **Unsafe case rejection** | 5 / 5 | All unsafe queries blocked before generation and database execution |
 | **Out-of-scope detection** | 3 / 3 | Out-of-scope questions stopped deterministically without SQL generation |
-| **SQL repair rate** | ≤ 2 attempts | Bounded repair never exceeds the configured ceiling |
+| **Live repair usage** | 0 cases | No release case required repair; the two-attempt ceiling remains covered by deterministic runtime tests |
 
 > **Note**: The suite covers easy, medium, hard, ambiguous, out-of-scope, and unsafe cases. All terminal statuses were classified correctly. Results are reproducible via the evaluation command in the [Evaluation & Quality Gates](#evaluation--quality-gates) section.
 
