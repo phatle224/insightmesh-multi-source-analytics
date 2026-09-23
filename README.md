@@ -8,6 +8,13 @@
 
 <h3 align="center">Ask Questions in Plain Language. Explore Your Data Safely.</h3>
 
+<div align="center">
+  <img src="https://img.shields.io/badge/BACKEND-FastAPI-009688?style=flat-square" alt="FastAPI backend" />
+  <img src="https://img.shields.io/badge/FRONTEND-Next.js-262626?style=flat-square" alt="Next.js frontend" />
+  <img src="https://img.shields.io/badge/DATABASE-PostgreSQL%20%2B%20MySQL-355C7D?style=flat-square" alt="PostgreSQL and MySQL" />
+  <img src="https://img.shields.io/badge/QUERY-SQLGlot%20%2B%20read--only%20safety-4F6EDB?style=flat-square" alt="SQL query safety" />
+</div>
+
 ---
 
 ## Table of Contents
