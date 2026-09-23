@@ -1,5 +1,5 @@
 <div>
-  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=header&reversal=true&text=InsightMesh&fontSize=34&fontColor=ffffff&fontAlign=50&fontAlignY=45&animation=twinkling&desc=Ph%C3%A2n%20t%C3%ADch%20ng%C3%B4n%20ng%E1%BB%AF%20t%E1%BB%B1%20nhi%C3%AAn%20b%E1%BA%A3o%20m%E1%BA%ADt%20cho%20PostgreSQL%20%26%20MySQL&descSize=15&descAlign=50&descAlignY=65&color=gradient" />
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&amp;height=120&amp;section=header&amp;reversal=true&amp;text=InsightMesh&amp;fontSize=34&amp;fontColor=ffffff&amp;fontAlign=50&amp;fontAlignY=45&amp;animation=twinkling&amp;desc=Ph%C3%A2n%20t%C3%ADch%20ng%C3%B4n%20ng%E1%BB%AF%20t%E1%BB%B1%20nhi%C3%AAn%20b%E1%BA%A3o%20m%E1%BA%ADt%20cho%20PostgreSQL%20%26amp%3B%20MySQL&amp;descSize=15&amp;descAlign=50&amp;descAlignY=65&amp;color=gradient" />
 </div>
 
 <div align="center">
@@ -44,8 +44,8 @@ MongoDB nằm ngoài phạm vi V1. Tích hợp provider AI là tùy chọn: intr
 ### Giao Diện Quản Lý
 
 <div align="center">
-  <img src="docs/assets/screenshots/ask-desktop.png" alt="Workspace Ask của InsightMesh" width="49%" />
-  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="Chi tiết datasource và ERD của InsightMesh" width="49%" />
+  <img src="docs/assets/screenshots/ask.png" alt="Workspace Ask với gợi ý theo datasource của InsightMesh" width="49%" />
+  <img src="docs/assets/screenshots/explore-data.png" alt="Panel inspect datasource và ERD tương tác của InsightMesh" width="49%" />
 </div>
 
 ---
@@ -139,6 +139,10 @@ Runtime chọn PostgreSQL hoặc MySQL theo cách deterministic, tạo SQL có g
 ### 5. Kết quả đã xác minh và visualization
 
 Kết quả bao gồm chuyển trạng thái trung thực, bảng dữ liệu phân trang, SQL, safe trace, cảnh báo, gợi ý chart/KPI và table fallback khi visualization không phù hợp.
+
+<div align="center">
+  <img src="docs/assets/screenshots/output.png" alt="Kết quả đã xác minh với chart đề xuất và hành động lưu của InsightMesh" width="88%" />
+</div>
 
 ### 6. Saved analysis và dashboard tái sử dụng
 
@@ -358,5 +362,5 @@ Lệnh ghi report theo datasource và difficulty cùng file `combined-latest.jso
 Tài liệu liên quan: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/InsightMesh_PRD.md](docs/InsightMesh_PRD.md), [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) và [design-system/insightmesh/MASTER.md](design-system/insightmesh/MASTER.md).
 
 <div>
-  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&reversal=true&text=H%E1%BB%8Fi%20r%C3%B5%20%E2%80%A2%20Ki%E1%BB%83m%20tra%20an%20to%C3%A0n%20%E2%80%A2%20T%C3%A1i%20s%E1%BB%AD%20d%E1%BB%A5ng%20t%E1%BB%B1%20tin&fontSize=22&fontColor=ffffff&fontAlign=50&fontAlignY=50&rotate=0&stroke=-&animation=twinkling&textBg=false&color=gradient" />
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&amp;height=120&amp;section=footer&amp;reversal=true&amp;text=H%E1%BB%8Fi%20r%C3%B5%20%E2%80%A2%20Ki%E1%BB%83m%20tra%20an%20to%C3%A0n%20%E2%80%A2%20T%C3%A1i%20s%E1%BB%AD%20d%E1%BB%A5ng%20t%E1%BB%B1%20tin&amp;fontSize=22&amp;fontColor=ffffff&amp;fontAlign=50&amp;fontAlignY=50&amp;rotate=0&amp;stroke=-&amp;animation=twinkling&amp;textBg=false&amp;color=gradient" />
 </div>

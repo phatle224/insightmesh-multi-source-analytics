@@ -1,5 +1,5 @@
-﻿<div>
-  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=header&reversal=true&text=InsightMesh&fontSize=34&fontColor=ffffff&fontAlign=50&fontAlignY=45&animation=twinkling&desc=Privacy-bounded%20natural-language%20analytics%20for%20PostgreSQL%20%26%20MySQL&descSize=15&descAlign=50&descAlignY=65&color=gradient" />
+<div>
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&amp;height=120&amp;section=header&amp;reversal=true&amp;text=InsightMesh&amp;fontSize=34&amp;fontColor=ffffff&amp;fontAlign=50&amp;fontAlignY=45&amp;animation=twinkling&amp;desc=Privacy-bounded%20natural-language%20analytics%20for%20PostgreSQL%20%26amp%3B%20MySQL&amp;descSize=15&amp;descAlign=50&amp;descAlignY=65&amp;color=gradient" />
 </div>
 
 <div align="center">
@@ -44,8 +44,8 @@ MongoDB is intentionally out of scope for V1. Provider enrichment is optional: l
 ### Portal Management Interface
 
 <div align="center">
-  <img src="docs/assets/screenshots/ask-desktop.png" alt="InsightMesh Ask workspace" width="49%" />
-  <img src="docs/assets/screenshots/source-detail-desktop.png" alt="InsightMesh datasource detail and ERD" width="49%" />
+  <img src="docs/assets/screenshots/ask.png" alt="InsightMesh Ask workspace with source-aware suggestions" width="49%" />
+  <img src="docs/assets/screenshots/explore-data.png" alt="InsightMesh datasource inspect panel and interactive ERD" width="49%" />
 </div>
 
 ---
@@ -139,6 +139,10 @@ The runtime selects PostgreSQL or MySQL deterministically, generates bounded SQL
 ### 5. Verified results and visualizations
 
 Results include truthful status transitions, paginated tables, SQL, safe traces, warnings, chart/KPI recommendations, and table fallback when visualization is unsuitable.
+
+<div align="center">
+  <img src="docs/assets/screenshots/output.png" alt="InsightMesh verified result with a recommended chart and save actions" width="88%" />
+</div>
 
 ### 6. Reusable analyses and dashboards
 
@@ -358,5 +362,5 @@ The command writes per-datasource and per-difficulty reports plus the `combined-
 Implementation references: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/InsightMesh_PRD.md](docs/InsightMesh_PRD.md), [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md), and [design-system/insightmesh/MASTER.md](design-system/insightmesh/MASTER.md).
 
 <div>
-  <img style="width: 100%" src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&reversal=true&text=Ask%20clearly%20%E2%80%A2%20Verify%20safely%20%E2%80%A2%20Reuse%20confidently&fontSize=22&fontColor=ffffff&fontAlign=50&fontAlignY=50&rotate=0&stroke=-&animation=twinkling&textBg=false&color=gradient" />
+  <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&amp;height=120&amp;section=footer&amp;reversal=true&amp;text=Ask%20clearly%20%E2%80%A2%20Verify%20safely%20%E2%80%A2%20Reuse%20confidently&amp;fontSize=22&amp;fontColor=ffffff&amp;fontAlign=50&amp;fontAlignY=50&amp;rotate=0&amp;stroke=-&amp;animation=twinkling&amp;textBg=false&amp;color=gradient" />
 </div>
