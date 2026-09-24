@@ -1,5 +1,6 @@
 """Validated process configuration with secret-safe representations."""
 
+import hashlib
 from functools import lru_cache
 
 from cryptography.fernet import Fernet
@@ -7,7 +8,7 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
-LOCAL_ENCRYPTION_KEY = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
+LEGACY_DEFAULT_KEY_SHA256 = "bf9e5cb7dacfea070688726bc8f50810dd62679f48cb80019c571e53cfe9836e"
 
 
 class Settings(BaseSettings):
@@ -61,12 +62,15 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def reject_local_key_outside_development(self) -> "Settings":
+    def validate_runtime_security(self) -> "Settings":
+        key = self.credential_encryption_key.get_secret_value().strip()
+        if not key:
+            raise ValueError("CREDENTIAL_ENCRYPTION_KEY must be explicitly configured")
         if (
             self.app_env.lower() not in {"development", "test"}
-            and self.credential_encryption_key.get_secret_value() == LOCAL_ENCRYPTION_KEY
+            and hashlib.sha256(key.encode("ascii")).hexdigest() == LEGACY_DEFAULT_KEY_SHA256
         ):
-            raise ValueError("The local credential encryption key is forbidden in this environment")
+            raise ValueError("The legacy default credential encryption key is forbidden")
         if self.retrieval_semantic_weight + self.retrieval_lexical_weight <= 0:
             raise ValueError("At least one retrieval fusion weight must be positive")
         return self

@@ -135,6 +135,14 @@ def main() -> int:
             report["datasource"]["type"]: report["strategies"][args.strategy]
             for report in reports
         },
+        "generation_observation": {
+            "by_datasource": {
+                report["datasource"]["type"]: report.get("generation_observation", {}).get(
+                    args.strategy
+                )
+                for report in reports
+            }
+        },
         "overall": _aggregate(reports, args.strategy),
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)

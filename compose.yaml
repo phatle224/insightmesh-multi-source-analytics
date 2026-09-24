@@ -7,7 +7,7 @@ x-backend: &backend
     target: development
   environment: &backend-env
     APP_ENV: development
-    CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
+    CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Set CREDENTIAL_ENCRYPTION_KEY in .env}
     PGHOST: metadata-db
     PGPORT: "5432"
     PGDATABASE: insightmesh

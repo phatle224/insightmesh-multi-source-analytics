@@ -30,6 +30,19 @@
       "query-repair": "v1"
     }
   },
+  "generation_observation": {
+    "hybrid": {
+      "configured_provider": "gemini",
+      "configured_model": "gemini-2.5-flash",
+      "fallback_provider": "openrouter",
+      "fallback_model": "openai/gpt-4o-mini",
+      "generation_calls": 18,
+      "primary_generation_calls": 0,
+      "fallback_generation_calls": 18,
+      "effective_generation_provider": "openrouter",
+      "effective_generation_model": "openai/gpt-4o-mini"
+    }
+  },
   "strategies": {
     "hybrid": {
       "strategy": "hybrid",

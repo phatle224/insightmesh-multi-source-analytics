@@ -21,6 +21,39 @@
     }
   ],
   "case_count": 37,
+  "generation_observation": {
+    "by_datasource": {
+      "postgresql": {
+        "configured_provider": "gemini",
+        "configured_model": "gemini-2.5-flash",
+        "fallback_provider": "openrouter",
+        "fallback_model": "openai/gpt-4o-mini",
+        "generation_calls": 18,
+        "primary_generation_calls": 0,
+        "fallback_generation_calls": 18,
+        "effective_generation_provider": "openrouter",
+        "effective_generation_model": "openai/gpt-4o-mini"
+      },
+      "mysql": {
+        "configured_provider": "gemini",
+        "configured_model": "gemini-2.5-flash",
+        "fallback_provider": "openrouter",
+        "fallback_model": "openai/gpt-4o-mini",
+        "generation_calls": 9,
+        "primary_generation_calls": 0,
+        "fallback_generation_calls": 9,
+        "effective_generation_provider": "openrouter",
+        "effective_generation_model": "openai/gpt-4o-mini"
+      }
+    },
+    "overall": {
+      "generation_calls": 27,
+      "primary_generation_calls": 0,
+      "fallback_generation_calls": 27,
+      "effective_generation_provider": "openrouter",
+      "effective_generation_model": "openai/gpt-4o-mini"
+    }
+  },
   "by_datasource": {
     "postgresql": {
       "strategy": "hybrid",

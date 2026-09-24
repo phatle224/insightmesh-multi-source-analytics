@@ -441,6 +441,38 @@ def _run_strategy(
     return _summarize(strategy, cases)
 
 
+def _generation_observation(settings: Settings, summary: dict[str, Any]) -> dict[str, Any]:
+    """Record which configured model actually produced evaluation generations."""
+    configured_provider = settings.llm_provider
+    configured_model = (
+        settings.gemini_model if configured_provider == "gemini" else settings.llm_model
+    )
+    provider_calls = summary["provider_calls"]
+    generation_calls = int(provider_calls["generation"])
+    fallback_calls = int(provider_calls["fallback_generation"])
+    primary_calls = max(generation_calls - fallback_calls, 0)
+    if fallback_calls and not primary_calls:
+        effective_provider = settings.llm_fallback_provider
+        effective_model = settings.llm_fallback_model
+    elif primary_calls and not fallback_calls:
+        effective_provider = configured_provider
+        effective_model = configured_model
+    else:
+        effective_provider = "mixed"
+        effective_model = None
+    return {
+        "configured_provider": configured_provider,
+        "configured_model": configured_model,
+        "fallback_provider": settings.llm_fallback_provider,
+        "fallback_model": settings.llm_fallback_model,
+        "generation_calls": generation_calls,
+        "primary_generation_calls": primary_calls,
+        "fallback_generation_calls": fallback_calls,
+        "effective_generation_provider": effective_provider,
+        "effective_generation_model": effective_model,
+    }
+
+
 def _comparison(reports: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
     vector = reports.get("vector")
     hybrid = reports.get("hybrid")
@@ -537,7 +569,11 @@ def main(
             "configuration": {
                 "model_config_version": settings.model_config_version,
                 "generation_provider": settings.llm_provider,
-                "generation_model": settings.llm_model,
+                "generation_model": (
+                    settings.gemini_model
+                    if settings.llm_provider == "gemini"
+                    else settings.llm_model
+                ),
                 "fallback_provider": settings.llm_fallback_provider,
                 "fallback_model": settings.llm_fallback_model,
                 "embedding_model": settings.embedding_model,
@@ -562,6 +598,10 @@ def main(
                         else ("query-generation", "query-repair")
                     )
                 },
+            },
+            "generation_observation": {
+                strategy: _generation_observation(settings, summary)
+                for strategy, summary in strategy_reports.items()
             },
             "strategies": strategy_reports,
             "comparison": _comparison(strategy_reports),

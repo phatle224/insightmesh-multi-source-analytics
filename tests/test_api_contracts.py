@@ -1,9 +1,11 @@
+import base64
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.errors import AppError, install_error_handlers
 from api.request_id import request_id_middleware
-from api.settings import LOCAL_ENCRYPTION_KEY, Settings
+from api.settings import Settings
 
 
 def build_test_app() -> FastAPI:
@@ -55,7 +57,7 @@ def test_unexpected_error_does_not_leak_exception_message() -> None:
     assert "secret internal context" not in response.text
 
 
-def test_production_rejects_local_encryption_key() -> None:
+def test_settings_require_an_explicit_fernet_key() -> None:
     try:
         Settings(
             APP_ENV="production",
@@ -64,9 +66,27 @@ def test_production_rejects_local_encryption_key() -> None:
             PGDATABASE="app",
             PGUSER="app",
             PGPASSWORD="password",
-            CREDENTIAL_ENCRYPTION_KEY=LOCAL_ENCRYPTION_KEY,
+            CREDENTIAL_ENCRYPTION_KEY="",
         )
     except ValueError as exc:
-        assert "local credential encryption key" in str(exc)
+        assert "credential_encryption_key" in str(exc).lower()
     else:
-        raise AssertionError("Production accepted the documented local-only encryption key")
+        raise AssertionError("Settings accepted a missing credential encryption key")
+
+
+def test_production_rejects_the_legacy_default_fernet_key() -> None:
+    legacy_key = base64.urlsafe_b64encode(b"01234567890123456789012345678901").decode()
+    try:
+        Settings(
+            APP_ENV="production",
+            PGHOST="db",
+            PGPORT=5432,
+            PGDATABASE="app",
+            PGUSER="app",
+            PGPASSWORD="password",
+            CREDENTIAL_ENCRYPTION_KEY=legacy_key,
+        )
+    except ValueError as exc:
+        assert "legacy default" in str(exc).lower()
+    else:
+        raise AssertionError("Production accepted the legacy default Fernet key")

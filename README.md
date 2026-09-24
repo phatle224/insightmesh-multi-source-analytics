@@ -163,7 +163,7 @@ Recent query artifacts expire after 7 days by default and run summaries after 90
 
 ## System Performance & Benchmarks
 
-The latest self-authored 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generated on 2026-09-21) ran in a local Docker environment against PostgreSQL and MySQL variants of the same six-table demo e-commerce schema (five commerce tables plus one foundation/health-check table):
+The latest self-authored 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generated on 2026-09-21) ran in a local Docker environment against PostgreSQL and MySQL variants of the same six-table demo e-commerce schema (five commerce tables plus one foundation/health-check table). The configured primary was Gemini 2.5 Flash, but Gemini timed out or was rate-limited for every one of the 27 generation calls; all recorded SQL generations therefore came from the OpenRouter fallback `openai/gpt-4o-mini`:
 
 | Metric | Result | Description |
 |---|---:|---|
@@ -180,7 +180,7 @@ The latest self-authored 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL c
 
 > **Scope and limitations**: These are bounded regression results on a small demo schema, not a claim of general accuracy on unseen production databases. Mean entity precision of 66.98% shows that retrieval still includes irrelevant context. No release case triggered live repair, so repair behavior is supported by deterministic runtime tests rather than this evaluation run.
 
-Versioned evidence: [combined report](evals/reports/combined-latest.json), [PostgreSQL report](evals/reports/postgres-latest.json), [MySQL report](evals/reports/mysql-latest.json), and [evaluation cases](evals/).
+Versioned evidence: [combined report](evals/reports/combined-latest.json), [PostgreSQL report](evals/reports/postgres-latest.json), [MySQL report](evals/reports/mysql-latest.json), and [evaluation cases](evals/). The reports include configured and effective generation-model provenance.
 
 ---
 
@@ -227,7 +227,7 @@ Versioned evidence: [combined report](evals/reports/combined-latest.json), [Post
 * **FastAPI + Python**: Typed API, deterministic query state machine, SQLGlot validation, dialect connectors, result verification, and evaluation harness.
 * **PostgreSQL 16 + pgvector**: Application metadata, semantic artifacts, embeddings, query runs, saved analyses, dashboards, and widgets.
 * **PostgreSQL and MySQL 8**: Supported source engines with read-only execution paths.
-* **Gemini 2.5 Flash**: Primary structured-generation provider; OpenRouter is a bounded fallback when configured.
+* **Gemini 2.5 Flash + OpenRouter fallback**: Gemini is the configured primary structured-generation provider; OpenRouter is a bounded fallback for timeout/rate-limit failures. The committed 2026-09-21 evaluation artifact used `openai/gpt-4o-mini` for all 27 SQL generations after Gemini fallback.
 * **Docker Compose + Alembic + uv + npm ci**: Reproducible services, schema migrations, and locked dependencies.
 
 ---
@@ -268,7 +268,7 @@ Copy-Item .env.example .env
 docker compose config --quiet
 ~~~
 
-Local defaults work without editing the environment file. Use development-only values and never commit real secrets. Database initialization credentials apply when volumes are first created; changing the environment file does not rotate existing passwords.
+Most development defaults work without editing the environment file, but `CREDENTIAL_ENCRYPTION_KEY` is intentionally required. Generate a unique Fernet key, put it in the uncommitted `.env`, and never commit real secrets. Database initialization credentials apply when volumes are first created; changing the environment file does not rotate existing passwords.
 
 ### Step 2: Launch the stack
 
@@ -363,6 +363,7 @@ The command writes per-datasource and per-difficulty reports plus the `combined-
 ## Troubleshooting
 
 * **Connection fails from the browser** — `localhost` refers to the backend container during a connector call. Use `demo-mysql`, `demo-postgres`, `host.docker.internal` for Docker Desktop host services, or a reachable LAN address.
+* **Startup fails with `CREDENTIAL_ENCRYPTION_KEY`** — generate a unique Fernet key and set it in the uncommitted `.env`; the application intentionally has no committed encryption-key default.
 * **No entities are discovered** — check the allowlisted database, `information_schema` permissions, and selected schema tables, then use **Refresh metadata**.
 * **Connection succeeds but the result is out of scope** — ask about fields in the active datasource and try a generated suggestion.
 * **Chart becomes a table** — the result may lack a categorical dimension and numeric measure; the table is the truthful fallback.

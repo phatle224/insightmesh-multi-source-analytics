@@ -163,7 +163,7 @@ Query artifact gần đây mặc định hết hạn sau 7 ngày và run summary
 
 ## Hiệu Năng Hệ Thống & Benchmark
 
-Bộ đánh giá hybrid tự xây dựng gồm 37 cases gần nhất (25 PostgreSQL và 12 MySQL, tạo ngày 2026-09-21) chạy trên môi trường Docker local với hai phiên bản PostgreSQL/MySQL của cùng một schema e-commerce demo gồm 6 bảng (5 bảng nghiệp vụ và 1 bảng foundation/health-check):
+Bộ đánh giá hybrid tự xây dựng gồm 37 cases gần nhất (25 PostgreSQL và 12 MySQL, tạo ngày 2026-09-21) chạy trên môi trường Docker local với hai phiên bản PostgreSQL/MySQL của cùng một schema e-commerce demo gồm 6 bảng (5 bảng nghiệp vụ và 1 bảng foundation/health-check). Primary được cấu hình là Gemini 2.5 Flash, nhưng Gemini timeout hoặc rate-limit ở cả 27 generation call; vì vậy toàn bộ SQL generation trong artifact này thực tế dùng fallback OpenRouter `openai/gpt-4o-mini`:
 
 | Chỉ số | Kết quả | Mô tả |
 |---|---:|---|
@@ -180,7 +180,7 @@ Bộ đánh giá hybrid tự xây dựng gồm 37 cases gần nhất (25 Postgre
 
 > **Phạm vi và giới hạn**: Đây là kết quả regression có giới hạn trên một demo schema nhỏ, không phải tuyên bố độ chính xác tổng quát trên database production chưa từng thấy. Mean entity precision 66,98% cho thấy retrieval vẫn đưa context không liên quan vào kết quả. Không release case nào kích hoạt live repair, vì vậy hành vi repair mới được chứng minh bằng deterministic runtime test chứ chưa phải evaluation run này.
 
-Bằng chứng được lưu theo phiên bản: [report tổng hợp](evals/reports/combined-latest.json), [report PostgreSQL](evals/reports/postgres-latest.json), [report MySQL](evals/reports/mysql-latest.json) và [các evaluation case](evals/).
+Bằng chứng được lưu theo phiên bản: [report tổng hợp](evals/reports/combined-latest.json), [report PostgreSQL](evals/reports/postgres-latest.json), [report MySQL](evals/reports/mysql-latest.json) và [các evaluation case](evals/). Report có cả provenance của model được cấu hình và model thực tế sinh kết quả.
 
 ---
 
@@ -227,7 +227,7 @@ Bằng chứng được lưu theo phiên bản: [report tổng hợp](evals/repo
 * **FastAPI + Python**: Typed API, state machine query deterministic, SQLGlot validation, dialect connector, result verification và evaluation harness.
 * **PostgreSQL 16 + pgvector**: Metadata ứng dụng, semantic artifact, embedding, query run, saved analysis, dashboard và widget.
 * **PostgreSQL và MySQL 8**: Source engine được hỗ trợ với đường thực thi read-only.
-* **Gemini 2.5 Flash**: Provider structured-generation chính; OpenRouter là fallback có giới hạn khi được cấu hình.
+* **Gemini 2.5 Flash + OpenRouter fallback**: Gemini là provider structured-generation chính theo cấu hình; OpenRouter là fallback có giới hạn khi Gemini timeout/rate-limit. Artifact evaluation ngày 2026-09-21 dùng `openai/gpt-4o-mini` cho cả 27 SQL generation sau khi fallback.
 * **Docker Compose + Alembic + uv + npm ci**: Service tái lập, schema migration và dependency có lock.
 
 ---
@@ -268,7 +268,7 @@ Copy-Item .env.example .env
 docker compose config --quiet
 ~~~
 
-Giá trị mặc định chạy được mà không cần sửa environment file. Chỉ dùng giá trị development và không commit secret thật. Credential khởi tạo database chỉ áp dụng khi volume tạo lần đầu; đổi environment file không tự đổi password hiện có.
+Phần lớn giá trị development mặc định chạy được mà không cần sửa environment file, nhưng `CREDENTIAL_ENCRYPTION_KEY` bắt buộc phải được cấu hình. Hãy tạo một Fernet key riêng, đặt vào `.env` không commit và không commit secret thật. Credential khởi tạo database chỉ áp dụng khi volume tạo lần đầu; đổi environment file không tự đổi password hiện có.
 
 ### Bước 2: Khởi chạy stack
 
@@ -363,6 +363,7 @@ Lệnh ghi report theo datasource và difficulty cùng file `combined-latest.jso
 ## Xử Lý Sự Cố
 
 * **Kết nối thất bại từ browser** — `localhost` trỏ tới backend container. Dùng `demo-mysql`, `demo-postgres`, `host.docker.internal` cho service trên host qua Docker Desktop, hoặc LAN address có thể truy cập được.
+* **Startup lỗi `CREDENTIAL_ENCRYPTION_KEY`** — tạo Fernet key riêng và đặt trong `.env` không commit; ứng dụng cố ý không có encryption-key mặc định trong repository.
 * **Không discover được entity** — kiểm tra database đã allowlist, quyền đọc `information_schema`, schema có table và nhấn **Refresh metadata**.
 * **Kết nối được nhưng result out-of-scope** — hỏi về field trong datasource active và thử suggestion được sinh tự động.
 * **Chart thành table** — result có thể thiếu categorical dimension và numeric measure; table là fallback trung thực.
