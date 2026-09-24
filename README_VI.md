@@ -163,7 +163,7 @@ Query artifact gần đây mặc định hết hạn sau 7 ngày và run summary
 
 ## Hiệu Năng Hệ Thống & Benchmark
 
-Bộ đánh giá hybrid 37 cases gần nhất (25 PostgreSQL và 12 MySQL, tạo ngày 2026-09-21) đo trên môi trường Docker local:
+Bộ đánh giá hybrid tự xây dựng gồm 37 cases gần nhất (25 PostgreSQL và 12 MySQL, tạo ngày 2026-09-21) chạy trên môi trường Docker local với hai phiên bản PostgreSQL/MySQL của cùng một schema e-commerce demo gồm 6 bảng (5 bảng nghiệp vụ và 1 bảng foundation/health-check):
 
 | Chỉ số | Kết quả | Mô tả |
 |---|---:|---|
@@ -178,7 +178,9 @@ Bộ đánh giá hybrid 37 cases gần nhất (25 PostgreSQL và 12 MySQL, tạo
 | **Phát hiện out-of-scope** | 3 / 3 | Câu hỏi out-of-scope dừng deterministic mà không tạo SQL |
 | **Mức sử dụng repair thực tế** | 0 case | Không release case nào cần repair; giới hạn tối đa hai lần vẫn được kiểm tra bằng deterministic runtime test |
 
-> **Lưu ý**: Bộ test bao gồm easy, medium, hard, ambiguous, out-of-scope và unsafe. Tất cả terminal status được phân loại đúng. Kết quả có thể tái lập qua lệnh evaluation trong phần [Đánh Giá & Quality Gates](#đánh-giá--quality-gates).
+> **Phạm vi và giới hạn**: Đây là kết quả regression có giới hạn trên một demo schema nhỏ, không phải tuyên bố độ chính xác tổng quát trên database production chưa từng thấy. Mean entity precision 66,98% cho thấy retrieval vẫn đưa context không liên quan vào kết quả. Không release case nào kích hoạt live repair, vì vậy hành vi repair mới được chứng minh bằng deterministic runtime test chứ chưa phải evaluation run này.
+
+Bằng chứng được lưu theo phiên bản: [report tổng hợp](evals/reports/combined-latest.json), [report PostgreSQL](evals/reports/postgres-latest.json), [report MySQL](evals/reports/mysql-latest.json) và [các evaluation case](evals/).
 
 ---
 
@@ -260,7 +262,8 @@ insightmesh-multi-source-analytics/
 
 ~~~powershell
 # Windows (PowerShell)
-cd D:\project\insightmesh-multi-source-analytics
+git clone https://github.com/phatle224/insightmesh-multi-source-analytics.git
+Set-Location insightmesh-multi-source-analytics
 Copy-Item .env.example .env
 docker compose config --quiet
 ~~~

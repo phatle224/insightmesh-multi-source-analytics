@@ -15,4 +15,6 @@
 *.log
 evals/reports/*
 !evals/reports/.gitkeep
+!evals/reports/*-latest.json
 INQUIRIES.md
+docs/PhatLe_CV_DataEngineer.md

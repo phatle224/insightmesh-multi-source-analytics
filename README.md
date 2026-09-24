@@ -163,7 +163,7 @@ Recent query artifacts expire after 7 days by default and run summaries after 90
 
 ## System Performance & Benchmarks
 
-The latest 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generated on 2026-09-21) measured on a local Docker environment:
+The latest self-authored 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generated on 2026-09-21) ran in a local Docker environment against PostgreSQL and MySQL variants of the same six-table demo e-commerce schema (five commerce tables plus one foundation/health-check table):
 
 | Metric | Result | Description |
 |---|---:|---|
@@ -178,7 +178,9 @@ The latest 37-case hybrid evaluation (25 PostgreSQL and 12 MySQL cases, generate
 | **Out-of-scope detection** | 3 / 3 | Out-of-scope questions stopped deterministically without SQL generation |
 | **Live repair usage** | 0 cases | No release case required repair; the two-attempt ceiling remains covered by deterministic runtime tests |
 
-> **Note**: The suite covers easy, medium, hard, ambiguous, out-of-scope, and unsafe cases. All terminal statuses were classified correctly. Results are reproducible via the evaluation command in the [Evaluation & Quality Gates](#evaluation--quality-gates) section.
+> **Scope and limitations**: These are bounded regression results on a small demo schema, not a claim of general accuracy on unseen production databases. Mean entity precision of 66.98% shows that retrieval still includes irrelevant context. No release case triggered live repair, so repair behavior is supported by deterministic runtime tests rather than this evaluation run.
+
+Versioned evidence: [combined report](evals/reports/combined-latest.json), [PostgreSQL report](evals/reports/postgres-latest.json), [MySQL report](evals/reports/mysql-latest.json), and [evaluation cases](evals/).
 
 ---
 
@@ -260,7 +262,8 @@ insightmesh-multi-source-analytics/
 
 ~~~powershell
 # Windows (PowerShell)
-cd D:\project\insightmesh-multi-source-analytics
+git clone https://github.com/phatle224/insightmesh-multi-source-analytics.git
+Set-Location insightmesh-multi-source-analytics
 Copy-Item .env.example .env
 docker compose config --quiet
 ~~~
